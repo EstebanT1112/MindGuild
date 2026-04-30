@@ -1,103 +1,120 @@
-import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    Pressable,
-} from "react-native";
-import React, { useState } from "react";
-import RoomItem from "../components/RoomItem";
-import RoomsHeader from "../components/RoomsHeader";
-import CreateRoomButton from "../components/CreateRoomButton";
-import CreateRoomModal from "../components/CreateRoomModal";
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, SafeAreaView } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { ArrowLeft, Users, Trophy, Plus, Copy } from 'lucide-react-native';
+import RoomCard from '../components/RoomCard';
+import CreateRoomModal from '../components/CreateRoomModal';
+import JoinRoomModal from '../components/JoinRoomModal';
 
-export default function RoomsScreen({ navigation }: any) {
-    const [showCreateModal, setShowCreateModal] = useState(false);
+export default function RoomsScreen() {
+    const navigation = useNavigation<any>();
+    const [createVisible, setCreateVisible] = useState(false);
+    const [joinVisible, setJoinVisible] = useState(false);
 
-    const rooms = [
-        {
-        id: 1,
-        name: "Cálculo I - Final",
-        code: "CALC-7X9P",
-        mode: "Supervivencia",
-        members: 5,
-        ranking: 2,
-        },
-        {
-        id: 2,
-        name: "Física II",
-        code: "FIS2-A4B1",
-        mode: "Equipos",
-        members: 8,
-        ranking: 3,
-        },
+    const myRooms = [
+        { id: 1, name: "Cálculo I - Final", code: "CALC-7X9P", members: 5, mode: "Supervivencia", rank: 2 },
+        { id: 2, name: "Física II", code: "FIS2-A4B1", members: 8, mode: "Supervivencia", rank: 3 },
+        { id: 3, name: "Battle Royale - Cálculo I", code: "BR-CALC", members: 12, mode: "Battle Royale", rank: 5 },
     ];
 
     return (
-        <View style={styles.container}>
-        <RoomsHeader navigation={navigation} />
+        <SafeAreaView style={styles.safeArea}>
+            <View style={styles.container}>
+                {/* Header idéntico a Friends */}
+                <View style={styles.header}>
+                    <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
+                        <ArrowLeft color="#94a3b8" size={20} />
+                    </Pressable>
+                    <View style={styles.headerTitle}>
+                        <Users color="#22c55e" size={22} />
+                        <Text style={styles.headerText}>MIS SALAS</Text>
+                    </View>
+                    <View style={styles.coinBadge}>
+                        <View style={styles.hCoin}><Text style={styles.hText}>H</Text></View>
+                        <Text style={styles.coinAmount}>1,250</Text>
+                    </View>
+                </View>
 
-        <ScrollView contentContainerStyle={styles.content}>
-            <CreateRoomButton onPress={() => setShowCreateModal(true)} />
+                {/* Botón Principal: Misma posición y tamaño que el botón de solicitudes en Amigos */}
+                <Pressable 
+                    style={styles.createMainBtn} 
+                    onPress={() => setCreateVisible(true)}
+                >
+                    <Plus color="white" size={24} />
+                    <Text style={styles.createBtnText}>Crear Nueva Sala</Text>
+                </Pressable>
 
-            <Text style={styles.title}>MIS SALAS</Text>
+                <ScrollView showsVerticalScrollIndicator={false} style={styles.scroll}>
+                    <Text style={styles.sectionTitle}>MIS SALAS ({myRooms.length})</Text>
+                    
+                    {myRooms.map(room => (
+                        <RoomCard 
+                            key={room.id}
+                            name={room.name}
+                            code={room.code}
+                            members={room.members}
+                            mode={room.mode}
+                            rank={room.rank}
+                        />
+                    ))}
+                </ScrollView>
 
-            {rooms.map((room) => (
-                <RoomItem
-                key={room.id}
-                room={room}
-                onPress={() =>
-                    navigation.navigate("Salas", {
-                    screen: "RoomDetail",
-                    params: { room },
-                    })
-                }
-                />
-                ))}
-        </ScrollView>
+                {/* FAB Azul: Misma posición que el verde de Amigos */}
+                <Pressable style={styles.fab} onPress={() => setJoinVisible(true)}>
+                    <Plus color="white" size={30} />
+                </Pressable>
 
-        {/* FAB */}
-        <Pressable style={styles.fab}>
-            <Text style={styles.fabText}>+</Text>
-        </Pressable>
-
-        {/* Modal */}
-        <CreateRoomModal
-            visible={showCreateModal}
-            onClose={() => setShowCreateModal(false)}
-        />
-        </View>
+                <CreateRoomModal visible={createVisible} onClose={() => setCreateVisible(false)} />
+                <JoinRoomModal visible={joinVisible} onClose={() => setJoinVisible(false)} />
+            </View>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: "#0f111a",
+    safeArea: { flex: 1, backgroundColor: '#0f172a' },
+    container: { flex: 1, paddingHorizontal: 20 },
+    
+    // Header (Copiado de Friends)
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 20 },
+    backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#1e293b', alignItems: 'center', justifyContent: 'center' },
+    headerTitle: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    headerText: { color: 'white', fontSize: 20, fontWeight: '900', letterSpacing: 1 },
+    coinBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1e293b', borderRadius: 25, padding: 5, paddingRight: 15 },
+    hCoin: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#facc15', alignItems: 'center', justifyContent: 'center' },
+    hText: { fontWeight: '900', fontSize: 14, color: '#0f172a' },
+    coinAmount: { color: 'white', fontWeight: 'bold', marginLeft: 8, fontSize: 16 },
+
+    // Botón Crear Sala (Mismas dimensiones que los botones de acción de Amigos)
+    createMainBtn: { 
+        backgroundColor: '#22c55e', 
+        height: 52, 
+        borderRadius: 16, 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        gap: 10, 
+        marginVertical: 10 
     },
-    content: {
-        padding: 16,
-        paddingBottom: 120,
-    },
-    title: {
-        fontSize: 18,
-        fontWeight: "bold",
-        color: "#fff",
-        marginBottom: 16,
-    },
-    fab: {
-        position: "absolute",
-        bottom: 90,
-        right: 20,
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        backgroundColor: "#22c55e",
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    fabText: {
-        color: "#fff",
-        fontSize: 22,
-    },
+    createBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+
+    scroll: { flex: 1 },
+    sectionTitle: { color: '#64748b', fontSize: 12, fontWeight: '900', marginVertical: 15, letterSpacing: 1 },
+
+    // FAB (Misma posición que en Amigos pero azul)
+    fab: { 
+        position: 'absolute', 
+        bottom: 30, 
+        right: 20, 
+        width: 64, 
+        height: 64, 
+        borderRadius: 32, 
+        backgroundColor: '#3b82f6', // Azul para diferenciar de Amigos
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        elevation: 10, 
+        shadowColor: '#3b82f6', 
+        shadowOpacity: 0.5, 
+        shadowRadius: 10 
+    }
 });
