@@ -1,42 +1,84 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, Pressable, SafeAreaView } from 'react-native';
+import React, { useState } from 'react';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  ScrollView, 
+  Image, 
+  Pressable, 
+  SafeAreaView 
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { ArrowLeft, Flame, Trophy, Star, Target, Medal, Zap, Crown } from 'lucide-react-native';
+import { 
+  ArrowLeft, 
+  Flame, 
+  Trophy, 
+  Star, 
+  Target, 
+  Medal, 
+  Zap, 
+  Crown, 
+  Edit2, 
+  Settings 
+} from 'lucide-react-native';
 import StatCard from '../components/StatCard';
 import WeeklyProgress from '../components/WeeklyProgress';
+import EditProfileModal from '../components/EditProfileModal'; 
 
 export default function ProfileScreen() {
     const navigation = useNavigation<any>();
+    const [isEditModalVisible, setEditModalVisible] = useState(false);
+
+    // URL temporal para el avatar
+    const avatarUri = 'https://i.pinimg.com/736x/8b/16/7a/8b167afad95886616441a1a7f0e9f697.jpg';
 
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.container}>
-                {/* Header */}
+                
+                {/* HEADER CON BOTONES CORREGIDOS */}
                 <View style={styles.header}>
-                    <Pressable
-                        style={styles.iconBtn}
-                        onPress={() => navigation.goBack()} // SOLUCIÓN: Botón volver
-                    >
-                        <ArrowLeft color="#94a3b8" size={20} />
-                    </Pressable>
+                    <View style={styles.leftHeader}>
+                        <Pressable
+                            style={styles.iconBtn}
+                            onPress={() => navigation.goBack()}
+                        >
+                            <ArrowLeft color="#94a3b8" size={20} />
+                        </Pressable>
+                    </View>
+
                     <Text style={styles.headerTitle}>MI PERFIL</Text>
-                    <View style={styles.coinBadge}>
-                        <View style={styles.hCoin}><Text style={styles.hText}>H</Text></View>
-                        <Text style={styles.coinAmount}>1,250</Text>
+
+                    <View style={styles.rightButtons}>
+                        {/* Botón Editar con borde azul como la foto */}
+                        <Pressable 
+                            style={[styles.iconBtn, styles.editBtnActive]} 
+                            onPress={() => setEditModalVisible(true)}
+                        >
+                            <Edit2 color="#3b82f6" size={18} />
+                        </Pressable>
+                        
+                        {/* Botón Configuración */}
+                        <Pressable style={styles.iconBtn}>
+                            <Settings color="#94a3b8" size={18} />
+                        </Pressable>
                     </View>
                 </View>
 
                 <ScrollView showsVerticalScrollIndicator={false}>
-                    {/* Perfil Principal */}
+                    {/* SECCIÓN PERFIL PRINCIPAL */}
                     <View style={styles.profileSection}>
                         <View style={styles.avatarContainer}>
                             <View style={styles.avatarBorder}>
                                 <Image
-                                    source={{ uri: 'https://i.pinimg.com/736x/8b/16/7a/8b167afad95886616441a1a7f0e9f697.jpg' }}
+                                    source={{ uri: avatarUri }}
                                     style={styles.avatarImage}
                                 />
                             </View>
-                            <View style={styles.levelBadge}><Text style={styles.levelText}>5</Text></View>
+                            {/* Badge de Nivel circular verde */}
+                            <View style={styles.levelBadge}>
+                                <Text style={styles.levelText}>5</Text>
+                            </View>
                         </View>
                         <Text style={styles.userName}>Samurai Sensei</Text>
                         <Text style={styles.userTag}>@samurai_warrior</Text>
@@ -46,7 +88,7 @@ export default function ProfileScreen() {
                         </View>
                     </View>
 
-                    {/* Estadísticas */}
+                    {/* ESTADÍSTICAS EN GRID */}
                     <View style={styles.statsGrid}>
                         <StatCard icon={<Trophy color="#22c55e" size={24} />} value="142" label="Pomodoros" />
                         <StatCard icon={<Flame color="#fb923c" size={24} />} value="3 días" label="Racha Actual" />
@@ -54,11 +96,11 @@ export default function ProfileScreen() {
                         <StatCard icon={<Star color="#22c55e" size={24} />} value="5" label="Nivel Aldea" />
                     </View>
 
-                    {/* Pasamos los datos de altura para cada día de la semana */}
                     <WeeklyProgress data={[80, 50, 100, 85, 40, 5, 5]} />
-                    {/* Medallas */}
+
+                    {/* SECCIÓN MEDALLAS */}
                     <View style={styles.medalsSection}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 15 }}>
+                        <View style={styles.sectionHeaderRow}>
                             <Medal color="#facc15" size={20} />
                             <Text style={styles.sectionTitle}>Medallas Desbloqueadas</Text>
                         </View>
@@ -79,12 +121,12 @@ export default function ProfileScreen() {
                         </View>
                     </View>
 
-                    {/* Aldea */}
+                    {/* SECCIÓN ALDEA (CORREGIDO SIN DIVS) */}
                     <View style={styles.villageCard}>
                         <Text style={styles.villageTitle}>Tu Aldea en Evolución</Text>
                         <View style={styles.villageMainRow}>
                             <Image
-                                source={{ uri: 'https://i.pinimg.com/736x/f6/8b/3a/f68b3af68b3af68b3af68b3af68b3af68b3af68b3af68b3af68b3a.jpg' }}
+                                source={{ uri: 'https://i.pinimg.com/736x/f6/8b/3a/f68b3af68b3af68b3af68b3af68b3af68b3af68b3a.jpg' }}
                                 style={styles.villageImage}
                             />
                             <View style={styles.villageInfo}>
@@ -98,17 +140,20 @@ export default function ProfileScreen() {
                                 <Text style={styles.nextLevelText}>2 Pomodoros más para nivel 6</Text>
                             </View>
                         </View>
-                        <View style={styles.villageFooter}>
-                            <View style={styles.miniIconBox}>
-                                <Image source={{ uri: 'https://cdn-icons-png.flaticon.com/512/619/619153.png' }} style={styles.miniIcon} />
-                            </View>
-                            <Text style={styles.villageDescription}>
-                                Tu aldea prospera con cada sesión de estudio. ¡Sigue adelante para desbloquear nuevas estructuras y mejoras visuales!
-                            </Text>
-                        </View>
                     </View>
                 </ScrollView>
             </View>
+
+            {/* MODAL EDITAR PERFIL */}
+            <EditProfileModal 
+                visible={isEditModalVisible} 
+                onClose={() => setEditModalVisible(false)}
+                currentData={{
+                    name: "Samurai Sensei",
+                    username: "samurai_warrior",
+                    photo: { uri: avatarUri }
+                }}
+            />
         </SafeAreaView>
     );
 }
@@ -116,36 +161,67 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: '#0f172a' },
     container: { flex: 1, paddingHorizontal: 20 },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 15 },
-    headerTitle: { color: 'white', fontSize: 18, fontWeight: '900' },
-    iconBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#1e293b', alignItems: 'center', justifyContent: 'center' },
-    coinBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1e293b', borderRadius: 20, padding: 5, paddingRight: 12 },
-    hCoin: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#facc15', alignItems: 'center', justifyContent: 'center' },
-    hText: { fontWeight: '900', fontSize: 12, color: '#0f172a' },
-    coinAmount: { color: 'white', fontWeight: 'bold', marginLeft: 8 },
+    header: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        justifyContent: 'space-between', 
+        paddingVertical: 15 
+    },
+    leftHeader: { flex: 1, alignItems: 'flex-start' },
+    headerTitle: { 
+        flex: 2, 
+        color: 'white', 
+        fontSize: 18, 
+        fontWeight: '900', 
+        textAlign: 'center', 
+        letterSpacing: 1 
+    },
+    rightButtons: { 
+        flex: 1, 
+        flexDirection: 'row', 
+        gap: 10, 
+        justifyContent: 'flex-end' 
+    },
+    iconBtn: { 
+        width: 40, height: 40, borderRadius: 12, 
+        backgroundColor: '#1e293b', alignItems: 'center', justifyContent: 'center' 
+    },
+    editBtnActive: { borderColor: '#3b82f6', borderWidth: 1 },
     profileSection: { alignItems: 'center', marginVertical: 20 },
     avatarContainer: { position: 'relative' },
-    avatarBorder: { width: 150, height: 150, borderRadius: 75, borderWidth: 4, borderColor: '#facc15', padding: 5 },
+    avatarBorder: { 
+        width: 150, height: 150, borderRadius: 75, 
+        borderWidth: 4, borderColor: '#facc15', padding: 5 
+    },
     avatarImage: { width: '100%', height: '100%', borderRadius: 70 },
-    levelBadge: { position: 'absolute', bottom: 5, right: 5, width: 40, height: 40, borderRadius: 20, backgroundColor: '#22c55e', borderWidth: 3, borderColor: '#0f172a', alignItems: 'center', justifyContent: 'center' },
+    levelBadge: { 
+        position: 'absolute', bottom: 5, right: 5, 
+        width: 40, height: 40, borderRadius: 20, 
+        backgroundColor: '#22c55e', borderWidth: 3, 
+        borderColor: '#0f172a', alignItems: 'center', justifyContent: 'center' 
+    },
     levelText: { color: 'white', fontWeight: 'bold', fontSize: 18 },
     userName: { color: 'white', fontSize: 24, fontWeight: '900', marginTop: 15 },
     userTag: { color: '#94a3b8', fontSize: 16 },
     ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
     ratingText: { color: '#facc15', fontWeight: 'bold' },
     statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 15, justifyContent: 'center' },
-    medalsSection: { backgroundColor: '#1e293b', borderRadius: 28, padding: 20, marginBottom: 30, marginTop: 20 },
+    medalsSection: { 
+        backgroundColor: '#1e293b', borderRadius: 28, 
+        padding: 20, marginBottom: 30, marginTop: 20 
+    },
+    sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 15 },
     sectionTitle: { color: 'white', fontSize: 18, fontWeight: 'bold' },
     medalsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center' },
-    medalCard: { width: '30%', backgroundColor: '#0f172a', padding: 15, borderRadius: 20, alignItems: 'center', gap: 8, borderWidth: 1, borderColor: '#334155' },
+    medalCard: { 
+        width: '30%', backgroundColor: '#0f172a', 
+        padding: 15, borderRadius: 20, alignItems: 'center', 
+        gap: 8, borderWidth: 1, borderColor: '#334155' 
+    },
     medalName: { color: 'white', fontSize: 10, textAlign: 'center', fontWeight: 'bold' },
-    villageCard: {
-        backgroundColor: '#1e293b',
-        borderRadius: 28,
-        padding: 20,
-        marginBottom: 40,
-        borderWidth: 1,
-        borderColor: '#334155',
+    villageCard: { 
+        backgroundColor: '#1e293b', borderRadius: 28, 
+        padding: 20, marginBottom: 40, borderWidth: 1, borderColor: '#334155' 
     },
     villageTitle: { color: 'white', fontSize: 18, fontWeight: 'bold', marginBottom: 15 },
     villageMainRow: { flexDirection: 'row', gap: 15, alignItems: 'center' },
@@ -157,8 +233,4 @@ const styles = StyleSheet.create({
     progressBarBg: { height: 10, backgroundColor: '#334155', borderRadius: 5, overflow: 'hidden' },
     progressBarFill: { height: '100%', backgroundColor: '#22c55e' },
     nextLevelText: { color: '#64748b', fontSize: 12, marginTop: 8 },
-    villageFooter: { flexDirection: 'row', marginTop: 15, gap: 12, alignItems: 'center' },
-    miniIconBox: { width: 40, height: 40, backgroundColor: '#0f172a', borderRadius: 8, overflow: 'hidden' },
-    miniIcon: { width: '100%', height: '100%' },
-    villageDescription: { color: '#94a3b8', fontSize: 12, flex: 1, lineHeight: 18 },
 });
