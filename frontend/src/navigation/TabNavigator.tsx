@@ -3,6 +3,7 @@ import { Text, View } from "react-native";
 import HomeScreen from "../features/home/screens/HomeScreen";
 // 1. Importamos tu pantalla real
 import FriendsScreen from "../features/friends/screens/FriendsScreen";
+import RoomsStack from "./RoomsStack";
 
 const Tab = createBottomTabNavigator();
 
@@ -28,9 +29,7 @@ export default function TabNavigator() {
       }}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Salas">
-        {() => <Placeholder title="Salas" />}
-      </Tab.Screen>
+      <Tab.Screen name="Salas" component={RoomsStack} />
       <Tab.Screen name="Ranking">
         {() => <Placeholder title="Ranking" />}
       </Tab.Screen>
