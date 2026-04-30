@@ -1,19 +1,14 @@
+import React from 'react';
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { Text, View } from "react-native";
+import { Home, Users, Trophy, Users2 } from 'lucide-react-native';
+
+// Screens
 import HomeScreen from "../features/home/screens/HomeScreen";
 import FriendsScreen from "../features/friends/screens/FriendsScreen";
-// 1. Ya tenés el import listo, lo usamos abajo
 import RankingScreen from "../features/rankings/screens/RankingScreen";
+import RoomsScreen from "../features/rooms/screens/RoomsScreen";
 
 const Tab = createBottomTabNavigator();
-
-function Placeholder({ title }: { title: string }) {
-  return (
-    <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-      <Text style={{ color: "white" }}>{title}</Text>
-    </View>
-  );
-}
 
 export default function TabNavigator() {
   return (
@@ -21,25 +16,55 @@ export default function TabNavigator() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: "#111",
+          backgroundColor: "#111", // Mantenemos tu estilo oscuro
           borderTopColor: "#222",
-          height: 60,
-          paddingBottom: 10,
+          height: 70, // Un poquito más de altura para que respiren los iconos
+          paddingBottom: 12,
+          paddingTop: 8,
         },
-        tabBarActiveTintColor: "#22c55e",
+        tabBarActiveTintColor: "#22c55e", // El verde de MindGuild
         tabBarInactiveTintColor: "#888",
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '600',
+        }
       }}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen 
+        name="Home" 
+        component={HomeScreen} 
+        options={{
+          tabBarLabel: 'Inicio',
+          tabBarIcon: ({ color, size }) => <Home color={color} size={size} />,
+        }}
+      />
       
-      <Tab.Screen name="Salas">
-        {() => <Placeholder title="Salas" />}
-      </Tab.Screen>
+      <Tab.Screen 
+        name="Salas" 
+        component={RoomsScreen} 
+        options={{
+          tabBarLabel: 'Salas',
+          tabBarIcon: ({ color, size }) => <Users color={color} size={size} />,
+        }}
+      />
       
-      {/* 2. CONECTAMOS TU RANKING AQUÍ */}
-      <Tab.Screen name="Ranking" component={RankingScreen} />
+      <Tab.Screen 
+        name="Ranking" 
+        component={RankingScreen} 
+        options={{
+          tabBarLabel: 'Ranking',
+          tabBarIcon: ({ color, size }) => <Trophy color={color} size={size} />,
+        }}
+      />
       
-      <Tab.Screen name="Amigos" component={FriendsScreen} />
+      <Tab.Screen 
+        name="Amigos" 
+        component={FriendsScreen} 
+        options={{
+          tabBarLabel: 'Amigos',
+          tabBarIcon: ({ color, size }) => <Users2 color={color} size={size} />,
+        }}
+      />
     </Tab.Navigator>
   );
 }

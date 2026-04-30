@@ -1,234 +1,90 @@
-import {
-    View,
-    Text,
-    StyleSheet,
-    Modal,
-    Pressable,
-    TextInput,
-} from "react-native";
-import { useState } from "react";
+import React, { useState } from 'react';
+import { Modal, View, Text, StyleSheet, TextInput, Pressable } from 'react-native';
+import { X, ChevronDown } from 'lucide-react-native';
+import { Picker } from '@react-native-picker/picker';
 
-export default function CreateRoomModal({
-    visible,
-    onClose,
-    }: {
-    visible: boolean;
-    onClose: () => void;
-    }) {
-    const [name, setName] = useState("");
+interface Props {
+  visible: boolean;
+  onClose: () => void;
+}
 
-    const handleCreate = () => {
-        console.log("Crear sala:", name);
-        onClose();
-    };
+export default function CreateRoomModal({ visible, onClose }: Props) {
+  const [roomName, setRoomName] = useState('');
+  const [mode, setMode] = useState('Supervivencia');
+  const [teamsEnabled, setTeamsEnabled] = useState(false);
 
-    const [mode, setMode] = useState("Supervivencia");
-    const modes = ["Supervivencia", "Battle Royale"];
+  return (
+    <Modal visible={visible} animationType="fade" transparent>
+      <View style={styles.overlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.header}>
+            <Text style={styles.title}>Crear Sala</Text>
+            <Pressable onPress={onClose} style={styles.closeBtn}>
+              <X color="white" size={20} />
+            </Pressable>
+          </View>
 
-    const [hasTeams, setHasTeams] = useState(false);
-
-    return (
-        <Modal visible={visible} transparent animationType="fade">
-        <View style={styles.overlay}>
-            <View style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
-                <Text style={styles.title}>Crear Sala</Text>
-
-                <Pressable onPress={onClose}>
-                <Text style={styles.close}>✕</Text>
-                </Pressable>
-            </View>
-
-            {/* Input */}
-            <Text style={styles.label}>Nombre de la sala</Text>
-
-            <TextInput
-                value={name}
-                onChangeText={setName}
-                placeholder="Ej: Cálculo I"
-                placeholderTextColor="#666"
-                style={styles.input}
+          <View style={styles.form}>
+            <Text style={styles.label}>Nombre de la Sala</Text>
+            <TextInput 
+              style={styles.input} 
+              placeholder="Ej: Cálculo I - Final"
+              placeholderTextColor="#64748b"
+              value={roomName}
+              onChangeText={setRoomName}
             />
 
-            <Text style={styles.label}>Modo de sala</Text>
-
-            <View style={styles.modeContainer}>
-            {modes.map((m) => {
-                const selected = mode === m;
-
-                return (
-                <Pressable
-                    key={m}
-                    onPress={() => setMode(m)}
-                    style={[
-                    styles.modeButton,
-                    selected && styles.modeSelected,
-                    ]}
-                >
-                    <Text
-                    style={[
-                        styles.modeText,
-                        selected && styles.modeTextSelected,
-                    ]}
-                    >
-                    {m}
-                    </Text>
-                </Pressable>
-                );
-            })}
+            <Text style={styles.label}>Modo de Sala</Text>
+            <View style={styles.pickerWrapper}>
+              <Picker
+                selectedValue={mode}
+                onValueChange={(itemValue: React.SetStateAction<string>) => setMode(itemValue)}
+                style={styles.picker}
+                dropdownIconColor="white"
+              >
+                <Picker.Item label="Supervivencia" value="Supervivencia" />
+                <Picker.Item label="Battle Royale" value="Battle Royale" />
+                <Picker.Item label="Quiz Semanal" value="Quiz Semanal" />
+              </Picker>
             </View>
-                <Pressable
-                style={styles.checkboxRow}
-                onPress={() => setHasTeams(!hasTeams)}
-                >
-                <View style={[styles.checkbox, hasTeams && styles.checkboxActive]}>
-                    {hasTeams && <Text style={styles.checkMark}>✓</Text>}
-                </View>
 
-                <View style={{ flex: 1 }}>
-                    <Text style={styles.checkboxLabel}>
-                    Habilitar equipos (Teams)
-                    </Text>
-                    <Text style={styles.checkboxHint}>
-                    Los miembros podrán unirse a diferentes equipos
-                    </Text>
-                </View>
-                </Pressable>
-
-            {/* Button */}
-            <Pressable style={styles.button} onPress={handleCreate}>
-                <Text style={styles.buttonText}>Crear Sala</Text>
+            <Pressable 
+              style={styles.checkboxRow} 
+              onPress={() => setTeamsEnabled(!teamsEnabled)}
+            >
+              <View style={[styles.checkbox, teamsEnabled && styles.checkboxActive]} />
+              <View>
+                <Text style={styles.checkboxLabel}>Habilitar equipos (Teams)</Text>
+                <Text style={styles.checkboxSub}>Los miembros podrán unirse a diferentes equipos</Text>
+              </View>
             </Pressable>
-            </View>
+          </View>
+
+          <Pressable style={styles.createBtn} onPress={onClose}>
+            <Text style={styles.createBtnText}>Crear Sala</Text>
+          </Pressable>
         </View>
-        </Modal>
-    );
+      </View>
+    </Modal>
+  );
 }
 
 const styles = StyleSheet.create({
-    overlay: {
-        flex: 1,
-        backgroundColor: "rgba(0,0,0,0.7)",
-        justifyContent: "center",
-        alignItems: "center",
-    },
-
-    container: {
-        width: "85%",
-        backgroundColor: "#1a1d29",
-        borderRadius: 20,
-        padding: 20,
-    },
-
-    header: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        marginBottom: 16,
-    },
-
-    title: {
-        color: "#fff",
-        fontSize: 16,
-        fontWeight: "bold",
-    },
-
-    close: {
-        color: "#aaa",
-        fontSize: 18,
-    },
-
-    label: {
-        color: "#aaa",
-        fontSize: 12,
-        marginBottom: 6,
-    },
-
-    input: {
-        backgroundColor: "#111",
-        borderRadius: 10,
-        padding: 10,
-        color: "#fff",
-        marginBottom: 16,
-    },
-
-    button: {
-        backgroundColor: "#22c55e",
-        paddingVertical: 12,
-        borderRadius: 12,
-        alignItems: "center",
-    },
-
-    buttonText: {
-        color: "#fff",
-        fontWeight: "bold",
-    },
-
-    modeContainer: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 16,
-    },
-
-    modeButton: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 10,
-    backgroundColor: "#111",
-    alignItems: "center",
-    },
-
-    modeSelected: {
-    backgroundColor: "#22c55e",
-    },
-
-    modeText: {
-    color: "#aaa",
-    fontSize: 12,
-    },
-
-    modeTextSelected: {
-    color: "#fff",
-    fontWeight: "bold",
-    },
-
-    checkboxRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 10,
-    marginBottom: 16,
-    },
-
-    checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "#555",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 2,
-    },
-
-    checkboxActive: {
-    backgroundColor: "#22c55e",
-    borderColor: "#22c55e",
-    },
-
-    checkMark: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "bold",
-    },
-
-    checkboxLabel: {
-    color: "#ddd",
-    fontSize: 13,
-    },
-
-    checkboxHint: {
-    color: "#666",
-    fontSize: 11,
-    marginTop: 2,
-    },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: 20 },
+  modalContent: { backgroundColor: '#1e293b', borderRadius: 28, padding: 24 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 },
+  title: { color: 'white', fontSize: 22, fontWeight: 'bold' },
+  closeBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#334155', alignItems: 'center', justifyContent: 'center' },
+  form: { marginBottom: 30 },
+  label: { color: '#94a3b8', fontSize: 14, fontWeight: 'bold', marginBottom: 10 },
+  input: { backgroundColor: '#0f172a', color: 'white', borderRadius: 12, padding: 15, fontSize: 16, borderWidth: 1, borderColor: '#334155' },
+  pickerWrapper: { backgroundColor: '#0f172a', borderRadius: 12, borderWidth: 1, borderColor: '#334155', overflow: 'hidden' },
+  picker: { color: 'white' },
+  checkboxRow: { flexDirection: 'row', gap: 15, marginTop: 25 },
+  checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: '#4b5563', backgroundColor: '#334155' },
+  checkboxActive: { backgroundColor: '#22c55e', borderColor: '#22c55e' },
+  checkboxLabel: { color: 'white', fontWeight: 'bold', fontSize: 15 },
+  checkboxSub: { color: '#64748b', fontSize: 12, marginTop: 4 },
+  createBtn: { backgroundColor: '#22c55e', borderRadius: 16, padding: 18, alignItems: 'center' },
+  createBtnText: { color: 'white', fontWeight: 'bold', fontSize: 18 }
 });
