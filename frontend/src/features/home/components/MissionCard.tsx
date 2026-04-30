@@ -1,21 +1,46 @@
-import { StyleSheet, Text, View } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 
-export default function MissionCard({ mission }: any) {
-  const progress = mission.progress / mission.target;
+type Mission = {
+  title: string;
+  progress: number;
+  target: number;
+};
+
+export default function MissionCard({ mission }: { mission: Mission }) {
+  const progressRatio = mission.progress / mission.target;
+  const progressPercent = Math.min(progressRatio * 100, 100);
+  const isCompleted = mission.progress >= mission.target;
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.title}>{mission.title}</Text>
+    <View style={[styles.card, isCompleted && styles.completed]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.title}>{mission.title}</Text>
 
-      <View style={styles.row}>
-        <Text style={styles.meta}>
-          {mission.progress}/{mission.target}
-        </Text>
-        <Text style={styles.reward}>+50 H</Text>
+          <View style={styles.metaRow}>
+            <Text style={styles.meta}>
+              {mission.progress}/{mission.target}
+            </Text>
+
+            <View style={styles.reward}>
+              <Text style={styles.rewardText}>+50 H</Text>
+            </View>
+          </View>
+        </View>
+
+        {isCompleted && <Text style={styles.check}>✓</Text>}
       </View>
 
+      {/* Progress bar */}
       <View style={styles.bar}>
-        <View style={[styles.progress, { width: `${progress * 100}%` }]} />
+        <View
+          style={[
+            styles.progress,
+            isCompleted && styles.progressCompleted,
+            { width: `${progressPercent}%` },
+          ]}
+        />
       </View>
     </View>
   );
@@ -30,33 +55,68 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#2a2f45",
   },
+
+  completed: {
+    borderColor: "#22c55e",
+    backgroundColor: "#22c55e11",
+  },
+
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+
   title: {
     color: "#fff",
     fontWeight: "bold",
-    marginBottom: 6,
+    marginBottom: 4,
   },
-  row: {
+
+  metaRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 6,
+    alignItems: "center",
+    gap: 8,
   },
+
   meta: {
     color: "#aaa",
     fontSize: 12,
   },
+
   reward: {
+    backgroundColor: "#facc1522",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 999,
+  },
+
+  rewardText: {
     color: "#facc15",
     fontSize: 12,
     fontWeight: "bold",
   },
+
+  check: {
+    color: "#22c55e",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+
   bar: {
     height: 6,
     backgroundColor: "#222",
     borderRadius: 6,
+    overflow: "hidden",
   },
+
   progress: {
     height: 6,
     backgroundColor: "#3b82f6",
     borderRadius: 6,
+  },
+
+  progressCompleted: {
+    backgroundColor: "#22c55e",
   },
 });
