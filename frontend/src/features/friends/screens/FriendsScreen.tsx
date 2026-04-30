@@ -1,23 +1,47 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, SafeAreaView } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, SafeAreaView, Alert } from 'react-native';
 import { ArrowLeft, Users, Flame, Trophy, Check, X, UserPlus } from 'lucide-react-native';
-import  colors  from '../../../theme/colors';
+import AddFriendModal from '../components/AddFriendModal';
 
 export default function FriendsScreen() {
-  const pendingRequests = [
+  const [isModalVisible, setModalVisible] = useState(false);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | 'none'>('none');
+
+  const [pendingRequests, setPendingRequests] = useState([
     { id: 1, username: "maria_lopez", avatar: "M", mutualFriends: 2 },
     { id: 2, username: "carlos_ruiz", avatar: "C", mutualFriends: 1 },
-  ];
+  ]);
 
-  const friends = [
+  const [friends, setFriends] = useState([
     { id: 1, username: "kenji_tanaka", avatar: "K", streak: 7, level: 8, hours: 15.5, status: 'online' },
     { id: 2, username: "yuki_yamamoto", avatar: "Y", streak: 5, level: 6, hours: 12.3, status: 'online' },
-  ];
+  ]);
+
+  const sortedFriends = useMemo(() => {
+    let result = [...friends];
+    if (sortOrder === 'asc') result.sort((a, b) => a.username.localeCompare(b.username));
+    if (sortOrder === 'desc') result.sort((a, b) => b.username.localeCompare(a.username));
+    return result;
+  }, [friends, sortOrder]);
+
+  const toggleSort = () => {
+    setSortOrder(prev => (prev === 'none' || prev === 'desc' ? 'asc' : 'desc'));
+  };
+
+  const handleAccept = (username: string, id: number) => {
+    Alert.alert("Solicitud Aceptada", `Ahora eres amigo de @${username}`);
+    setPendingRequests(prev => prev.filter(req => req.id !== id));
+  };
+
+  const handleReject = (username: string, id: number) => {
+    Alert.alert("Solicitud Rechazada", `Se eliminó la solicitud de @${username}`);
+    setPendingRequests(prev => prev.filter(req => req.id !== id));
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Header con el badge de monedas exacto */}
+        {/* Header */}
         <View style={styles.header}>
           <Pressable style={styles.backBtn}>
             <ArrowLeft color="#94a3b8" size={20} />
@@ -33,40 +57,54 @@ export default function FriendsScreen() {
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false} style={styles.scroll}>
-          {/* Solicitudes con el borde azul y fondo degradado visual */}
-          <Text style={styles.sectionTitle}>SOLICITUDES PENDIENTES (2)</Text>
-          {pendingRequests.map(req => (
-            <View key={req.id} style={styles.requestCard}>
-              <View style={styles.userRow}>
-                <View style={[styles.avatar, { backgroundColor: '#3b82f6' }]}>
-                  <Text style={styles.avatarLetter}>{req.avatar}</Text>
+          {/* SECCIÓN SOLICITUDES */}
+          {pendingRequests.length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>SOLICITUDES PENDIENTES ({pendingRequests.length})</Text>
+              {pendingRequests.map(req => (
+                <View key={req.id} style={styles.cardBase}> 
+                  <View style={styles.userRow}>
+                    <View style={[styles.avatar, { backgroundColor: '#3b82f6' }]}>
+                      <Text style={styles.avatarLetter}>{req.avatar}</Text>
+                    </View>
+                    <View>
+                      <Text style={styles.usernameText}>@{req.username}</Text>
+                      <Text style={styles.subText}>{req.mutualFriends} amigos en común</Text>
+                    </View>
+                  </View>
+                  <View style={styles.actionRow}>
+                    <Pressable 
+                      style={[styles.btnAction, { backgroundColor: '#22c55e' }]}
+                      onPress={() => handleAccept(req.username, req.id)}
+                    >
+                      <Check color="white" size={16} />
+                      <Text style={styles.btnText}>Aceptar</Text>
+                    </Pressable>
+                    <Pressable 
+                      style={[styles.btnAction, styles.btnReject]}
+                      onPress={() => handleReject(req.username, req.id)}
+                    >
+                      <X color="#94a3b8" size={16} />
+                      <Text style={styles.btnText}>Rechazar</Text>
+                    </Pressable>
+                  </View>
                 </View>
-                <View>
-                  <Text style={styles.usernameText}>@{req.username}</Text>
-                  <Text style={styles.subText}>{req.mutualFriends} amigos en común</Text>
-                </View>
-              </View>
-              <View style={styles.actionRow}>
-                <Pressable style={[styles.btnAction, { backgroundColor: '#22c55e' }]}>
-                  <Check color="white" size={16} />
-                  <Text style={styles.btnText}>Aceptar</Text>
-                </Pressable>
-                <Pressable style={[styles.btnAction, styles.btnReject]}>
-                  <X color="#94a3b8" size={16} />
-                  <Text style={styles.btnText}>Rechazar</Text>
-                </Pressable>
-              </View>
-            </View>
-          ))}
+              ))}
+            </>
+          )}
 
-          {/* Lista de Amigos */}
+          {/* SECCIÓN AMIGOS */}
           <View style={styles.listHeader}>
-            <Text style={styles.sectionTitle}>MIS AMIGOS (4)</Text>
-            <Text style={styles.orderText}>Ordenar</Text>
+            <Text style={styles.sectionTitle}>MIS AMIGOS ({friends.length})</Text>
+            <Pressable onPress={toggleSort}>
+              <Text style={styles.orderText}>
+                {sortOrder === 'none' ? 'Ordenar' : sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+              </Text>
+            </Pressable>
           </View>
 
-          {friends.map(friend => (
-            <View key={friend.id} style={styles.friendCard}>
+          {sortedFriends.map(friend => (
+            <View key={friend.id} style={styles.cardBase}>
               <View style={styles.userRow}>
                 <View style={styles.avatarWrapper}>
                   <View style={[styles.avatar, { backgroundColor: '#22c55e' }]}>
@@ -105,17 +143,21 @@ export default function FriendsScreen() {
           ))}
         </ScrollView>
 
-        {/* Botón Flotante con brillo/sombra */}
-        <Pressable style={styles.fab}>
+        <Pressable style={styles.fab} onPress={() => setModalVisible(true)}>
           <UserPlus color="white" size={26} />
         </Pressable>
+
+        <AddFriendModal 
+          visible={isModalVisible} 
+          onClose={() => setModalVisible(false)} 
+        />
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#0f172a' }, // Fondo muy oscuro
+  safeArea: { flex: 1, backgroundColor: '#0f172a' },
   container: { flex: 1, paddingHorizontal: 20 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 20 },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#1e293b', alignItems: 'center', justifyContent: 'center' },
@@ -127,7 +169,17 @@ const styles = StyleSheet.create({
   coinAmount: { color: 'white', fontWeight: 'bold', marginLeft: 8, fontSize: 16 },
   scroll: { flex: 1 },
   sectionTitle: { color: '#64748b', fontSize: 12, fontWeight: '900', marginVertical: 15, letterSpacing: 1 },
-  requestCard: { backgroundColor: '#1e293b', borderRadius: 24, padding: 20, marginBottom: 15, borderWidth: 1, borderColor: '#3b82f644' },
+  
+  // ESTILO UNIFICADO PARA AMBAS TARJETAS
+  cardBase: { 
+    backgroundColor: '#1e293b', 
+    borderRadius: 24, 
+    padding: 20, 
+    marginBottom: 15, 
+    borderWidth: 1, 
+    borderColor: '#3b82f622', // Borde sutil para ambas
+  },
+  
   userRow: { flexDirection: 'row', alignItems: 'center', gap: 15 },
   avatar: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
   avatarLetter: { color: 'white', fontSize: 22, fontWeight: 'bold' },
@@ -139,7 +191,7 @@ const styles = StyleSheet.create({
   btnText: { color: 'white', fontWeight: 'bold', fontSize: 15 },
   listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   orderText: { color: '#22c55e', fontWeight: 'bold', fontSize: 14 },
-  friendCard: { backgroundColor: '#1e293b', borderRadius: 28, padding: 20, marginBottom: 15 },
+  
   avatarWrapper: { position: 'relative' },
   statusDot: { position: 'absolute', bottom: 2, right: 2, width: 14, height: 14, borderRadius: 7, backgroundColor: '#22c55e', borderWidth: 2, borderColor: '#1e293b' },
   badgeRow: { flexDirection: 'row', gap: 10, marginTop: 6 },
@@ -155,5 +207,19 @@ const styles = StyleSheet.create({
   statValue: { color: '#facc15', fontSize: 16, fontWeight: '900' },
   profileBtn: { backgroundColor: '#14532d', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 12 },
   profileBtnText: { color: '#22c55e', fontSize: 13, fontWeight: 'bold' },
-  fab: { position: 'absolute', bottom: 30, right: 0, width: 64, height: 64, borderRadius: 32, backgroundColor: '#22c55e', alignItems: 'center', justifyContent: 'center', elevation: 10, shadowColor: '#22c55e', shadowOpacity: 0.5, shadowRadius: 10 }
+ fab: { 
+    position: 'absolute', 
+    bottom: 30, 
+    right: 20, // Cambiado de 0 a 20 para que no esté pegado al borde
+    width: 64, 
+    height: 64, 
+    borderRadius: 32, 
+    backgroundColor: '#22c55e', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    elevation: 10, 
+    shadowColor: '#22c55e', 
+    shadowOpacity: 0.5, 
+    shadowRadius: 10 
+  }
 });
