@@ -2,6 +2,8 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Text, View } from "react-native";
 import HomeScreen from "../features/home/screens/HomeScreen";
 import FriendsScreen from "../features/friends/screens/FriendsScreen";
+// 1. Ya tenés el import listo, lo usamos abajo
+import RankingScreen from "../features/rankings/screens/RankingScreen";
 
 const Tab = createBottomTabNavigator();
 
@@ -29,12 +31,14 @@ export default function TabNavigator() {
       }}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
+      
       <Tab.Screen name="Salas">
         {() => <Placeholder title="Salas" />}
       </Tab.Screen>
-      <Tab.Screen name="Ranking">
-        {() => <Placeholder title="Ranking" />}
-      </Tab.Screen>
+      
+      {/* 2. CONECTAMOS TU RANKING AQUÍ */}
+      <Tab.Screen name="Ranking" component={RankingScreen} />
+      
       <Tab.Screen name="Amigos" component={FriendsScreen} />
     </Tab.Navigator>
   );
