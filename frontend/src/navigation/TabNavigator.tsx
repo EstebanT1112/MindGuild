@@ -1,16 +1,16 @@
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Text, View } from "react-native";
 import HomeScreen from "../features/home/screens/HomeScreen";
-// 1. Importamos tu pantalla real
 import FriendsScreen from "../features/friends/screens/FriendsScreen";
-import RoomsStack from "./RoomsStack";
+// 1. Ya tenés el import listo, lo usamos abajo
+import RankingScreen from "../features/rankings/screens/RankingScreen";
 
 const Tab = createBottomTabNavigator();
 
 function Placeholder({ title }: { title: string }) {
   return (
     <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-      <Text>{title}</Text>
+      <Text style={{ color: "white" }}>{title}</Text>
     </View>
   );
 }
@@ -23,18 +23,22 @@ export default function TabNavigator() {
         tabBarStyle: {
           backgroundColor: "#111",
           borderTopColor: "#222",
+          height: 60,
+          paddingBottom: 10,
         },
         tabBarActiveTintColor: "#22c55e",
         tabBarInactiveTintColor: "#888",
       }}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Salas" component={RoomsStack} />
-      <Tab.Screen name="Ranking">
-        {() => <Placeholder title="Ranking" />}
+      
+      <Tab.Screen name="Salas">
+        {() => <Placeholder title="Salas" />}
       </Tab.Screen>
       
-      {/* 2. Conectamos Amigos a tu pantalla real[cite: 1] */}
+      {/* 2. CONECTAMOS TU RANKING AQUÍ */}
+      <Tab.Screen name="Ranking" component={RankingScreen} />
+      
       <Tab.Screen name="Amigos" component={FriendsScreen} />
     </Tab.Navigator>
   );
