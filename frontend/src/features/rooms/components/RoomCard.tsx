@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
 import { Users, Trophy, Copy } from 'lucide-react-native';
+import { Clipboard } from 'react-native';
 
 interface RoomCardProps {
   name: string;
@@ -8,18 +9,33 @@ interface RoomCardProps {
   members: number;
   mode: string;
   rank: number;
-  onPress?: () => void;
+  onPress: () => void;
 }
 
 export default function RoomCard({ name, code, members, mode, rank, onPress }: RoomCardProps) {
+  
+  // Función para copiar el código al portapapeles
+  const copyToClipboard = async () => {
+    await Clipboard.setString(code);
+    Alert.alert("¡Copiado!", `El código ${code} se guardó en el portapapeles.`);
+  };
+
   return (
     <Pressable style={styles.card} onPress={onPress}>
       <View style={styles.header}>
         <Text style={styles.name}>{name}</Text>
-        <View style={styles.codeBadge}>
+        
+        {/* Usamos e.stopPropagation() para que al copiar NO se dispare la navegación de la tarjeta */}
+        <Pressable 
+          style={styles.codeBadge} 
+          onPress={(e) => {
+            e.stopPropagation(); 
+            copyToClipboard();
+          }}
+        >
           <Text style={styles.codeText}>{code}</Text>
           <Copy color="#22c55e" size={14} />
-        </View>
+        </Pressable>
       </View>
 
       <View style={styles.footer}>
