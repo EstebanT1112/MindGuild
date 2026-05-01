@@ -46,12 +46,7 @@ export default function RoomsScreen({ navigation }: any) {
                 <RoomItem
                 key={room.id}
                 room={room}
-                onPress={() =>
-                    navigation.navigate("Salas", {
-                    screen: "RoomDetail",
-                    params: { room },
-                    })
-                }
+                    onPress={() => navigation.navigate("RoomDetail", { room })}
                 />
                 ))}
         </ScrollView>

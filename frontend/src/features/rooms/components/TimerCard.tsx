@@ -1,23 +1,23 @@
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useState } from "react";
 
-const [showConfig, setShowConfig] = useState(false);
-
 export default function TimerCard() {
+    const [showConfig, setShowConfig] = useState(false);
+
     return (
         <View style={styles.card}>
-        <View style={styles.timer}>
-            <Text style={styles.time}>25:00</Text>
-            <Text style={styles.subtitle}>4 ciclos</Text>
-        </View>
+            <View style={styles.timer}>
+                <Text style={styles.time}>25:00</Text>
+                <Text style={styles.subtitle}>4 ciclos</Text>
+            </View>
 
-        <Pressable onPress={() => setShowConfig(true)}>
-        <Text>Configurar</Text>
-        </Pressable>
+            <Pressable onPress={() => setShowConfig(true)}>
+                <Text style={styles.configText}>Configurar</Text>
+            </Pressable>
 
-        <Pressable style={styles.button}>
-            <Text style={styles.buttonText}>COMENZAR SESIÓN</Text>
-        </Pressable>
+            <Pressable style={styles.button}>
+                <Text style={styles.buttonText}>COMENZAR SESIÓN</Text>
+            </Pressable>
         </View>
     );
 }
@@ -40,6 +40,11 @@ const styles = StyleSheet.create({
     },
     subtitle: {
         color: "#666",
+    },
+    configText: {
+        color: "#94a3b8",
+        textAlign: "center",
+        marginBottom: 12,
     },
     button: {
         backgroundColor: "#22c55e",
