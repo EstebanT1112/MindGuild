@@ -21,13 +21,17 @@ import {
   Edit2, 
   Settings 
 } from 'lucide-react-native';
+
+// Componentes propios
 import StatCard from '../components/StatCard';
 import WeeklyProgress from '../components/WeeklyProgress';
 import EditProfileModal from '../components/EditProfileModal'; 
+import SettingsModal from '../components/SettingsModal'; // <--- IMPORTACIÓN DEL NUEVO MODAL
 
 export default function ProfileScreen() {
     const navigation = useNavigation<any>();
     const [isEditModalVisible, setEditModalVisible] = useState(false);
+    const [isSettingsVisible, setSettingsVisible] = useState(false); // <--- ESTADO PARA SETTINGS
 
     // URL temporal para el avatar
     const avatarUri = 'https://i.pinimg.com/736x/8b/16/7a/8b167afad95886616441a1a7f0e9f697.jpg';
@@ -36,7 +40,7 @@ export default function ProfileScreen() {
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.container}>
                 
-                {/* HEADER CON BOTONES CORREGIDOS */}
+                {/* HEADER */}
                 <View style={styles.header}>
                     <View style={styles.leftHeader}>
                         <Pressable
@@ -50,7 +54,7 @@ export default function ProfileScreen() {
                     <Text style={styles.headerTitle}>MI PERFIL</Text>
 
                     <View style={styles.rightButtons}>
-                        {/* Botón Editar con borde azul como la foto */}
+                        {/* Botón Editar */}
                         <Pressable 
                             style={[styles.iconBtn, styles.editBtnActive]} 
                             onPress={() => setEditModalVisible(true)}
@@ -58,8 +62,11 @@ export default function ProfileScreen() {
                             <Edit2 color="#3b82f6" size={18} />
                         </Pressable>
                         
-                        {/* Botón Configuración */}
-                        <Pressable style={styles.iconBtn}>
+                        {/* Botón Configuración CONECTADO */}
+                        <Pressable 
+                            style={styles.iconBtn}
+                            onPress={() => setSettingsVisible(true)} // <--- ABRE EL MODAL
+                        >
                             <Settings color="#94a3b8" size={18} />
                         </Pressable>
                     </View>
@@ -75,7 +82,6 @@ export default function ProfileScreen() {
                                     style={styles.avatarImage}
                                 />
                             </View>
-                            {/* Badge de Nivel circular verde */}
                             <View style={styles.levelBadge}>
                                 <Text style={styles.levelText}>5</Text>
                             </View>
@@ -121,7 +127,7 @@ export default function ProfileScreen() {
                         </View>
                     </View>
 
-                    {/* SECCIÓN ALDEA (CORREGIDO SIN DIVS) */}
+                    {/* SECCIÓN ALDEA */}
                     <View style={styles.villageCard}>
                         <Text style={styles.villageTitle}>Tu Aldea en Evolución</Text>
                         <View style={styles.villageMainRow}>
@@ -154,11 +160,19 @@ export default function ProfileScreen() {
                     photo: { uri: avatarUri }
                 }}
             />
+
+            {/* MODAL CONFIGURACIÓN (Settings) */}
+            <SettingsModal 
+                visible={isSettingsVisible} 
+                onClose={() => setSettingsVisible(false)} 
+            />
+
         </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
+    // (Mismos estilos que ya tenías)
     safeArea: { flex: 1, backgroundColor: '#0f172a' },
     container: { flex: 1, paddingHorizontal: 20 },
     header: { 
