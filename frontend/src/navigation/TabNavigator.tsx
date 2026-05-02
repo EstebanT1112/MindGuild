@@ -1,3 +1,4 @@
+import React from 'react';
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import HomeScreen from "../features/home/screens/HomeScreen";
 import FriendsScreen from "../features/friends/screens/FriendsScreen";
@@ -12,13 +13,18 @@ export default function TabNavigator() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: "#111",
+          backgroundColor: "#111", // Mantenemos tu estilo oscuro
           borderTopColor: "#222",
-          height: 60,
-          paddingBottom: 10,
+          height: 70, // Un poquito más de altura para que respiren los iconos
+          paddingBottom: 12,
+          paddingTop: 8,
         },
-        tabBarActiveTintColor: "#22c55e",
+        tabBarActiveTintColor: "#22c55e", // El verde de MindGuild
         tabBarInactiveTintColor: "#888",
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '600',
+        }
       }}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
