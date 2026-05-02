@@ -49,7 +49,14 @@ export default function RoomsScreen() {
                 <RoomCard
                 key={room.id}
                 room={room}
-                onPress={() => navigation.navigate('LiveRoom', { roomId: room.id, roomName: room.name })}
+                onPress={() => {
+                    // Navegación condicional según el modo
+                    if (room.mode === 'Battle Royale') {
+                        navigation.navigate('BattleRoyale', { roomId: room.id, roomName: room.name });
+                    } else {
+                        navigation.navigate('LiveRoom', { roomId: room.id, roomName: room.name });
+                    }
+                }}
                 />
             ))}
             </ScrollView>
