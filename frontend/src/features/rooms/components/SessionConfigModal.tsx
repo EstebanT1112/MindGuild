@@ -126,7 +126,7 @@ export default function SessionConfigModal({ visible, onClose }: { visible: bool
               
               <Text style={styles.subBoxTitle}>Cada cuántos ciclos</Text>
               <View style={styles.freqRow}>
-                 <Counter value={longBreakFreq} setter={setLongBreakFreq} color="#a855f7" />
+                  <Counter value={longBreakFreq} setter={setLongBreakFreq} color="#a855f7" />
               </View>
               <Text style={styles.freqHint}>Descanso largo después del ciclo {longBreakFreq}, {longBreakFreq*2}, {longBreakFreq*3}...</Text>
             </View>
