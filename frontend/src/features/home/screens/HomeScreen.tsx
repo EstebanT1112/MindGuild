@@ -37,7 +37,7 @@ export default function HomeScreen() {
           <Text style={styles.profileBtnText}>P</Text>
         </Pressable>
 
-        <Text style={styles.title}>BRAIMIND</Text>
+        <Text style={styles.title}>MINDGUILD</Text>
 
         <View style={styles.coinBadge}>
           <View style={styles.hCoin}>
