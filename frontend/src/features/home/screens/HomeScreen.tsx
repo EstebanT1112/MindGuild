@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from "@react-navigation/native";
 import MissionCard from "../components/MissionCard";
 import StreakCard from "../components/StreakeCard";
+import MissionsModal from "../components/MissionsModal";
 
 const recentRooms = [
   { id: 1, name: "Cálculo I - Final", code: "CALC-7X9P", mode: "Supervivencia", members: 5, ranking: 2 },
@@ -17,6 +18,8 @@ const missions = [
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
+
+  const [missionsVisible, setMissionsVisible] = useState(false);
 
   const handleRoomPress = (room: any) => {
     navigation.navigate('Salas', {
@@ -75,13 +78,21 @@ export default function HomeScreen() {
           </Pressable>
         ))}
 
-        {/* RETOS ACTIVOS */}
-        <Text style={styles.section}>RETOS ACTIVOS</Text>
+{/* RETOS ACTIVOS */}
+        <Text style={styles.section}>MISIONES ACTIVOS</Text>
 
         {missions.map((m) => (
-          <MissionCard key={m.id} mission={m} />
+          <MissionCard
+            key={m.id}
+            mission={m}
+            onPress={() => setMissionsVisible(true)}
+          />
         ))}
 
+        <MissionsModal
+          visible={missionsVisible}
+          onClose={() => setMissionsVisible(false)}
+        />
       </ScrollView>
 
     </SafeAreaView>
