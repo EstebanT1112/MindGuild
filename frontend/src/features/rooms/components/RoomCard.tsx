@@ -10,13 +10,16 @@ type Room = {
 };
 
 export default function RoomCard({ room, onPress }: { room: Room; onPress: () => void }) {
+  // Verificamos si es Battle Royale para el color
+  const isBR = room.mode === "Battle Royale";
+
   return (
     <Pressable style={styles.card} onPress={onPress}>
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
           <Text style={styles.name}>{room.name}</Text>
           <View style={styles.codeBox}>
-            <Text style={styles.code}>{room.code}</Text>
+            <Text style={[styles.code, isBR && { color: '#a855f7' }]}>{room.code}</Text>
           </View>
         </View>
         <Text style={styles.arrow}>›</Text>
@@ -25,10 +28,18 @@ export default function RoomCard({ room, onPress }: { room: Room; onPress: () =>
       <View style={styles.footer}>
         <View style={styles.left}>
           <Text style={styles.meta}>{room.members} 👥</Text>
-          <Text style={styles.meta}>{room.mode}</Text>
+          <Text style={[styles.meta, isBR && { color: '#a855f7', fontWeight: 'bold' }]}>{room.mode}</Text>
         </View>
-        <View style={styles.ranking}>
-          <Text style={styles.rankText}>#{room.ranking}</Text>
+        <View style={[
+            styles.ranking, 
+            isBR ? { backgroundColor: '#a855f722' } : { backgroundColor: "#22c55e22" }
+        ]}>
+          <Text style={[
+              styles.rankText, 
+              isBR ? { color: '#a855f7' } : { color: "#22c55e" }
+          ]}>
+            #{room.ranking}
+          </Text>
         </View>
       </View>
     </Pressable>

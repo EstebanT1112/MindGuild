@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import TabNavigator from "./TabNavigator";
 import ProfileScreen from "../features/profiles/screens/ProfileScreen";
 import LiveRoomScreen from '../features/rooms/screens/LiveRoomScreen';
+import BattleRoyaleScreen from '../features/rooms/screens/BattleRoyaleScreen'; // <--- NUEVA IMPORTACIÓN
 import LoginScreen from '../features/auth/screens/LoginScreen';
 import RegisterScreen from '../features/auth/screens/RegisterScreen';
 
@@ -24,6 +25,7 @@ export default function AppNavigator() {
         <Stack.Screen name="MainTabs" component={TabNavigator} />
         <Stack.Screen name="Perfil" component={ProfileScreen} />
         <Stack.Screen name="LiveRoom" component={LiveRoomScreen} />
+        <Stack.Screen name="BattleRoyale" component={BattleRoyaleScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
