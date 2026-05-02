@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from "@react-navigation/native";
+import ScreenLayout from '../../../components/ui/ScreenLayout';
 import MissionCard from "../components/MissionCard";
 import StreakCard from "../components/StreakeCard";
 import MissionsModal from "../components/MissionsModal";
@@ -18,7 +18,6 @@ const missions = [
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
-
   const [missionsVisible, setMissionsVisible] = useState(false);
 
   const handleRoomPress = (room: any) => {
@@ -29,58 +28,30 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-
-      {/* HEADER */}
-      <View style={styles.headerContainer}>
-        <Pressable
-          style={styles.profileBtn}
-          onPress={() => navigation.navigate('Perfil')}
-        >
-          <Text style={styles.profileBtnText}>P</Text>
-        </Pressable>
-
-        <Text style={styles.title}>MINDGUILD</Text>
-
-        <View style={styles.coinBadge}>
-          <View style={styles.hCoin}>
-            <Text style={styles.hText}>H</Text>
-          </View>
-          <Text style={styles.coinAmount}>1,250</Text>
-        </View>
-      </View>
-
+    <ScreenLayout title="MINDGUILD" type="home">
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-
+        
         <StreakCard />
 
-        {/* SALAS FRECUENTES */}
         <Text style={styles.section}>SALAS FRECUENTES</Text>
-
         {recentRooms.map((room) => (
           <Pressable key={room.id} style={styles.roomCard} onPress={() => handleRoomPress(room)}>
             <View style={styles.roomLeft}>
               <Text style={styles.roomName}>{room.name}</Text>
               <View style={styles.roomMeta}>
-                <View style={styles.codeBox}>
-                  <Text style={styles.codeText}>{room.code}</Text>
-                </View>
+                <View style={styles.codeBox}><Text style={styles.codeText}>{room.code}</Text></View>
                 <Text style={styles.roomMembers}>{room.members} 👥</Text>
                 <Text style={styles.roomMode}>{room.mode}</Text>
               </View>
             </View>
             <View style={styles.roomRight}>
-              <View style={styles.rankBadge}>
-                <Text style={styles.rankText}>#{room.ranking}</Text>
-              </View>
+              <View style={styles.rankBadge}><Text style={styles.rankText}>#{room.ranking}</Text></View>
               <Text style={styles.arrow}>›</Text>
             </View>
           </Pressable>
         ))}
 
-{/* RETOS ACTIVOS */}
-        <Text style={styles.section}>MISIONES ACTIVOS</Text>
-
+        <Text style={styles.section}>MISIONES ACTIVAS</Text>
         {missions.map((m) => (
           <MissionCard
             key={m.id}
@@ -94,74 +65,13 @@ export default function HomeScreen() {
           onClose={() => setMissionsVisible(false)}
         />
       </ScrollView>
-
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#0f111a",
-  },
-  headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 8,
-  },
-  profileBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#1e293b",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#334155",
-  },
-  profileBtnText: {
-    color: "#94a3b8",
-    fontWeight: "bold",
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: "900",
-    color: "#fff",
-    letterSpacing: 3,
-  },
-  coinBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1e293b',
-    borderRadius: 20,
-    paddingVertical: 5,
-    paddingLeft: 5,
-    paddingRight: 12,
-  },
-  hCoin: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#facc15',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  hText: {
-    fontWeight: '900',
-    fontSize: 13,
-    color: '#0f172a',
-  },
-  coinAmount: {
-    color: 'white',
-    fontWeight: 'bold',
-    marginLeft: 8,
-    fontSize: 14,
-  },
   content: {
-    padding: 16,
+    paddingVertical: 10,
     paddingBottom: 120,
   },
   section: {
@@ -172,8 +82,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     marginTop: 20,
   },
-
-  // Room card
   roomCard: {
     backgroundColor: "#1a1d29",
     borderRadius: 18,
@@ -185,56 +93,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  roomLeft: {
-    flex: 1,
-  },
-  roomName: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 15,
-    marginBottom: 8,
-  },
-  roomMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  codeBox: {
-    backgroundColor: "#111",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  codeText: {
-    color: "#22c55e",
-    fontSize: 11,
-    fontWeight: "bold",
-  },
-  roomMembers: {
-    color: "#aaa",
-    fontSize: 12,
-  },
-  roomMode: {
-    color: "#aaa",
-    fontSize: 12,
-  },
-  roomRight: {
-    alignItems: 'center',
-    gap: 6,
-  },
-  rankBadge: {
-    backgroundColor: "#22c55e22",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
-  },
-  rankText: {
-    color: "#22c55e",
-    fontSize: 12,
-    fontWeight: "bold",
-  },
-  arrow: {
-    color: "#666",
-    fontSize: 20,
-  },
+  roomLeft: { flex: 1 },
+  roomName: { color: "#fff", fontWeight: "bold", fontSize: 15, marginBottom: 8 },
+  roomMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  codeBox: { backgroundColor: "#111", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  codeText: { color: "#22c55e", fontSize: 11, fontWeight: "bold" },
+  roomMembers: { color: "#aaa", fontSize: 12 },
+  roomMode: { color: "#aaa", fontSize: 12 },
+  roomRight: { alignItems: 'center', gap: 6 },
+  rankBadge: { backgroundColor: "#22c55e22", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
+  rankText: { color: "#22c55e", fontSize: 12, fontWeight: "bold" },
+  arrow: { color: "#666", fontSize: 20 },
 });
