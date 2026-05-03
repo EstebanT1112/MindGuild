@@ -8,17 +8,42 @@ import {
     KeyboardAvoidingView,
     Platform,
     ScrollView,
-    StatusBar
+    StatusBar,
+    ActivityIndicator,
+    Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
+import { loginWithAuth0 } from '../services/authService';
+import { useAuthStore } from '../../../store/authStore';
 
 export default function LoginScreen() {
     const navigation = useNavigation<any>();
+    const setSession = useAuthStore(state => state.setSession);
+
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
+
+    const handleLogin = async () => {
+        if (!email.trim() || !password.trim()) {
+            Alert.alert('Campos incompletos', 'Completá todos los campos para continuar.');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const result = await loginWithAuth0(email.trim(), password);
+            setSession(result.auth_user_id, result.email, result.access_token);
+            navigation.replace('MainTabs');
+        } catch (error: any) {
+            Alert.alert('Error al iniciar sesión', error.message ?? 'Ocurrió un error inesperado.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -32,7 +57,7 @@ export default function LoginScreen() {
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
                 >
-                    {/* LOGO UNIFICADO - Ajustamos el margen para bajarlo */}
+                    {/* LOGO */}
                     <View style={styles.logoContainer}>
                         <View style={styles.logoCircle}>
                             <Text style={styles.logoEmoji}>🧠</Text>
@@ -71,9 +96,9 @@ export default function LoginScreen() {
                                 onChangeText={setPassword}
                             />
                             <Pressable onPress={() => setShowPassword(!showPassword)}>
-                                {showPassword ? 
-                                    <EyeOff color="#22c55e" size={20} /> : 
-                                    <Eye color="#22c55e" size={20} />
+                                {showPassword
+                                    ? <EyeOff color="#22c55e" size={20} />
+                                    : <Eye color="#22c55e" size={20} />
                                 }
                             </Pressable>
                         </View>
@@ -83,10 +108,14 @@ export default function LoginScreen() {
                         </Pressable>
 
                         <Pressable
-                            style={styles.btnPrimary}
-                            onPress={() => navigation.replace('MainTabs')}
+                            style={[styles.btnPrimary, loading && { opacity: 0.7 }]}
+                            onPress={handleLogin}
+                            disabled={loading}
                         >
-                            <Text style={styles.btnPrimaryText}>Ingresar</Text>
+                            {loading
+                                ? <ActivityIndicator color="#fff" />
+                                : <Text style={styles.btnPrimaryText}>Ingresar</Text>
+                            }
                         </Pressable>
 
                         <View style={styles.divider}>
@@ -123,12 +152,12 @@ const styles = StyleSheet.create({
     scroll: {
         flexGrow: 1,
         paddingHorizontal: 24,
-        paddingTop: 60, // Aumentamos para bajar todo el contenido del logo
+        paddingTop: 60,
         paddingBottom: 40,
     },
     logoContainer: {
         alignItems: 'center',
-        marginBottom: 32, // Reducimos un poco para que el logo y la card se sientan un solo grupo
+        marginBottom: 32,
     },
     logoCircle: {
         width: 80,

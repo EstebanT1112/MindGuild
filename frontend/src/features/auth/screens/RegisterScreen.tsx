@@ -8,18 +8,47 @@ import {
     KeyboardAvoidingView,
     Platform,
     ScrollView,
-    StatusBar
+    StatusBar,
+    ActivityIndicator,
+    Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { User, Mail, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react-native';
+import { registerWithAuth0 } from '../services/authService';
+import { useAuthStore } from '../../../store/authStore';
 
 export default function RegisterScreen() {
     const navigation = useNavigation<any>();
+    const setSession = useAuthStore(state => state.setSession);
+
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
+
+    const handleRegister = async () => {
+        if (!username.trim() || !email.trim() || !password.trim()) {
+            Alert.alert('Campos incompletos', 'Completá todos los campos para continuar.');
+            return;
+        }
+        if (password.length < 8) {
+            Alert.alert('Contraseña muy corta', 'La contraseña debe tener al menos 8 caracteres.');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const result = await registerWithAuth0(email.trim(), password);
+            setSession(result.auth_user_id, result.email, result.access_token);
+            navigation.replace('MainTabs');
+        } catch (error: any) {
+            Alert.alert('Error al registrarse', error.message ?? 'Ocurrió un error inesperado.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -33,7 +62,7 @@ export default function RegisterScreen() {
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
                 >
-                    {/* Header con botón de volver nivelado */}
+                    {/* Header */}
                     <View style={styles.header}>
                         <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
                             <ArrowLeft color="#94a3b8" size={20} />
@@ -45,7 +74,7 @@ export default function RegisterScreen() {
                         <Text style={styles.tagline}>Creá tu cuenta y comenzá a estudiar</Text>
                     </View>
 
-                    {/* Card de Formulario */}
+                    {/* Card */}
                     <View style={styles.card}>
                         <Text style={styles.cardTitle}>Crear cuenta</Text>
 
@@ -88,9 +117,9 @@ export default function RegisterScreen() {
                                 onChangeText={setPassword}
                             />
                             <Pressable onPress={() => setShowPassword(!showPassword)}>
-                                {showPassword ? 
-                                    <EyeOff color="#22c55e" size={20} /> : 
-                                    <Eye color="#22c55e" size={20} />
+                                {showPassword
+                                    ? <EyeOff color="#22c55e" size={20} />
+                                    : <Eye color="#22c55e" size={20} />
                                 }
                             </Pressable>
                         </View>
@@ -102,10 +131,14 @@ export default function RegisterScreen() {
                         </View>
 
                         <Pressable
-                            style={styles.btnPrimary}
-                            onPress={() => navigation.replace('MainTabs')}
+                            style={[styles.btnPrimary, loading && { opacity: 0.7 }]}
+                            onPress={handleRegister}
+                            disabled={loading}
                         >
-                            <Text style={styles.btnPrimaryText}>Crear cuenta</Text>
+                            {loading
+                                ? <ActivityIndicator color="#fff" />
+                                : <Text style={styles.btnPrimaryText}>Crear cuenta</Text>
+                            }
                         </Pressable>
 
                         <View style={styles.divider}>
