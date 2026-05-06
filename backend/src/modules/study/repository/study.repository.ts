@@ -1,6 +1,5 @@
-import { supabase } from '../../../common/config/supabase.js';
+import { pool } from '../../../common/config/db.js';
 
-// Helper interno para el formato de semana (Prompt 3)
 const getWeekYear = (): string => {
   const now = new Date();
   const oneJan = new Date(now.getFullYear(), 0, 1);
@@ -10,66 +9,75 @@ const getWeekYear = (): string => {
 };
 
 export const studyRepository = {
-  // PROMPT 1: Buscar sesión para validar (Limpio de is_impacted)
   async getSessionForValidation(sessionId: string) {
-    const { data, error } = await supabase
-      .from('study_sessions')
-      .select('user_id, room_id, duration_minutes, status, valid, approval_status')
-      .eq('id', sessionId)
-      .single();
+    const { rows } = await pool.query(
+      `
+        SELECT user_id, room_id, duration_minutes, status, valid, approval_status
+        FROM study_sessions
+        WHERE id = $1
+        LIMIT 1;
+      `,
+      [sessionId]
+    );
 
-    if (error) return null;
-    return data;
+    return rows[0] ?? null;
   },
 
-  // PROMPT 2: Actualizar total histórico en el perfil
   async updateUserTotalMinutes(userId: string, durationMinutes: number) {
-    const { data: profile, error: fetchError } = await supabase
-      .from('profiles')
-      .select('total_study_minutes')
-      .eq('id', userId)
-      .single();
+    const { rows } = await pool.query(
+      `
+        UPDATE profiles
+        SET total_study_minutes = total_study_minutes + $2
+        WHERE id = $1
+        RETURNING total_study_minutes;
+      `,
+      [userId, durationMinutes]
+    );
 
-    if (fetchError || !profile) throw new Error('Usuario inexistente');
-
-    const newTotal = profile.total_study_minutes + durationMinutes;
-
-    const { data: updatedProfile, error: updateError } = await supabase
-      .from('profiles')
-      .update({ total_study_minutes: newTotal })
-      .eq('id', userId)
-      .select('total_study_minutes')
-      .single();
-
-    if (updateError) throw new Error('Error al actualizar total_study_minutes');
-    return updatedProfile.total_study_minutes;
+    if (!rows[0]) throw new Error('Usuario inexistente');
+    return rows[0].total_study_minutes;
   },
 
-  // PROMPT 3: Actualizar estadísticas semanales (Global y Sala)
   async updateWeeklyStats(userId: string, roomId: string | null, durationMinutes: number) {
     const weekYear = getWeekYear();
+    const client = await pool.connect();
 
-    // Actualización Global Semanal (UPSERT vía RPC)
-    const { error: weeklyError } = await supabase.rpc('increment_user_weekly_stats', {
-      p_user_id: userId,
-      p_week_year: weekYear,
-      p_minutes: durationMinutes
-    });
+    try {
+      await client.query('BEGIN');
 
-    if (weeklyError) throw new Error('Error en user_weekly_stats');
+      await client.query(
+        `
+          INSERT INTO user_weekly_stats (user_id, week_year, total_minutes)
+          VALUES ($1, $2, $3)
+          ON CONFLICT (user_id, week_year)
+          DO UPDATE SET
+            total_minutes = user_weekly_stats.total_minutes + EXCLUDED.total_minutes,
+            updated_at = NOW();
+        `,
+        [userId, weekYear, durationMinutes]
+      );
 
-    // Actualización por Sala (si aplica)
-    if (roomId) {
-      const { error: roomWeeklyError } = await supabase.rpc('increment_room_user_weekly_stats', {
-        p_user_id: userId,
-        p_room_id: roomId,
-        p_week_year: weekYear,
-        p_minutes: durationMinutes
-      });
+      if (roomId) {
+        await client.query(
+          `
+            INSERT INTO room_user_weekly_stats (room_id, user_id, week_year, total_minutes)
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (room_id, user_id, week_year)
+            DO UPDATE SET
+              total_minutes = room_user_weekly_stats.total_minutes + EXCLUDED.total_minutes,
+              updated_at = NOW();
+          `,
+          [roomId, userId, weekYear, durationMinutes]
+        );
+      }
 
-      if (roomWeeklyError) throw new Error('Error en room_user_weekly_stats');
+      await client.query('COMMIT');
+      return { weekYear };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
     }
-
-    return { weekYear };
-  }
+  },
 };

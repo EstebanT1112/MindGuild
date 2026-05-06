@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
+//este archivo hay que borrarlo, se refacotizo en  streakcard
 
 export default function StreakCard() {
   return (

@@ -37,7 +37,6 @@ export default function LoginScreen() {
         try {
             const result = await loginWithAuth0(email.trim(), password);
             setSession(result.auth_user_id, result.email, result.access_token);
-            navigation.replace('MainTabs');
         } catch (error: any) {
             Alert.alert('Error al iniciar sesión', error.message ?? 'Ocurrió un error inesperado.');
         } finally {
