@@ -1,6 +1,11 @@
 import type { Request, Response } from 'express';
 import { AuthService } from '../service/auth.service.js';
-import { AuthConflictError, AuthValidationError } from '../types/auth.types.js';
+import {
+  AuthConflictError,
+  AuthNotFoundError,
+  AuthUnauthorizedError,
+  AuthValidationError,
+} from '../types/auth.types.js';
 
 export const AuthController = {
   async register(req: Request, res: Response) {
@@ -32,4 +37,37 @@ export const AuthController = {
       });
     }
   },
+
+  async me(req: Request, res: Response) {
+    try {
+      const accessToken = extractBearerToken(req);
+      const profile = await AuthService.getProfileFromAccessToken(accessToken);
+      return res.status(200).json(profile);
+    } catch (error: any) {
+      if (error instanceof AuthUnauthorizedError) {
+        return res.status(401).json({ error: error.message });
+      }
+
+      if (error instanceof AuthNotFoundError) {
+        return res.status(404).json({ error: error.message });
+      }
+
+      console.error('Error interno al obtener perfil:', {
+        message: error?.message,
+        code: error?.code,
+      });
+
+      return res.status(500).json({ error: 'Error interno al obtener perfil' });
+    }
+  },
 };
+
+function extractBearerToken(req: Request): string {
+  const authorization = req.headers.authorization;
+
+  if (!authorization?.startsWith('Bearer ')) {
+    throw new AuthUnauthorizedError('Authorization Bearer token requerido');
+  }
+
+  return authorization.replace('Bearer ', '').trim();
+}

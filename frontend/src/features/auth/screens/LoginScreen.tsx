@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
-import { loginWithAuth0 } from '../services/authService';
+import { login } from '../services/authService';
 import { useAuthStore } from '../../../store/authStore';
 
 export default function LoginScreen() {
@@ -35,8 +35,8 @@ export default function LoginScreen() {
 
         setLoading(true);
         try {
-            const result = await loginWithAuth0(email.trim(), password);
-            setSession(result.auth_user_id, result.email, result.access_token);
+            const result = await login(email.trim(), password);
+            setSession(result.auth_user_id, result.email, result.access_token, result.profile);
         } catch (error: any) {
             Alert.alert('Error al iniciar sesión', error.message ?? 'Ocurrió un error inesperado.');
         } finally {

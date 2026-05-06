@@ -20,6 +20,10 @@ export interface RegisterResult extends Auth0Result {
     profile: ProfileResult;
 }
 
+export interface LoginResult extends Auth0Result {
+    profile: ProfileResult;
+}
+
 export interface AuthError {
     code: string;
     message: string;
@@ -38,6 +42,19 @@ export async function register(
         email: authResult.email,
         username,
     });
+
+    return {
+        ...authResult,
+        profile,
+    };
+}
+
+export async function login(
+    email: string,
+    password: string
+): Promise<LoginResult> {
+    const authResult = await loginWithAuth0(email, password);
+    const profile = await getCurrentProfile(authResult.access_token);
 
     return {
         ...authResult,
@@ -149,6 +166,26 @@ async function createProfile(input: {
     return data;
 }
 
+async function getCurrentProfile(accessToken: string): Promise<ProfileResult> {
+    const response = await safeFetch(`${API_BASE_URL}/auth/me`, {
+        method: 'GET',
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+        },
+    }, 'No se pudo conectar con el backend para cargar tu perfil.');
+
+    const data = await parseJson(response);
+
+    if (!response.ok) {
+        throw {
+            code: `backend_${response.status}`,
+            message: data.error ?? 'No se pudo cargar el perfil.',
+        };
+    }
+
+    return data;
+}
+
 async function fetchAuth0UserInfo(accessToken: string) {
     const userRes = await safeFetch(`https://${AUTH0_DOMAIN}/userinfo`, {
         headers: { Authorization: `Bearer ${accessToken}` },
@@ -203,6 +240,8 @@ function resolveErrorMessage(code: string, fallback?: string): string {
         network_error: 'No se pudo conectar con el servidor. Revisa tu conexion e intenta de nuevo.',
         invalid_response: 'El servidor respondio con un formato invalido.',
         backend_400: 'Los datos del perfil no son validos.',
+        backend_401: 'La sesion no es valida. Inicia sesion nuevamente.',
+        backend_404: 'No existe un perfil asociado a esta cuenta.',
         backend_409: 'El email o username ya esta registrado.',
     };
     return messages[code] ?? fallback ?? `Ocurrio un error inesperado (${code}).`;
