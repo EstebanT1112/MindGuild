@@ -1,33 +1,40 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { Clock, Flame, BookOpen, Crown } from 'lucide-react-native';
 import ScreenLayout from '../../.././components/ui/ScreenLayout';
 import RankingItem from '../components/RankingItem';
+// IMPORTANTE: Importamos la API que creaste
+import { fetchRanking, RankingEntry } from '../../../services/apiConfig';
 
 export default function RankingScreen() {
   const [activeTab, setActiveTab] = useState('Semanal');
+  const [data, setData] = useState<RankingEntry[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const rankingData: any = {
-    Semanal: [
-      { id: 1, name: 'Kenji Tanaka', value: '25.5h', subtitle: 'esta semana', trend: 'up' },
-      { id: 2, name: 'Yuki Yamamoto', value: '22.3h', subtitle: 'esta semana', trend: 'equal' },
-      { id: 3, name: 'Samurai Sensei', value: '18.7h', subtitle: 'esta semana', trend: 'up', isUser: true },
-      { id: 4, name: 'Akira Sato', value: '16.2h', subtitle: 'esta semana', trend: 'down' },
-    ],
-    Racha: [
-      { id: 1, name: 'Ana García', value: '45', subtitle: 'días', trend: 'up' },
-      { id: 2, name: 'Kenji Tanaka', value: '32', subtitle: 'días', trend: 'equal' },
-      { id: 3, name: 'Samurai Sensei', value: '7', subtitle: 'días', trend: 'up', isUser: true },
-    ],
-    Académico: [
-      { id: 1, name: 'Yuki Yamamoto', value: '98.5%', subtitle: '45 quizzes', trend: 'up' },
-      { id: 4, name: 'Samurai Sensei', value: '89.3%', subtitle: '28 quizzes', trend: 'up', isUser: true },
-    ],
-    Jefes: [
-      { id: 1, name: 'Kenji Tanaka', value: '12x', subtitle: '8 victorias', trend: 'up' },
-      { id: 5, name: 'Samurai Sensei', value: '5x', subtitle: '3 victorias', trend: 'up', isUser: true },
-    ]
+  // Mapeo de nombres de pestañas a los tipos que entiende tu Backend
+  const tabTypeMap: any = {
+    'Semanal': 'semanal',
+    'Racha': 'racha',
+    'Académico': 'academico',
+    'Jefes': 'jefes'
   };
+
+  useEffect(() => {
+    const loadRanking = async () => {
+      setLoading(true);
+      try {
+        const type = tabTypeMap[activeTab];
+        const result = await fetchRanking(type);
+        setData(result);
+      } catch (error) {
+        console.error("Error al cargar ranking:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadRanking();
+  }, [activeTab]); // Se dispara cada vez que tocas una pestaña
 
   const tabs = [
     { name: 'Semanal', icon: Clock },
@@ -37,11 +44,7 @@ export default function RankingScreen() {
   ];
 
   return (
-    <ScreenLayout 
-      title="RANKING" 
-      type="rankings"
-    >
-      {/* Tabs con el estilo oscuro de MindGuild */}
+    <ScreenLayout title="RANKING" type="rankings">
       <View style={styles.tabsContainer}>
         {tabs.map((tab) => (
           <Pressable 
@@ -62,14 +65,27 @@ export default function RankingScreen() {
         {activeTab === 'Jefes' && 'Usuarios que más veces fueron jefe de la semana'}
       </Text>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-        {rankingData[activeTab].map((item: any, index: number) => (
-          <RankingItem key={item.id} rank={index + 1} {...item} />
-        ))}
-      </ScrollView>
+      {loading ? (
+        <ActivityIndicator color="#22c55e" style={{ marginTop: 20 }} />
+      ) : (
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+          {data.map((item, index) => (
+            <RankingItem 
+              key={item.user_id} 
+              rank={index + 1} 
+              name={item.username} 
+              value={item.value.toString()} 
+              subtitle={activeTab === 'Racha' ? 'días' : activeTab === 'Semanal' ? 'minutos' : ''}
+              trend="up" // Podés dinamizar esto después
+            />
+          ))}
+        </ScrollView>
+      )}
     </ScreenLayout>
   );
 }
+
+// ... (los mismos estilos que ya tenías)
 
 const styles = StyleSheet.create({
   tabsContainer: { 
