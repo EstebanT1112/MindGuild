@@ -70,4 +70,29 @@ export const AuthRepository = {
       client.release();
     }
   },
+
+  async findProfileByAuth0UserId(authUserId: string): Promise<RegisteredProfile | null> {
+    const { rows } = await pool.query(
+      `
+        SELECT id, email, username
+        FROM profiles
+        WHERE auth0_user_id = $1 AND is_active = true
+        LIMIT 1;
+      `,
+      [authUserId]
+    );
+
+    return (rows[0] as RegisteredProfile | undefined) ?? null;
+  },
+
+  async updateLastLoginAt(profileId: string): Promise<void> {
+    await pool.query(
+      `
+        UPDATE profiles
+        SET last_login_at = NOW()
+        WHERE id = $1;
+      `,
+      [profileId]
+    );
+  },
 };

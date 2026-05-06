@@ -1,13 +1,17 @@
 import { AuthRepository } from '../repository/auth.repository.js';
 import {
   AuthConflictError,
+  AuthNotFoundError,
+  AuthUnauthorizedError,
   AuthValidationError,
+  type Auth0UserInfo,
   type RegisterProfileDTO,
   type RegisteredProfile,
 } from '../types/auth.types.js';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,30}$/;
+const AUTH0_DOMAIN = process.env.AUTH0_DOMAIN ?? 'mindguildestebanapp.au.auth0.com';
 
 export const AuthService = {
   async registerProfile(input: Partial<RegisterProfileDTO> = {}): Promise<RegisteredProfile> {
@@ -42,7 +46,45 @@ export const AuthService = {
       throw error;
     }
   },
+
+  async getProfileFromAccessToken(accessToken: string): Promise<RegisteredProfile> {
+    if (!accessToken) {
+      throw new AuthUnauthorizedError('Token requerido');
+    }
+
+    const userInfo = await validateTokenWithAuth0(accessToken);
+    const profile = await AuthRepository.findProfileByAuth0UserId(userInfo.sub);
+
+    if (!profile) {
+      throw new AuthNotFoundError('Perfil no encontrado');
+    }
+
+    await AuthRepository.updateLastLoginAt(profile.id);
+
+    return profile;
+  },
 };
+
+async function validateTokenWithAuth0(accessToken: string): Promise<Auth0UserInfo> {
+  const response = await fetch(`https://${AUTH0_DOMAIN}/userinfo`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!response.ok) {
+    throw new AuthUnauthorizedError('Token invalido');
+  }
+
+  const data = (await response.json()) as Partial<Auth0UserInfo>;
+
+  if (!data.sub) {
+    throw new AuthUnauthorizedError('Token invalido');
+  }
+
+  return {
+    sub: data.sub,
+    email: data.email,
+  };
+}
 
 function normalizeRegisterInput(input: Partial<RegisterProfileDTO>): RegisterProfileDTO {
   return {

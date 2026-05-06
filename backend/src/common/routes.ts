@@ -7,6 +7,7 @@ import studyRoutes from '../modules/study/study.routes.js';
 const router = Router();
 
 router.post('/auth/register', AuthController.register);
+router.get('/auth/me', AuthController.me);
 router.post('/rooms/leave', RoomsController.handleLeaveRoom);
 router.use('/study', studyRoutes);
 router.get('/ranking', RankingController.getRanking);

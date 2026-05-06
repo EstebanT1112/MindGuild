@@ -10,6 +10,11 @@ export interface RegisteredProfile {
   username: string;
 }
 
+export interface Auth0UserInfo {
+  sub: string;
+  email?: string;
+}
+
 export class AuthConflictError extends Error {
   constructor(message: string) {
     super(message);
@@ -21,5 +26,19 @@ export class AuthValidationError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'AuthValidationError';
+  }
+}
+
+export class AuthUnauthorizedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AuthUnauthorizedError';
+  }
+}
+
+export class AuthNotFoundError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AuthNotFoundError';
   }
 }
