@@ -1,49 +1,113 @@
-import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
-  Image, 
-  Pressable 
+import React, { useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    Image,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from 'react-native';
-import { 
-  Flame, 
-  Trophy, 
-  Star, 
-  Target, 
-  Medal, 
-  Zap, 
-  Crown, 
-  Edit2, 
-  Settings 
+import {
+    Crown,
+    Edit2,
+    Flame,
+    Medal,
+    Settings,
+    Star,
+    Target,
+    Trophy,
+    Zap,
 } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
-
-// Componentes propios
+import { useAuthStore } from '../../../store/authStore';
+import EditProfileModal from '../components/EditProfileModal';
+import SettingsModal from '../components/SettingsModal';
 import StatCard from '../components/StatCard';
 import WeeklyProgress from '../components/WeeklyProgress';
-import EditProfileModal from '../components/EditProfileModal'; 
-import SettingsModal from '../components/SettingsModal';
+import { fetchMyProfile, type FullProfile, updateMyProfile } from '../services/profileService';
+
+const fallbackAvatar = 'https://ui-avatars.com/api/?background=1e293b&color=ffffff&name=MG';
 
 export default function ProfileScreen() {
+    const accessToken = useAuthStore(state => state.access_token);
+    const setUser = useAuthStore(state => state.setUser);
+
     const [isEditModalVisible, setEditModalVisible] = useState(false);
     const [isSettingsVisible, setSettingsVisible] = useState(false);
+    const [profile, setProfile] = useState<FullProfile | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
 
-    const avatarUri = 'https://i.pinimg.com/736x/8b/16/7a/8b167afad95886616441a1a7f0e9f697.jpg';
+    const avatarUri = profile?.avatar_url || fallbackAvatar;
+
+    useEffect(() => {
+        loadProfile();
+    }, [accessToken]);
+
+    const loadProfile = async () => {
+        if (!accessToken) return;
+
+        setLoading(true);
+        try {
+            const data = await fetchMyProfile(accessToken);
+            setProfile(data);
+            setUser({ id: data.id, email: data.email, username: data.username });
+        } catch (error: any) {
+            Alert.alert('Error de perfil', error.message ?? 'No se pudo cargar el perfil.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSaveProfile = async (data: { username: string; bio: string; avatar_url: string }) => {
+        if (!accessToken) return;
+
+        setSaving(true);
+        try {
+            const updatedProfile = await updateMyProfile(accessToken, {
+                username: data.username,
+                bio: data.bio,
+                avatar_url: data.avatar_url || null,
+            });
+
+            setProfile(updatedProfile);
+            setUser({
+                id: updatedProfile.id,
+                email: updatedProfile.email,
+                username: updatedProfile.username,
+            });
+            setEditModalVisible(false);
+        } catch (error: any) {
+            Alert.alert('Error al guardar', error.message ?? 'No se pudo actualizar el perfil.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <ScreenLayout title="MI PERFIL" type="profiles">
+                <View style={styles.loadingState}>
+                    <ActivityIndicator color="#22c55e" />
+                    <Text style={styles.loadingText}>Cargando perfil...</Text>
+                </View>
+            </ScreenLayout>
+        );
+    }
 
     return (
         <ScreenLayout title="MI PERFIL" type="profiles">
-            {/* BOTONES DE ACCIÓN */}
             <View style={styles.actionButtons}>
-                <Pressable 
-                    style={[styles.iconBtn, styles.editBtnActive]} 
+                <Pressable
+                    style={[styles.iconBtn, styles.editBtnActive]}
                     onPress={() => setEditModalVisible(true)}
                 >
                     <Edit2 color="#3b82f6" size={18} />
                 </Pressable>
-                
-                <Pressable 
+
+                <Pressable
                     style={styles.iconBtn}
                     onPress={() => setSettingsVisible(true)}
                 >
@@ -52,38 +116,36 @@ export default function ProfileScreen() {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-                {/* SECCIÓN PERFIL PRINCIPAL */}
                 <View style={styles.profileSection}>
                     <View style={styles.avatarContainer}>
                         <View style={styles.avatarBorder}>
-                            <Image
-                                source={{ uri: avatarUri }}
-                                style={styles.avatarImage}
-                            />
+                            <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
                         </View>
                         <View style={styles.levelBadge}>
-                            <Text style={styles.levelText}>5</Text>
+                            <Text style={styles.levelText}>{profile?.village.village_level ?? 1}</Text>
                         </View>
                     </View>
-                    <Text style={styles.userName}>Samurai Sensei</Text>
-                    <Text style={styles.userTag}>@samurai_warrior</Text>
+                    <Text style={styles.userName}>{profile?.username ?? 'Usuario'}</Text>
+                    <Text style={styles.userTag}>@{profile?.username ?? 'usuario'}</Text>
+                    {!!profile?.bio && <Text style={styles.bioText}>{profile.bio}</Text>}
                     <View style={styles.ratingRow}>
                         <Star color="#facc15" fill="#facc15" size={16} />
-                        <Text style={styles.ratingText}>Rating: 4.8/5.0</Text>
+                        <Text style={styles.ratingText}>{profile?.email}</Text>
                     </View>
                 </View>
 
-                {/* ESTADÍSTICAS EN GRID */}
                 <View style={styles.statsGrid}>
-                    <StatCard icon={<Trophy color="#22c55e" size={24} />} value="142" label="Pomodoros" />
-                    <StatCard icon={<Flame color="#fb923c" size={24} />} value="3 días" label="Racha Actual" />
-                    <StatCard icon={<Target color="#22c55e" size={24} />} value="#7" label="Ranking" />
-                    <StatCard icon={<Star color="#22c55e" size={24} />} value="5" label="Nivel Aldea" />
+                    <StatCard icon={<Trophy color="#22c55e" size={24} />} value={`${profile?.total_study_minutes ?? 0}m`} label="Total Estudio" />
+                    <StatCard icon={<Flame color="#fb923c" size={24} />} value={`${profile?.streak_days ?? 0} dias`} label="Racha Actual" />
+                    <StatCard icon={<Target color="#22c55e" size={24} />} value={`${profile?.weekly_stats.total_minutes ?? 0}m`} label="Semana" />
+                    <StatCard icon={<Star color="#22c55e" size={24} />} value={`${profile?.village.village_level ?? 1}`} label="Nivel Aldea" />
                 </View>
 
-                <WeeklyProgress data={[80, 50, 100, 85, 40, 5, 5]} />
+                <WeeklyProgress
+                    data={[0, 0, 0, 0, 0, 0, profile?.weekly_stats.total_minutes ?? 0]}
+                    totalMinutes={profile?.weekly_stats.total_minutes ?? 0}
+                />
 
-                {/* SECCIÓN MEDALLAS */}
                 <View style={styles.medalsSection}>
                     <View style={styles.sectionHeaderRow}>
                         <Medal color="#facc15" size={20} />
@@ -91,11 +153,11 @@ export default function ProfileScreen() {
                     </View>
                     <View style={styles.medalsGrid}>
                         {[
-                            { name: '3 Días Consecutivos', Icon: Flame, color: '#fb923c', unlocked: true },
-                            { name: 'Auditor Implacable', Icon: Target, color: '#3b82f6', unlocked: true },
-                            { name: 'Estudiante Dedicado', Icon: Medal, color: '#22c55e', unlocked: true },
+                            { name: '3 Dias Consecutivos', Icon: Flame, color: '#fb923c', unlocked: (profile?.streak_days ?? 0) >= 3 },
+                            { name: 'Auditor Implacable', Icon: Target, color: '#3b82f6', unlocked: false },
+                            { name: 'Estudiante Dedicado', Icon: Medal, color: '#22c55e', unlocked: (profile?.total_study_minutes ?? 0) > 0 },
                             { name: 'Maestro del Focus', Icon: Target, color: '#4b5563', unlocked: false },
-                            { name: 'Racha de 7 días', Icon: Zap, color: '#4b5563', unlocked: false },
+                            { name: 'Racha de 7 dias', Icon: Zap, color: '#4b5563', unlocked: (profile?.streak_days ?? 0) >= 7 },
                             { name: 'Top 3 Ranking', Icon: Crown, color: '#4b5563', unlocked: false },
                         ].map((m, i) => (
                             <View key={i} style={[styles.medalCard, !m.unlocked && { opacity: 0.4 }]}>
@@ -106,42 +168,39 @@ export default function ProfileScreen() {
                     </View>
                 </View>
 
-                {/* SECCIÓN ALDEA */}
                 <View style={styles.villageCard}>
-                    <Text style={styles.villageTitle}>Tu Aldea en Evolución</Text>
+                    <Text style={styles.villageTitle}>Tu Aldea en Evolucion</Text>
                     <View style={styles.villageMainRow}>
-                        <Image
-                            source={{ uri: 'https://i.pinimg.com/736x/f6/8b/3a/f68b3af68b3af68b3af68b3af68b3af68b3af68b3a.jpg' }}
-                            style={styles.villageImage}
-                        />
-                        {/* CAMBIADO: div por View */}
+                        <Image source={{ uri: fallbackAvatar }} style={styles.villageImage} />
                         <View style={styles.villageInfo}>
                             <View style={styles.levelRow}>
-                                <Text style={styles.levelLabelText}>Nivel 5</Text>
-                                <Text style={styles.percentageText}>40%</Text>
+                                <Text style={styles.levelLabelText}>Nivel {profile?.village.village_level ?? 1}</Text>
+                                <Text style={styles.percentageText}>{profile?.weekly_stats.total_minutes ?? 0}m</Text>
                             </View>
                             <View style={styles.progressBarBg}>
                                 <View style={[styles.progressBarFill, { width: '40%' }]} />
                             </View>
-                            <Text style={styles.nextLevelText}>2 Pomodoros más para nivel 6</Text>
+                            <Text style={styles.nextLevelText}>Tiempo semanal registrado</Text>
                         </View>
                     </View>
                 </View>
             </ScrollView>
 
-            <EditProfileModal 
-                visible={isEditModalVisible} 
+            <EditProfileModal
+                visible={isEditModalVisible}
                 onClose={() => setEditModalVisible(false)}
+                onSave={handleSaveProfile}
+                loading={saving}
                 currentData={{
-                    name: "Samurai Sensei",
-                    username: "samurai_warrior",
-                    photo: { uri: avatarUri }
+                    username: profile?.username ?? '',
+                    bio: profile?.bio ?? '',
+                    avatar_url: profile?.avatar_url ?? null,
                 }}
             />
 
-            <SettingsModal 
-                visible={isSettingsVisible} 
-                onClose={() => setSettingsVisible(false)} 
+            <SettingsModal
+                visible={isSettingsVisible}
+                onClose={() => setSettingsVisible(false)}
             />
         </ScreenLayout>
     );
@@ -154,46 +213,49 @@ const styles = StyleSheet.create({
         gap: 10,
         marginBottom: -10,
     },
-    iconBtn: { 
-        width: 40, height: 40, borderRadius: 12, 
-        backgroundColor: '#1e293b', alignItems: 'center', justifyContent: 'center' 
+    iconBtn: {
+        width: 40, height: 40, borderRadius: 12,
+        backgroundColor: '#1e293b', alignItems: 'center', justifyContent: 'center'
     },
+    loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+    loadingText: { color: '#94a3b8', fontWeight: 'bold' },
     editBtnActive: { borderColor: '#3b82f6', borderWidth: 1 },
     profileSection: { alignItems: 'center', marginBottom: 20 },
     avatarContainer: { position: 'relative' },
-    avatarBorder: { 
-        width: 150, height: 150, borderRadius: 75, 
-        borderWidth: 4, borderColor: '#facc15', padding: 5 
+    avatarBorder: {
+        width: 150, height: 150, borderRadius: 75,
+        borderWidth: 4, borderColor: '#facc15', padding: 5
     },
     avatarImage: { width: '100%', height: '100%', borderRadius: 70 },
-    levelBadge: { 
-        position: 'absolute', bottom: 5, right: 5, 
-        width: 40, height: 40, borderRadius: 20, 
-        backgroundColor: '#22c55e', borderWidth: 3, 
-        borderColor: '#0f172a', alignItems: 'center', justifyContent: 'center' 
+    levelBadge: {
+        position: 'absolute', bottom: 5, right: 5,
+        width: 40, height: 40, borderRadius: 20,
+        backgroundColor: '#22c55e', borderWidth: 3,
+        borderColor: '#0f172a', alignItems: 'center', justifyContent: 'center'
     },
     levelText: { color: 'white', fontWeight: 'bold', fontSize: 18 },
     userName: { color: 'white', fontSize: 24, fontWeight: '900', marginTop: 15 },
     userTag: { color: '#94a3b8', fontSize: 16 },
+    bioText: { color: '#cbd5e1', fontSize: 14, textAlign: 'center', marginTop: 8, paddingHorizontal: 24 },
     ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
     ratingText: { color: '#facc15', fontWeight: 'bold' },
     statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 15, justifyContent: 'center' },
-    medalsSection: { 
-        backgroundColor: '#1e293b', borderRadius: 28, 
-        padding: 20, marginBottom: 30, marginTop: 20 
+    medalsSection: {
+        backgroundColor: '#1e293b', borderRadius: 28,
+        padding: 20, marginBottom: 30, marginTop: 20
     },
     sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 15 },
     sectionTitle: { color: 'white', fontSize: 18, fontWeight: 'bold' },
     medalsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center' },
-    medalCard: { 
-        width: '30%', backgroundColor: '#0f172a', 
-        padding: 15, borderRadius: 20, alignItems: 'center', 
-        gap: 8, borderWidth: 1, borderColor: '#334155' 
+    medalCard: {
+        width: '30%', backgroundColor: '#0f172a',
+        padding: 15, borderRadius: 20, alignItems: 'center',
+        gap: 8, borderWidth: 1, borderColor: '#334155'
     },
     medalName: { color: 'white', fontSize: 10, textAlign: 'center', fontWeight: 'bold' },
-    villageCard: { 
-        backgroundColor: '#1e293b', borderRadius: 28, 
-        padding: 20, marginBottom: 40, borderWidth: 1, borderColor: '#334155' 
+    villageCard: {
+        backgroundColor: '#1e293b', borderRadius: 28,
+        padding: 20, marginBottom: 40, borderWidth: 1, borderColor: '#334155'
     },
     villageTitle: { color: 'white', fontSize: 18, fontWeight: 'bold', marginBottom: 15 },
     villageMainRow: { flexDirection: 'row', gap: 15, alignItems: 'center' },
