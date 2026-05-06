@@ -1,12 +1,33 @@
 import React, { useState } from 'react';
-import { Modal, View, Text, StyleSheet, Pressable, Switch, ScrollView } from 'react-native';
+import { Modal, View, Text, StyleSheet, Pressable, Switch, ScrollView, Alert } from 'react-native';
 import { X, ChevronRight, LogOut, Lock, Globe } from 'lucide-react-native';
+import { useAuthStore } from '../../../store/authStore';
 
 export default function SettingsModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const clearSession = useAuthStore(state => state.clearSession);
+
   const [notifications, setNotifications] = useState(true);
   const [sounds, setSounds] = useState(true);
   const [darkMode, setDarkMode] = useState(true);
   const [publicProfile, setPublicProfile] = useState(true);
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Cerrar sesion',
+      'Vas a salir de tu cuenta.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Cerrar sesion',
+          style: 'destructive',
+          onPress: () => {
+            onClose();
+            clearSession();
+          },
+        },
+      ]
+    );
+  };
 
   const SettingSwitch = ({ title, sub, value, onValueChange }: any) => (
     <View style={styles.settingCard}>
@@ -23,8 +44,8 @@ export default function SettingsModal({ visible, onClose }: { visible: boolean; 
     </View>
   );
 
-  const AccountOption = ({ title, sub, icon: Icon, isDestructive = false }: any) => (
-    <Pressable style={[styles.settingCard, isDestructive && styles.destructiveCard]}>
+  const AccountOption = ({ title, sub, icon: Icon, isDestructive = false, onPress }: any) => (
+    <Pressable style={[styles.settingCard, isDestructive && styles.destructiveCard]} onPress={onPress}>
       <View style={styles.settingInfo}>
         <Text style={[styles.settingTitle, isDestructive && styles.destructiveText]}>{title}</Text>
         <Text style={styles.settingSub}>{sub}</Text>
@@ -89,6 +110,7 @@ export default function SettingsModal({ visible, onClose }: { visible: boolean; 
               sub="Salir de tu cuenta" 
               icon={LogOut} 
               isDestructive={true} 
+              onPress={handleLogout}
             />
 
             <Text style={styles.versionText}>Versión 1.0.0</Text>

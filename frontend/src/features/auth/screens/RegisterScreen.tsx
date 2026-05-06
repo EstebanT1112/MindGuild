@@ -16,11 +16,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { User, Mail, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react-native';
 import { register } from '../services/authService';
-import { useAuthStore } from '../../../store/authStore';
 
 export default function RegisterScreen() {
     const navigation = useNavigation<any>();
-    const setSession = useAuthStore(state => state.setSession);
 
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
@@ -40,9 +38,12 @@ export default function RegisterScreen() {
 
         setLoading(true);
         try {
-            const result = await register(email.trim(), password, username.trim());
-            setSession(result.auth_user_id, result.email, result.access_token, result.profile);
-            navigation.replace('MainTabs');
+            await register(email.trim(), password, username.trim());
+            Alert.alert(
+                'Cuenta creada',
+                'Tu cuenta fue creada correctamente. Inicia sesion para continuar.',
+                [{ text: 'Iniciar sesion', onPress: () => navigation.replace('Login') }]
+            );
         } catch (error: any) {
             Alert.alert('Error al registrarse', error.message ?? 'Ocurrió un error inesperado.');
         } finally {
