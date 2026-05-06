@@ -1,5 +1,7 @@
 import { Pool } from 'pg';
-import 'dotenv/config';
+import dotenv from 'dotenv';
+
+dotenv.config({ override: true });
 
 // El pool de conexiones permite manejar múltiples peticiones a la vez
 export const pool = new Pool({

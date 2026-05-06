@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import MissionCard from "../components/MissionCard";
-import StreakCard from "../components/StreakeCard";
+import StreakCard from "../components/StreakCard";
 import MissionsModal from "../components/MissionsModal";
 
 const recentRooms = [
