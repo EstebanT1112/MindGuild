@@ -4,9 +4,10 @@ import { Zap } from 'lucide-react-native';
 
 interface WeeklyProgressProps {
   data: number[];
+  totalMinutes: number;
 }
 
-export default function WeeklyProgress({ data }: WeeklyProgressProps) {
+export default function WeeklyProgress({ data, totalMinutes }: WeeklyProgressProps) {
   const days = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
   const maxVal = 100; // Altura máxima de la barra
 
@@ -31,7 +32,7 @@ export default function WeeklyProgress({ data }: WeeklyProgressProps) {
       </View>
 
       <Text style={styles.summary}>
-        <Text style={styles.highlight}>18 Pomodoros</Text> esta semana
+        <Text style={styles.highlight}>{totalMinutes}m</Text> esta semana
       </Text>
     </View>
   );
