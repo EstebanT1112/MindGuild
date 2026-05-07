@@ -16,6 +16,7 @@ router.get('/users/me', UsersController.getMe);
 router.patch('/users/me', UsersController.updateMe);
 
 // --- ROOMS ---
+router.post('/rooms', RoomsController.createRoom);
 router.post('/rooms/leave', RoomsController.handleLeaveRoom);
 
 // --- STUDY (Módulos externos) ---
