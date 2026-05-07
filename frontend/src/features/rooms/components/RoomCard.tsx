@@ -1,17 +1,17 @@
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 
-type Room = {
-  id: number;
+export type RoomCardData = {
+  id: string;
   name: string;
   code: string;
   members: number;
   mode: string;
   ranking: number;
+  teamsEnabled?: boolean;
 };
 
-export default function RoomCard({ room, onPress }: { room: Room; onPress: () => void }) {
-  // Verificamos si es Battle Royale para el color
-  const isBR = room.mode === "Battle Royale";
+export default function RoomCard({ room, onPress }: { room: RoomCardData; onPress: () => void }) {
+  const isBR = room.mode === 'Battle Royale';
 
   return (
     <Pressable style={styles.card} onPress={onPress}>
@@ -27,16 +27,17 @@ export default function RoomCard({ room, onPress }: { room: Room; onPress: () =>
 
       <View style={styles.footer}>
         <View style={styles.left}>
-          <Text style={styles.meta}>{room.members} 👥</Text>
+          <Text style={styles.meta}>{room.members} miembros</Text>
           <Text style={[styles.meta, isBR && { color: '#a855f7', fontWeight: 'bold' }]}>{room.mode}</Text>
+          {room.teamsEnabled && <Text style={styles.teamsMeta}>Teams</Text>}
         </View>
         <View style={[
-            styles.ranking, 
-            isBR ? { backgroundColor: '#a855f722' } : { backgroundColor: "#22c55e22" }
+          styles.ranking,
+          isBR ? { backgroundColor: '#a855f722' } : { backgroundColor: '#22c55e22' },
         ]}>
           <Text style={[
-              styles.rankText, 
-              isBR ? { color: '#a855f7' } : { color: "#22c55e" }
+            styles.rankText,
+            isBR ? { color: '#a855f7' } : { color: '#22c55e' },
           ]}>
             #{room.ranking}
           </Text>
@@ -48,62 +49,67 @@ export default function RoomCard({ room, onPress }: { room: Room; onPress: () =>
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#1a1d29",
+    backgroundColor: '#1a1d29',
     padding: 14,
     borderRadius: 18,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: "#2a2f45",
+    borderColor: '#2a2f45',
   },
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginBottom: 10,
   },
   name: {
-    color: "#fff",
-    fontWeight: "bold",
+    color: '#fff',
+    fontWeight: 'bold',
     fontSize: 16,
     marginBottom: 4,
   },
   codeBox: {
-    backgroundColor: "#111",
+    backgroundColor: '#111',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
-    alignSelf: "flex-start",
+    alignSelf: 'flex-start',
   },
   code: {
-    color: "#22c55e",
+    color: '#22c55e',
     fontSize: 12,
-    fontWeight: "bold",
+    fontWeight: 'bold',
   },
   arrow: {
-    color: "#666",
+    color: '#666',
     fontSize: 20,
   },
   footer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   left: {
-    flexDirection: "row",
+    flexDirection: 'row',
     gap: 10,
   },
   meta: {
-    color: "#aaa",
+    color: '#aaa',
     fontSize: 12,
   },
+  teamsMeta: {
+    color: '#facc15',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
   ranking: {
-    backgroundColor: "#22c55e22",
+    backgroundColor: '#22c55e22',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 999,
   },
   rankText: {
-    color: "#22c55e",
+    color: '#22c55e',
     fontSize: 12,
-    fontWeight: "bold",
+    fontWeight: 'bold',
   },
 });

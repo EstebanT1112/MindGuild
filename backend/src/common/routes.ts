@@ -11,6 +11,7 @@ router.post('/auth/register', AuthController.register);
 router.get('/auth/me', AuthController.me);
 router.get('/users/me', UsersController.getMe);
 router.patch('/users/me', UsersController.updateMe);
+router.post('/rooms', RoomsController.createRoom);
 router.post('/rooms/leave', RoomsController.handleLeaveRoom);
 router.use('/study', studyRoutes);
 router.get('/ranking', RankingController.getRanking);
