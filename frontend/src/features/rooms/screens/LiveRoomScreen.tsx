@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import { ChevronRight, Info, PlayCircle, Settings, Users } from 'lucide-react-native';
@@ -19,9 +19,20 @@ export default function LiveRoomScreen() {
     const [room, setRoom] = useState<RoomDetails | null>(null);
     const [loading, setLoading] = useState(true);
 
+    // ⚡ ESTADOS PARA EL TIMER
+    const [isStudying, setIsStudying] = useState(false);
+    const [secondsLeft, setSecondsLeft] = useState(25 * 60);
+    const timerRef = useRef<any>(null);
+
     useEffect(() => {
         loadRoom();
     }, [route.params?.roomId, accessToken]);
+
+    useEffect(() => {
+        return () => {
+            if (timerRef.current) clearInterval(timerRef.current);
+        };
+    }, []);
 
     const loadRoom = async () => {
         if (!accessToken || !route.params?.roomId) return;
@@ -37,8 +48,35 @@ export default function LiveRoomScreen() {
         }
     };
 
+    const handleStartSession = () => {
+        if (isStudying) {
+            clearInterval(timerRef.current);
+            setIsStudying(false);
+            Alert.alert("Sesión pausada", "Cronómetro detenido.");
+        } else {
+            setIsStudying(true);
+            timerRef.current = setInterval(() => {
+                setSecondsLeft((prev) => {
+                    if (prev <= 1) {
+                        clearInterval(timerRef.current);
+                        setIsStudying(false);
+                        return 0;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
+        }
+    };
+
+    const formatTime = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
     if (loading) {
         return (
+            /* 🛠️ SOLUCIÓN ERROR 1: Se agrega title y configuraciones originales */
             <ScreenLayout title="SALA EN VIVO" type="rooms" icon={<Users color="#22c55e" size={22} />}>
                 <View style={styles.loadingState}>
                     <ActivityIndicator color="#22c55e" />
@@ -49,6 +87,7 @@ export default function LiveRoomScreen() {
     }
 
     return (
+        /* 🛠️ SOLUCIÓN ERROR 1: Agregadas las props originales que pide tu componente */
         <ScreenLayout
             title={room?.name ?? 'SALA EN VIVO'}
             type="rooms"
@@ -76,21 +115,27 @@ export default function LiveRoomScreen() {
                 <View style={styles.timerSection}>
                     <View style={styles.timerCircle}>
                         <PlayCircle color="#22c55e" size={32} />
-                        <Text style={styles.timerValue}>25:00</Text>
+                        <Text style={styles.timerValue}>{formatTime(secondsLeft)}</Text>
                         <Text style={styles.timerCycles}>4 ciclos</Text>
                     </View>
                 </View>
 
-                <Pressable style={styles.startBtn}>
+                <Pressable style={styles.startBtn} onPress={handleStartSession}>
                     <PlayCircle color="white" size={24} fill="white" />
-                    <Text style={styles.startBtnText}>COMENZAR SESION</Text>
+                    <Text style={styles.startBtnText}>
+                        {isStudying ? "FINALIZAR SESION" : "COMENZAR SESION"}
+                    </Text>
                 </Pressable>
 
                 <RoomRanking roomId={room?.id} />
+                
+                {/* 🛠️ SOLUCIÓN ERROR 2: Se limpia el roomId para usar tu componente original limpio */}
                 {room?.teams_enabled && <TeamsSection />}
             </ScrollView>
 
             <SessionConfigModal visible={configVisible} onClose={() => setConfigVisible(false)} />
+            
+            {/* 🛠️ SOLUCIÓN ERROR 3: Se asegura con && que room no sea null al renderizar el modal */}
             {room && (
                 <RoomInfoModal
                     visible={infoVisible}
