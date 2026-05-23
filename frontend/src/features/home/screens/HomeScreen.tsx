@@ -1,24 +1,51 @@
-import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useState, useEffect } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import axios from 'axios';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import MissionCard from "../components/MissionCard";
 import StreakCard from "../components/StreakCard";
 import MissionsModal from "../components/MissionsModal";
+
+// 🌐 CONFIGURACIÓN DEL BACKEND (Modificar acá según tu entorno local)
+const API_BASE_URL = 'http://192.168.100.201:3000'; 
 
 const recentRooms = [
   { id: 1, name: "Cálculo I - Final", code: "CALC-7X9P", mode: "Supervivencia", members: 5, ranking: 2 },
   { id: 2, name: "Física II", code: "FIS2-A4B1", mode: "Supervivencia", members: 8, ranking: 3 },
 ];
 
-const missions = [
-  { id: 1, title: "Estudia 5 horas", progress: 3.5, target: 5 },
-  { id: 2, title: "3 pomodoros hoy", progress: 1, target: 3 },
-];
-
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
   const [missionsVisible, setMissionsVisible] = useState(false);
+  
+  // Estado dinámico para guardar las misiones que devuelva tu Backend
+  const [activeMissions, setActiveMissions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // useEffect para pegarle a tu API apenas se abra el Home
+  useEffect(() => {
+    axios.get(`${API_BASE_URL}/api/missions`)
+      .then(response => {
+        if (response.data.success) {
+          // Adaptamos la respuesta del backend para que coincida con las propiedades que espera tu MissionCard
+          const mappedMissions = response.data.data.map((m: any) => ({
+            id: m.user_mission_id,
+            title: m.title,
+            progress: m.progress,
+            target: m.target_value,
+            completed: m.completed
+          }));
+          setActiveMissions(mappedMissions);
+        }
+      })
+      .catch(err => {
+        console.error("❌ Error conectando con el backend de misiones:", err);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
 
   const handleRoomPress = (room: any) => {
     navigation.navigate('Salas', {
@@ -52,13 +79,21 @@ export default function HomeScreen() {
         ))}
 
         <Text style={styles.section}>MISIONES ACTIVAS</Text>
-        {missions.map((m) => (
-          <MissionCard
-            key={m.id}
-            mission={m}
-            onPress={() => setMissionsVisible(true)}
-          />
-        ))}
+        
+        {/* Renderizado Condicional: Mientras carga o si muestra los datos reales */}
+        {loading ? (
+          <ActivityIndicator size="small" color="#22c55e" style={{ marginTop: 10 }} />
+        ) : activeMissions.length === 0 ? (
+          <Text style={styles.emptyText}>No hay misiones asignadas para hoy.</Text>
+        ) : (
+          activeMissions.map((m) => (
+            <MissionCard
+              key={m.id}
+              mission={m}
+              onPress={() => setMissionsVisible(true)}
+            />
+          ))
+        )}
 
         <MissionsModal
           visible={missionsVisible}
@@ -104,4 +139,5 @@ const styles = StyleSheet.create({
   rankBadge: { backgroundColor: "#22c55e22", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
   rankText: { color: "#22c55e", fontSize: 12, fontWeight: "bold" },
   arrow: { color: "#666", fontSize: 20 },
+  emptyText: { color: "#64748b", fontSize: 13, textAlign: 'center', marginTop: 10 },
 });
