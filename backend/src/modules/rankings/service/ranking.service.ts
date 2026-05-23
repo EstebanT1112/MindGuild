@@ -10,8 +10,8 @@ export const rankingsService = {
       }
     }
 
-    // Usamos this para llamar a la función interna del objeto
-    const weekYear = this.getCurrentWeekYear();
+    // FIX: Cambiamos "this" por el nombre del objeto para fijar el contexto puro
+    const weekYear = rankingsService.getCurrentWeekYear();
 
     const rawData = await rankingsRepository.getRankingData(type, weekYear, roomId);
 
@@ -39,7 +39,6 @@ export const rankingsService = {
     };
   },
 
-  // LE SACAMOS EL PRIVATE: Ahora es una función normal del objeto
   getCurrentWeekYear(): string {
     const now = new Date();
     const oneJan = new Date(now.getFullYear(), 0, 1);
