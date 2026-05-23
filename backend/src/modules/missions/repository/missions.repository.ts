@@ -47,7 +47,6 @@ export const missionsRepository = {
     if (missionIds.length === 0) return;
 
     // Construimos una inserción masiva dinámica utilizando placeholders ($1, $2, etc.)
-    // Ejemplo resultante: INSERT INTO user_missions (user_id, mission_id) VALUES ($1, $2), ($1, $3)...
     const values: any[] = [];
     const valueStrings: string[] = [];
     
@@ -91,5 +90,33 @@ export const missionsRepository = {
     `;
     const { rows } = await pool.query(query, [userId]);
     return rows;
+  },
+
+  /**
+   * 4. PROMPT 2: Incrementa el progreso de las misiones de un tipo específico para un usuario.
+   * Modifica 'progreso', y evalúa dinámicamente si llegó al 'target_value' de la misión
+   * para actualizar 'completado' y 'completed_at' de forma automática.
+   */
+  async updateMissionProgress(userId: string, missionType: string, incrementValue: number): Promise<void> {
+    const query = `
+      UPDATE user_misiones um
+      SET 
+        progreso = um.progreso + $3,
+        completado = CASE 
+          WHEN (um.progreso + $3) >= m.target_value THEN true 
+          ELSE um.completado 
+        END,
+        completed_at = CASE 
+          WHEN (um.progreso + $3) >= m.target_value AND um.completado = false THEN NOW() 
+          ELSE um.completed_at 
+        END
+      FROM misiones m
+      WHERE um.mision_id = m.id
+        AND um.user_id = $1
+        AND m.type = $2
+        AND um.completado = false;
+    `;
+    
+    await pool.query(query, [userId, missionType, incrementValue]);
   }
 };
