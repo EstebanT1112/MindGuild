@@ -29,6 +29,13 @@ export interface RoomDetails extends CreatedRoom {
   members: RoomMember[];
 }
 
+export interface RoomTimeRankingEntry {
+  user_id: string;
+  username: string;
+  avatar_url: string | null;
+  total_minutes: number;
+}
+
 export interface JoinedRoom extends CreatedRoom {
   membership_status: 'new' | 'reactivate';
 }
@@ -104,6 +111,25 @@ export async function fetchRoomDetails(
 
   if (!response.ok) {
     throw new Error(data.error ?? 'No se pudo cargar la sala');
+  }
+
+  return data;
+}
+
+export async function fetchRoomTimeRanking(
+  accessToken: string,
+  roomId: string
+): Promise<RoomTimeRankingEntry[]> {
+  const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/rankings/time`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo cargar el ranking');
   }
 
   return data;
