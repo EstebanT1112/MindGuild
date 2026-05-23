@@ -3,7 +3,7 @@ import { AuthController } from '../modules/auth/controller/auth.controller.js';
 import { RoomsController } from '../modules/rooms/controller/rooms.controller.js';
 import { UsersController } from '../modules/users/controller/users.controller.js';
 import { rankingsController } from '../modules/rankings/controller/ranking.controller.js';
-import { missionsController } from '../modules/missions/controller/missions.controller.js';
+import { missionsController } from '../modules/missions/controller/missions.controller.js'; // Importación de tu controlador
 import studyRoutes from '../modules/study/study.routes.js';
 
 const router = Router();
@@ -30,7 +30,10 @@ router.use('/study', studyRoutes);
 // --- RANKINGS ---
 router.get('/ranking', rankingsController.getRanking);
 
-// Endpoint para obtener y asignar misiones diarias
+// --- MISIONES (RF-12) ---
+// Endpoint para obtener y asignar misiones diarias (Prompt 1)
 router.get('/missions', missionsController.getUserMissions);
+// Endpoint para actualizar el progreso de una misión (Prompt 2)
+router.post('/missions/progress', missionsController.updateUserMissionProgress);
 
 export default router;
