@@ -5,7 +5,11 @@ import {
   RoomValidationError,
   type CreateRoomDTO,
   type CreatedRoom,
+  type JoinedRoom,
+  type MembershipJoinStatus,
+  type RoomDetails,
   type RoomMode,
+  type UserRoom,
 } from '../types/rooms.types.js';
 
 const VALID_ROOM_MODES: RoomMode[] = ['survival', 'battle_royale'];
@@ -41,6 +45,61 @@ export const RoomsService = {
 
     return { success: true, message: 'Salida de sala procesada con exito' };
   },
+
+  async joinRoom(userId: string, inviteCode: string): Promise<JoinedRoom> {
+    const normalizedCode = normalizeInviteCode(inviteCode);
+
+    if (!normalizedCode) {
+      throw new RoomValidationError('El codigo de invitacion es requerido');
+    }
+
+    const room = await RoomsRepository.findActiveRoomByInviteCode(normalizedCode);
+
+    if (!room || !room.is_active) {
+      throw new RoomNotFoundError('Codigo de invitacion invalido o sala inactiva');
+    }
+
+    const membershipStatus = await validateJoinConditions(userId, room.id, room.max_members);
+
+    try {
+      return await RoomsRepository.joinRoom(room, userId, membershipStatus);
+    } catch (error: any) {
+      if (error?.code === '23505') {
+        throw new RoomConflictError('El usuario ya pertenece a la sala');
+      }
+
+      throw error;
+    }
+  },
+
+  async getMyRooms(userId: string): Promise<UserRoom[]> {
+    return RoomsRepository.findActiveRoomsByUserId(userId);
+  },
+
+  async getRoomDetails(userId: string, roomId: string): Promise<RoomDetails> {
+    if (!roomId) {
+      throw new RoomValidationError('roomId es requerido');
+    }
+
+    const membership = await RoomsRepository.findMembership(roomId, userId);
+
+    if (!membership?.is_active) {
+      throw new RoomConflictError('No tenes acceso a esta sala');
+    }
+
+    const room = await RoomsRepository.findActiveRoomById(roomId);
+
+    if (!room || !room.is_active) {
+      throw new RoomNotFoundError('Sala no encontrada o inactiva');
+    }
+
+    const members = await RoomsRepository.getActiveMembers(roomId);
+
+    return {
+      ...room,
+      members,
+    };
+  },
 };
 
 function normalizeCreateRoomInput(input: Partial<CreateRoomDTO>): CreateRoomDTO {
@@ -63,4 +122,28 @@ function validateCreateRoomInput(input: CreateRoomDTO) {
   if (!VALID_ROOM_MODES.includes(input.mode)) {
     throw new RoomValidationError('El modo de sala no es valido');
   }
+}
+
+async function validateJoinConditions(
+  userId: string,
+  roomId: string,
+  maxMembers: number
+): Promise<MembershipJoinStatus> {
+  const membership = await RoomsRepository.findMembership(roomId, userId);
+
+  if (membership?.is_active) {
+    throw new RoomConflictError('Ya perteneces a esta sala');
+  }
+
+  const activeMembersCount = await RoomsRepository.countActiveMembers(roomId);
+
+  if (activeMembersCount >= maxMembers) {
+    throw new RoomConflictError('La sala esta llena');
+  }
+
+  return membership ? 'reactivate' : 'new';
+}
+
+function normalizeInviteCode(inviteCode: string): string {
+  return (inviteCode ?? '').trim().toUpperCase();
 }

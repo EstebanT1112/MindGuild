@@ -16,8 +16,12 @@ router.get('/users/me', UsersController.getMe);
 router.patch('/users/me', UsersController.updateMe);
 
 // --- ROOMS ---
+router.get('/rooms/me', RoomsController.getMyRooms);
 router.post('/rooms', RoomsController.createRoom);
+router.post('/rooms/join', RoomsController.joinRoom);
 router.post('/rooms/leave', RoomsController.handleLeaveRoom);
+router.get('/rooms/:roomId/rankings/time', rankingsController.getRoomTimeRanking);
+router.get('/rooms/:roomId', RoomsController.getRoomDetails);
 
 // --- STUDY (Módulos externos) ---
 router.use('/study', studyRoutes);

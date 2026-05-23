@@ -1,14 +1,20 @@
 import React, { useState } from 'react';
-import { Modal, View, Text, StyleSheet, TextInput, Pressable } from 'react-native';
+import { ActivityIndicator, Modal, View, Text, StyleSheet, TextInput, Pressable } from 'react-native';
 import { X } from 'lucide-react-native';
 
 interface Props {
   visible: boolean;
+  loading?: boolean;
   onClose: () => void;
+  onJoin: (inviteCode: string) => void;
 }
 
-export default function JoinRoomModal({ visible, onClose }: Props) {
+export default function JoinRoomModal({ visible, loading = false, onClose, onJoin }: Props) {
   const [code, setCode] = useState('');
+
+  const handleJoin = () => {
+    onJoin(code);
+  };
 
   return (
     <Modal visible={visible} animationType="fade" transparent>
@@ -16,25 +22,34 @@ export default function JoinRoomModal({ visible, onClose }: Props) {
         <View style={styles.modalContent}>
           <View style={styles.header}>
             <Text style={styles.title}>Unirse a Sala</Text>
-            <Pressable onPress={onClose} style={styles.closeBtn}>
+            <Pressable onPress={onClose} style={styles.closeBtn} disabled={loading}>
               <X color="white" size={20} />
             </Pressable>
           </View>
 
           <View style={styles.form}>
-            <Text style={styles.label}>Código de Invitación</Text>
-            <TextInput 
-              style={styles.input} 
-              placeholder="EJ: CALC-7X9P"
+            <Text style={styles.label}>Codigo de Invitacion</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="EJ: ABCD1234"
               placeholderTextColor="#64748b"
               autoCapitalize="characters"
               value={code}
               onChangeText={setCode}
+              editable={!loading}
             />
           </View>
 
-          <Pressable style={styles.joinBtn} onPress={onClose}>
-            <Text style={styles.joinBtnText}>Unirse</Text>
+          <Pressable
+            style={[styles.joinBtn, loading && { opacity: 0.7 }]}
+            onPress={handleJoin}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.joinBtnText}>Unirse</Text>
+            )}
           </Pressable>
         </View>
       </View>
@@ -52,5 +67,5 @@ const styles = StyleSheet.create({
   label: { color: '#94a3b8', fontSize: 14, fontWeight: 'bold', marginBottom: 12 },
   input: { backgroundColor: '#0f172a', color: 'white', borderRadius: 15, padding: 18, fontSize: 16, borderWidth: 1, borderColor: '#334155', textAlign: 'center', letterSpacing: 2 },
   joinBtn: { backgroundColor: '#3b82f6', borderRadius: 18, padding: 18, alignItems: 'center' },
-  joinBtnText: { color: 'white', fontWeight: 'bold', fontSize: 18 }
+  joinBtnText: { color: 'white', fontWeight: 'bold', fontSize: 18 },
 });
