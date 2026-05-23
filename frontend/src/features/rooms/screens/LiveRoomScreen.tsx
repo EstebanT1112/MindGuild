@@ -4,6 +4,7 @@ import { useRoute } from '@react-navigation/native';
 import { ChevronRight, Info, PlayCircle, Settings, Users } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { useAuthStore } from '../../../store/authStore';
+import LeaveRoomButton from '../components/LeaveRoomButton';
 import RoomInfoModal from '../components/RoomInfoModal';
 import RoomRanking from '../components/RoomRanking';
 import SessionConfigModal, { type SessionConfigData } from '../components/SessionConfigModal';
@@ -175,6 +176,7 @@ export default function LiveRoomScreen() {
 
                 <RoomRanking roomId={room?.id} />
                 {room?.teams_enabled && <TeamsSection />}
+                <LeaveRoomButton roomId={room?.id} />
             </ScrollView>
 
             <SessionConfigModal
