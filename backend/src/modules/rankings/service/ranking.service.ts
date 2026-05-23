@@ -16,8 +16,8 @@ export const rankingsService = {
         throw new Error('No tienes acceso al ranking de esta sala');
       }
     }
-
-    const weekYear = this.getCurrentWeekYear();
+    // FIX: Cambiamos "this" por el nombre del objeto para fijar el contexto puro
+    const weekYear = rankingsService.getCurrentWeekYear();
     const rawData = await rankingsRepository.getRankingData(type, weekYear, roomId);
 
     const formattedRanking: RankingEntry[] = rawData.map((item, index) => {

@@ -3,12 +3,14 @@ import dotenv from 'dotenv';
 
 dotenv.config({ override: true });
 
-// El pool de conexiones permite manejar múltiples peticiones a la vez
 export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false // Requerido para conexiones seguras con Supabase
-  }
+  // En lugar de usar connectionString, desarmamos los datos para ir a lo seguro:
+  user: 'postgres.plqszirpxyeecygatoeq',
+  host: 'aws-1-us-west-2.pooler.supabase.com',
+  database: 'postgres',
+  password: '@Casarodry1', // Tu contraseña directa libre de errores de parseo
+  port: 6543,
+  ssl: false // Mantenemos el fix anterior sin SSL
 });
 
 // Test de conexión rápido

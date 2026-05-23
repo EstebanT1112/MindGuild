@@ -20,21 +20,31 @@ export default function RankingScreen() {
   };
 
   useEffect(() => {
-    const loadRanking = async () => {
-      setLoading(true);
-      try {
-        const type = tabTypeMap[activeTab];
-        const result = await fetchRanking(type);
-        setData(result);
-      } catch (error) {
-        console.error("Error al cargar ranking:", error);
-      } finally {
-        setLoading(false);
+  const loadRanking = async () => {
+    setLoading(true);
+    try {
+      const type = tabTypeMap[activeTab];
+      const response: any = await fetchRanking(type);
+      
+      // DESEMPAQUETAMOS LA DATA CON SEGURIDAD:
+      // Buscamos response.data.data porque el controller envuelve el resultado en .data 
+      // y el service vuelve a envolver la lista en .data
+      if (response && response.data && Array.isArray(response.data.data)) {
+        setData(response.data.data);
+      } else if (response && Array.isArray(response.data)) {
+        setData(response.data);
+      } else {
+        setData([]);
       }
-    };
+    } catch (error) {
+      console.error("Error al cargar ranking:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    loadRanking();
-  }, [activeTab]); // Se dispara cada vez que tocas una pestaña
+  loadRanking();
+}, [activeTab]);
 
   const tabs = [
     { name: 'Semanal', icon: Clock },
