@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import axios from 'axios';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import MissionCard from "../components/MissionCard";
 import StreakCard from "../components/StreakCard";
 import MissionsModal from "../components/MissionsModal";
+import { API_BASE_URL } from '../../../services/apiConfig';
 
 // 🌐 CONFIGURACIÓN DEL BACKEND (Modificar acá según tu entorno local)
-const API_BASE_URL = 'http://192.168.100.201:3000'; 
 
 const recentRooms = [
   { id: 1, name: "Cálculo I - Final", code: "CALC-7X9P", mode: "Supervivencia", members: 5, ranking: 2 },
@@ -25,11 +24,12 @@ export default function HomeScreen() {
 
   // useEffect para pegarle a tu API apenas se abra el Home
   useEffect(() => {
-    axios.get(`${API_BASE_URL}/api/missions`)
-      .then(response => {
-        if (response.data.success) {
+    fetch(`${API_BASE_URL}/missions`)
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
           // Adaptamos la respuesta del backend para que coincida con las propiedades que espera tu MissionCard
-          const mappedMissions = response.data.data.map((m: any) => ({
+          const mappedMissions = data.data.map((m: any) => ({
             id: m.user_mission_id,
             title: m.title,
             progress: m.progress,
