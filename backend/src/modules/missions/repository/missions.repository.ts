@@ -6,7 +6,7 @@ export interface Mission {
   description: string;
   type: string;
   target_value: number;
-  coin_reward: number;
+  reward_coins: number;
   active: boolean;
   sort_order: number;
 }
@@ -24,13 +24,12 @@ export interface UserMission {
 
 export const missionsRepository = {
   /**
-   * 1. Consulta todas las misiones configuradas como activas en el sistema,
-   * ordenadas secuencialmente por su prioridad de orden.
+   * 1. Consulta todas las misiones activas en el sistema.
    */
   async getActiveMissions(): Promise<Mission[]> {
     const query = `
-      SELECT id, title, description, type, target_value, coin_reward, active, sort_order
-      FROM misiones
+      SELECT id, title, description, type, target_value, reward_coins, active, sort_order
+      FROM missions
       WHERE active = true
       ORDER BY sort_order ASC;
     `;
@@ -40,13 +39,14 @@ export const missionsRepository = {
 
   /**
    * 2. Asigna una lista de misiones a un usuario específico.
-   * Utiliza ON CONFLICT DO NOTHING para asegurar que si el usuario ya tenía asignada
-   * esa misión el día de hoy, no se duplique ni rompa la base de datos.
+   */
+  /**
+   * 2. Asigna una lista de misiones a un usuario específico.
+   * CORREGIDO: Removidas columnas con default del TARGET del INSERT para coincidir con las expresiones de los parámetros.
    */
   async assignMissionsToUser(userId: string, missionIds: string[]): Promise<void> {
     if (missionIds.length === 0) return;
 
-    // Construimos una inserción masiva dinámica utilizando placeholders ($1, $2, etc.)
     const values: any[] = [];
     const valueStrings: string[] = [];
     
@@ -57,34 +57,33 @@ export const missionsRepository = {
       paramIndex += 2;
     }
 
+    // Al dejar solo user_id y mission_id, coincide 1:1 con el par de parámetros enviados en el loop
     const query = `
-      INSERT INTO user_misiones (user_id, mision_id, progreso, completado, claimed)
+      INSERT INTO user_missions (user_id, mission_id)
       VALUES ${valueStrings.join(', ')}
-      ON CONFLICT (user_id, mision_id) DO NOTHING;
+      ON CONFLICT (user_id, mission_id) DO NOTHING;
     `;
 
     await pool.query(query, values);
   },
-
   /**
-   * 3. Obtiene el listado de misiones actuales del usuario con el detalle global cruzado
-   * mediante un INNER JOIN para poder mostrar títulos y descripciones en el celular.
+   * 3. Obtiene el listado de misiones del usuario con el detalle global cruzado.
    */
   async getUserMissionsWithDetails(userId: string): Promise<any[]> {
     const query = `
       SELECT 
         um.id as user_mission_id,
-        um.progreso,
-        um.completado,
+        um.progress,
+        um.completed,
         um.claimed,
         m.id as mission_id,
         m.title,
         m.description,
         m.type,
         m.target_value,
-        m.coin_reward
-      FROM user_misiones um
-      INNER JOIN misiones m ON um.mision_id = m.id
+        m.reward_coins
+      FROM user_missions um
+      INNER JOIN missions m ON um.mission_id = m.id
       WHERE um.user_id = $1
       ORDER BY m.sort_order ASC;
     `;
@@ -93,28 +92,26 @@ export const missionsRepository = {
   },
 
   /**
-   * 4. PROMPT 2: Incrementa el progreso de las misiones de un tipo específico para un usuario.
-   * Modifica 'progreso', y evalúa dinámicamente si llegó al 'target_value' de la misión
-   * para actualizar 'completado' y 'completed_at' de forma automática.
+   * 4. PROMPT 2: Incrementa el progreso de las misiones.
    */
   async updateMissionProgress(userId: string, missionType: string, incrementValue: number): Promise<void> {
     const query = `
-      UPDATE user_misiones um
+      UPDATE user_missions um
       SET 
-        progreso = um.progreso + $3,
-        completado = CASE 
-          WHEN (um.progreso + $3) >= m.target_value THEN true 
-          ELSE um.completado 
+        progress = um.progress + $3,
+        completed = CASE 
+          WHEN (um.progress + $3) >= m.target_value THEN true 
+          ELSE um.completed 
         END,
         completed_at = CASE 
-          WHEN (um.progreso + $3) >= m.target_value AND um.completado = false THEN NOW() 
+          WHEN (um.progress + $3) >= m.target_value AND um.completed = false THEN NOW() 
           ELSE um.completed_at 
         END
-      FROM misiones m
-      WHERE um.mision_id = m.id
+      FROM missions m
+      WHERE um.mission_id = m.id
         AND um.user_id = $1
         AND m.type = $2
-        AND um.completado = false;
+        AND um.completed = false;
     `;
     
     await pool.query(query, [userId, missionType, incrementValue]);
@@ -122,15 +119,13 @@ export const missionsRepository = {
 
   /**
    * 5. PROMPT 3: Reset diario global de misiones.
-   * Devuelve a cero absoluto el progreso, estados de completado y de premios reclamados
-   * para todos los registros del sistema masivamente.
    */
   async resetDailyMissions(): Promise<void> {
     const query = `
-      UPDATE user_misiones
+      UPDATE user_missions
       SET 
-        progreso = 0,
-        completado = false,
+        progress = 0,
+        completed = false,
         completed_at = NULL,
         claimed = false,
         claimed_at = NULL;
