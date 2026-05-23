@@ -5,6 +5,8 @@ import type {
   JoinableRoom,
   JoinedRoom,
   MembershipJoinStatus,
+  RoomDetails,
+  RoomMember,
   UserRoom,
 } from '../types/rooms.types.js';
 
@@ -105,6 +107,43 @@ export const RoomsRepository = {
     );
 
     return rows as UserRoom[];
+  },
+
+  async findActiveRoomById(roomId: string): Promise<Omit<RoomDetails, 'members'> | null> {
+    const { rows } = await pool.query(
+      `
+        SELECT id, name, mode, invite_code, owner_id, max_members, is_active, teams_enabled
+        FROM rooms
+        WHERE id = $1
+        LIMIT 1;
+      `,
+      [roomId]
+    );
+
+    return (rows[0] as Omit<RoomDetails, 'members'> | undefined) ?? null;
+  },
+
+  async getActiveMembers(roomId: string): Promise<RoomMember[]> {
+    const { rows } = await pool.query(
+      `
+        SELECT
+          p.id,
+          p.username,
+          p.avatar_url,
+          rm.role
+        FROM room_members rm
+        JOIN profiles p ON p.id = rm.user_id
+        WHERE rm.room_id = $1
+          AND rm.is_active = true
+          AND p.is_active = true
+        ORDER BY
+          CASE WHEN rm.role = 'owner' THEN 0 ELSE 1 END,
+          rm.joined_at ASC;
+      `,
+      [roomId]
+    );
+
+    return rows as RoomMember[];
   },
 
   async findActiveRoomByInviteCode(inviteCode: string): Promise<JoinableRoom | null> {

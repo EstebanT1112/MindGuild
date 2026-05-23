@@ -7,6 +7,7 @@ import {
   type CreatedRoom,
   type JoinedRoom,
   type MembershipJoinStatus,
+  type RoomDetails,
   type RoomMode,
   type UserRoom,
 } from '../types/rooms.types.js';
@@ -73,6 +74,31 @@ export const RoomsService = {
 
   async getMyRooms(userId: string): Promise<UserRoom[]> {
     return RoomsRepository.findActiveRoomsByUserId(userId);
+  },
+
+  async getRoomDetails(userId: string, roomId: string): Promise<RoomDetails> {
+    if (!roomId) {
+      throw new RoomValidationError('roomId es requerido');
+    }
+
+    const membership = await RoomsRepository.findMembership(roomId, userId);
+
+    if (!membership?.is_active) {
+      throw new RoomConflictError('No tenes acceso a esta sala');
+    }
+
+    const room = await RoomsRepository.findActiveRoomById(roomId);
+
+    if (!room || !room.is_active) {
+      throw new RoomNotFoundError('Sala no encontrada o inactiva');
+    }
+
+    const members = await RoomsRepository.getActiveMembers(roomId);
+
+    return {
+      ...room,
+      members,
+    };
   },
 };
 

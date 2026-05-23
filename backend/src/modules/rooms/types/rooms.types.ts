@@ -27,6 +27,17 @@ export interface UserRoom extends CreatedRoom {
   role: string;
 }
 
+export interface RoomMember {
+  id: string;
+  username: string;
+  avatar_url: string | null;
+  role: string;
+}
+
+export interface RoomDetails extends CreatedRoom {
+  members: RoomMember[];
+}
+
 export interface JoinableRoom {
   id: string;
   name: string;

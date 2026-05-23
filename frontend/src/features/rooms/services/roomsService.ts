@@ -18,6 +18,17 @@ export interface UserRoom extends CreatedRoom {
   role: string;
 }
 
+export interface RoomMember {
+  id: string;
+  username: string;
+  avatar_url: string | null;
+  role: string;
+}
+
+export interface RoomDetails extends CreatedRoom {
+  members: RoomMember[];
+}
+
 export interface JoinedRoom extends CreatedRoom {
   membership_status: 'new' | 'reactivate';
 }
@@ -74,6 +85,25 @@ export async function fetchMyRooms(accessToken: string): Promise<UserRoom[]> {
 
   if (!response.ok) {
     throw new Error(data.error ?? 'No se pudieron cargar las salas');
+  }
+
+  return data;
+}
+
+export async function fetchRoomDetails(
+  accessToken: string,
+  roomId: string
+): Promise<RoomDetails> {
+  const response = await fetch(`${API_BASE_URL}/rooms/${roomId}`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo cargar la sala');
   }
 
   return data;
