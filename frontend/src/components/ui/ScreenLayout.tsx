@@ -8,9 +8,10 @@ interface Props {
   title: string;
   type?: 'home' | 'rooms' | 'rankings' | 'friends' | 'profiles' | 'auth' ;
   icon?: React.ReactNode;
+  rightAction?: React.ReactNode;
 }
 
-export default function ScreenLayout({ children, title, type = 'rooms', icon }: Props) {
+export default function ScreenLayout({ children, title, type = 'rooms', icon, rightAction }: Props) {
   const navigation = useNavigation<any>();
 
   // Configuración del botón izquierdo (Avatar o Volver)
@@ -52,10 +53,12 @@ export default function ScreenLayout({ children, title, type = 'rooms', icon }: 
             <Text style={[styles.headerText, type === 'home' && styles.headerText]}>{title}</Text>
           </View>
 
-          <View style={styles.coinBadge}>
-            <View style={styles.hCoin}><Text style={styles.hText}>H</Text></View>
-            <Text style={styles.coinAmount}>1,250</Text>
-          </View>
+          {rightAction ?? (
+            <View style={styles.coinBadge}>
+              <View style={styles.hCoin}><Text style={styles.hText}>H</Text></View>
+              <Text style={styles.coinAmount}>1,250</Text>
+            </View>
+          )}
         </View>
 
         {/* CONTENIDO (Con el padding que te gusta) */}
