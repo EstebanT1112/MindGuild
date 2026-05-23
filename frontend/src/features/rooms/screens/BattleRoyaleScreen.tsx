@@ -89,7 +89,7 @@ export default function BattleRoyaleScreen() {
                     <Text style={styles.startBtnText}>COMENZAR SESION</Text>
                 </Pressable>
 
-                <RoomRanking />
+                <RoomRanking roomId={room?.id} />
 
                 <Text style={styles.sectionLabel}>QUIZ SEMANAL</Text>
                 <Pressable style={styles.quizBtn} onPress={() => setQuizVisible(true)}>

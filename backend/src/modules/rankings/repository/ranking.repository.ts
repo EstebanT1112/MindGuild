@@ -1,6 +1,15 @@
 import { pool } from '../../../common/config/db.js';
 
 export const rankingsRepository = {
+  async roomExists(roomId: string): Promise<boolean> {
+    const { rows } = await pool.query(
+      `SELECT 1 FROM rooms WHERE id = $1 LIMIT 1;`,
+      [roomId]
+    );
+
+    return rows.length > 0;
+  },
+
   // RF-11: Validar si el usuario es miembro activo de la sala
   async getMemberStatus(roomId: string, userId: string) {
     const { rows } = await pool.query(
@@ -53,6 +62,30 @@ export const rankingsRepository = {
 
     const params = roomId ? [weekYear, roomId] : [weekYear];
     const { rows } = await pool.query(query, params);
+    return rows;
+  },
+
+  async getRoomTimeRanking(roomId: string) {
+    const { rows } = await pool.query(
+      `
+        SELECT
+          p.id AS user_id,
+          p.username,
+          p.avatar_url,
+          COALESCE(SUM(rws.total_minutes), 0)::int AS total_minutes
+        FROM room_members rm
+        JOIN profiles p ON p.id = rm.user_id
+        LEFT JOIN room_user_weekly_stats rws
+          ON rws.user_id = rm.user_id
+          AND rws.room_id = rm.room_id
+        WHERE rm.room_id = $1
+          AND rm.is_active = true
+        GROUP BY p.id, p.username, p.avatar_url
+        ORDER BY total_minutes DESC;
+      `,
+      [roomId]
+    );
+
     return rows;
   }
 };

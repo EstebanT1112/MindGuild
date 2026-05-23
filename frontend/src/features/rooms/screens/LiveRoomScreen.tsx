@@ -86,7 +86,7 @@ export default function LiveRoomScreen() {
                     <Text style={styles.startBtnText}>COMENZAR SESION</Text>
                 </Pressable>
 
-                <RoomRanking />
+                <RoomRanking roomId={room?.id} />
                 {room?.teams_enabled && <TeamsSection />}
             </ScrollView>
 
