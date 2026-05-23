@@ -1,20 +1,38 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Plus, Users } from 'lucide-react-native';
+import { LogIn, Plus, Users } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { useAuthStore } from '../../../store/authStore';
 import RoomCard, { type RoomCardData } from '../components/RoomCard';
 import CreateRoomModal from '../components/CreateRoomModal';
-import { createRoom, type CreatedRoom, type RoomMode } from '../services/roomsService';
+import JoinRoomModal from '../components/JoinRoomModal';
+import { createRoom, fetchMyRooms, joinRoom, type CreatedRoom, type RoomMode, type UserRoom } from '../services/roomsService';
 
 export default function RoomsScreen() {
     const navigation = useNavigation<any>();
     const accessToken = useAuthStore(state => state.access_token);
 
     const [createVisible, setCreateVisible] = useState(false);
+    const [joinVisible, setJoinVisible] = useState(false);
     const [creating, setCreating] = useState(false);
+    const [joining, setJoining] = useState(false);
     const [myRooms, setMyRooms] = useState<RoomCardData[]>([]);
+
+    useEffect(() => {
+        loadRooms();
+    }, [accessToken]);
+
+    const loadRooms = async () => {
+        if (!accessToken) return;
+
+        try {
+            const rooms = await fetchMyRooms(accessToken);
+            setMyRooms(rooms.map(mapUserRoomToCard));
+        } catch (error: any) {
+            Alert.alert('Error al cargar salas', error.message ?? 'No se pudieron cargar tus salas.');
+        }
+    };
 
     const handleCreateRoom = async (input: { name: string; mode: RoomMode; teams_enabled: boolean }) => {
         if (!accessToken) return;
@@ -32,6 +50,22 @@ export default function RoomsScreen() {
         }
     };
 
+    const handleJoinRoom = async (inviteCode: string) => {
+        if (!accessToken) return;
+
+        setJoining(true);
+        try {
+            const room = await joinRoom(accessToken, inviteCode);
+            setMyRooms(currentRooms => [mapCreatedRoomToCard(room), ...currentRooms]);
+            setJoinVisible(false);
+            Alert.alert('Te uniste a la sala', room.name);
+        } catch (error: any) {
+            Alert.alert('Error al unirse', error.message ?? 'No se pudo unir a la sala.');
+        } finally {
+            setJoining(false);
+        }
+    };
+
     return (
         <ScreenLayout
             title="MIS SALAS"
@@ -41,6 +75,11 @@ export default function RoomsScreen() {
             <Pressable style={styles.createMainBtn} onPress={() => setCreateVisible(true)}>
                 <Plus color="white" size={24} />
                 <Text style={styles.createBtnText}>Crear Nueva Sala</Text>
+            </Pressable>
+
+            <Pressable style={styles.joinMainBtn} onPress={() => setJoinVisible(true)}>
+                <LogIn color="#3b82f6" size={22} />
+                <Text style={styles.joinBtnText}>Unirse con Codigo</Text>
             </Pressable>
 
             <ScrollView showsVerticalScrollIndicator={false} style={styles.scroll}>
@@ -67,6 +106,12 @@ export default function RoomsScreen() {
                 onCreate={handleCreateRoom}
                 loading={creating}
             />
+            <JoinRoomModal
+                visible={joinVisible}
+                onClose={() => setJoinVisible(false)}
+                onJoin={handleJoinRoom}
+                loading={joining}
+            />
         </ScreenLayout>
     );
 }
@@ -77,6 +122,18 @@ function mapCreatedRoomToCard(room: CreatedRoom): RoomCardData {
         name: room.name,
         code: room.invite_code,
         members: 1,
+        mode: room.mode === 'battle_royale' ? 'Battle Royale' : 'Supervivencia',
+        ranking: 1,
+        teamsEnabled: room.teams_enabled,
+    };
+}
+
+function mapUserRoomToCard(room: UserRoom): RoomCardData {
+    return {
+        id: room.id,
+        name: room.name,
+        code: room.invite_code,
+        members: room.members_count,
         mode: room.mode === 'battle_royale' ? 'Battle Royale' : 'Supervivencia',
         ranking: 1,
         teamsEnabled: room.teams_enabled,
@@ -96,6 +153,19 @@ const styles = StyleSheet.create({
         marginTop: 5,
     },
     createBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+    joinMainBtn: {
+        backgroundColor: '#1e293b',
+        height: 48,
+        borderRadius: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
+        borderWidth: 1,
+        borderColor: '#334155',
+        marginBottom: 10,
+    },
+    joinBtnText: { color: '#3b82f6', fontWeight: 'bold', fontSize: 15 },
     scroll: { flex: 1 },
     sectionTitle: {
         color: '#64748b',
