@@ -1,5 +1,12 @@
 import { pool } from '../../../common/config/db.js';
-import type { CreateRoomDTO, CreatedRoom } from '../types/rooms.types.js';
+import type {
+  CreateRoomDTO,
+  CreatedRoom,
+  JoinableRoom,
+  JoinedRoom,
+  MembershipJoinStatus,
+  UserRoom,
+} from '../types/rooms.types.js';
 
 export const RoomsRepository = {
   async createRoomWithOwner(ownerId: string, data: CreateRoomDTO): Promise<CreatedRoom> {
@@ -67,6 +74,104 @@ export const RoomsRepository = {
     );
 
     return rows.length > 0;
+  },
+
+  async findActiveRoomsByUserId(userId: string): Promise<UserRoom[]> {
+    const { rows } = await pool.query(
+      `
+        SELECT
+          r.id,
+          r.name,
+          r.mode,
+          r.invite_code,
+          r.owner_id,
+          r.max_members,
+          r.is_active,
+          r.teams_enabled,
+          rm.role,
+          COUNT(active_members.id)::int AS members_count
+        FROM room_members rm
+        JOIN rooms r ON r.id = rm.room_id
+        LEFT JOIN room_members active_members
+          ON active_members.room_id = r.id
+          AND active_members.is_active = true
+        WHERE rm.user_id = $1
+          AND rm.is_active = true
+          AND r.is_active = true
+        GROUP BY r.id, rm.role
+        ORDER BY r.created_at DESC;
+      `,
+      [userId]
+    );
+
+    return rows as UserRoom[];
+  },
+
+  async findActiveRoomByInviteCode(inviteCode: string): Promise<JoinableRoom | null> {
+    const { rows } = await pool.query(
+      `
+        SELECT id, name, mode, invite_code, max_members, is_active, teams_enabled
+        FROM rooms
+        WHERE invite_code = $1
+        LIMIT 1;
+      `,
+      [inviteCode]
+    );
+
+    return (rows[0] as JoinableRoom | undefined) ?? null;
+  },
+
+  async countActiveMembers(roomId: string): Promise<number> {
+    const { rows } = await pool.query(
+      `
+        SELECT COUNT(*)::int AS count
+        FROM room_members
+        WHERE room_id = $1 AND is_active = true;
+      `,
+      [roomId]
+    );
+
+    return rows[0]?.count ?? 0;
+  },
+
+  async findMembership(roomId: string, userId: string): Promise<{ id: string; is_active: boolean } | null> {
+    const { rows } = await pool.query(
+      `
+        SELECT id, is_active
+        FROM room_members
+        WHERE room_id = $1 AND user_id = $2
+        LIMIT 1;
+      `,
+      [roomId, userId]
+    );
+
+    return (rows[0] as { id: string; is_active: boolean } | undefined) ?? null;
+  },
+
+  async joinRoom(room: JoinableRoom, userId: string, status: MembershipJoinStatus): Promise<JoinedRoom> {
+    if (status === 'new') {
+      await pool.query(
+        `
+          INSERT INTO room_members (room_id, user_id, role, is_active)
+          VALUES ($1, $2, 'member', true);
+        `,
+        [room.id, userId]
+      );
+    } else {
+      await pool.query(
+        `
+          UPDATE room_members
+          SET is_active = true, left_at = NULL, joined_at = NOW()
+          WHERE room_id = $1 AND user_id = $2;
+        `,
+        [room.id, userId]
+      );
+    }
+
+    return {
+      ...room,
+      membership_status: status,
+    };
   },
 
   async deactivateMember(userId: string, roomId: string) {
