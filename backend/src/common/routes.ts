@@ -3,6 +3,7 @@ import { AuthController } from '../modules/auth/controller/auth.controller.js';
 import { RoomsController } from '../modules/rooms/controller/rooms.controller.js';
 import { UsersController } from '../modules/users/controller/users.controller.js';
 import { rankingsController } from '../modules/rankings/controller/ranking.controller.js';
+import { missionsController } from '../modules/missions/controller/missions.controller.js';
 import studyRoutes from '../modules/study/study.routes.js';
 
 const router = Router();
@@ -27,7 +28,9 @@ router.get('/rooms/:roomId', RoomsController.getRoomDetails);
 router.use('/study', studyRoutes);
 
 // --- RANKINGS ---
-// Usamos el objeto rankingsController que definimos en el otro archivo
 router.get('/ranking', rankingsController.getRanking);
+
+// Endpoint para obtener y asignar misiones diarias
+router.get('/missions', missionsController.getUserMissions);
 
 export default router;
