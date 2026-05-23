@@ -4,6 +4,7 @@ import { useRoute } from '@react-navigation/native';
 import { ChevronRight, Info, PlayCircle, Plus, Settings, Swords, Trash2 } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { useAuthStore } from '../../../store/authStore';
+import LeaveRoomButton from '../components/LeaveRoomButton';
 import NewQuestionModal from '../components/NewQuestionModal';
 import RoomInfoModal from '../components/RoomInfoModal';
 import RoomRanking from '../components/RoomRanking';
@@ -116,6 +117,8 @@ export default function BattleRoyaleScreen() {
                         <Text style={styles.votesText}>3 votos</Text>
                     </View>
                 </View>
+
+                <LeaveRoomButton roomId={room?.id} />
             </ScrollView>
 
             <SessionConfigModal visible={configVisible} onClose={() => setConfigVisible(false)} />

@@ -134,3 +134,25 @@ export async function fetchRoomTimeRanking(
 
   return data;
 }
+
+export async function leaveRoom(
+  accessToken: string,
+  roomId: string
+): Promise<{ success: boolean; message: string }> {
+  const response = await fetch(`${API_BASE_URL}/rooms/leave`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ room_id: roomId }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo abandonar la sala');
+  }
+
+  return data;
+}

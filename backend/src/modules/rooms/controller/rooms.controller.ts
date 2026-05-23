@@ -92,16 +92,35 @@ export const RoomsController = {
 
   async handleLeaveRoom(req: Request, res: Response) {
     try {
-      const { user_id, room_id } = req.body;
+      const user = await getAuthenticatedProfile(req);
+      const { room_id } = req.body;
 
-      if (!user_id || !room_id) {
-        return res.status(400).json({ error: 'Faltan parametros requeridos' });
-      }
-
-      const response = await RoomsService.leaveRoom(user_id, room_id);
+      const response = await RoomsService.leaveRoom(user.id, room_id);
       return res.status(200).json(response);
     } catch (error: any) {
-      return res.status(400).json({ error: error.message });
+      if (error instanceof AuthUnauthorizedError) {
+        return res.status(401).json({ error: error.message });
+      }
+
+      if (error instanceof RoomValidationError) {
+        return res.status(400).json({ error: error.message });
+      }
+
+      if (error instanceof RoomNotFoundError) {
+        return res.status(404).json({ error: error.message });
+      }
+
+      if (error instanceof RoomConflictError) {
+        return res.status(409).json({ error: error.message });
+      }
+
+      console.error('Error interno al salir de sala:', {
+        message: error?.message,
+        code: error?.code,
+        detail: error?.detail,
+      });
+
+      return res.status(500).json({ error: 'Error interno al salir de sala' });
     }
   },
 
