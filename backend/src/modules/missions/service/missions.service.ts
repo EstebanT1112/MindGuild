@@ -32,7 +32,6 @@ export const missionsService = {
 
   /**
    * PROMPT 2: Registra e incrementa el progreso de un tipo específico de misión para el usuario.
-   * Valida la existencia del usuario, actualiza los valores y retorna la lista renovada.
    */
   async updateProgress(userId: string, missionType: string, incrementValue: number): Promise<any[]> {
     if (!userId) {
@@ -50,5 +49,20 @@ export const missionsService = {
 
     // 2. Retornamos el estado actualizado de todas sus misiones para refrescar la UI del celular
     return await missionsRepository.getUserMissionsWithDetails(userId);
+  },
+
+  /**
+   * PROMPT 3: Ejecuta la limpieza masiva diaria de misiones en todo el sistema.
+   * Diseñado para ser invocado por procesos automáticos o crons.
+   */
+  async resetAllUserMissions(): Promise<void> {
+    try {
+      console.log('⏳ Iniciando reseteo masivo diario de misiones...');
+      await missionsRepository.resetDailyMissions();
+      console.log('✅ Reseteo masivo diario de misiones completado con éxito.');
+    } catch (error: any) {
+      console.error('❌ Error en el proceso masivo missionsService.resetAllUserMissions:', error);
+      throw new Error(`Falló la actualización masiva diaria: ${error.message}`);
+    }
   }
 };
