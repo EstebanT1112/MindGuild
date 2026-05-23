@@ -118,5 +118,23 @@ export const missionsRepository = {
     `;
     
     await pool.query(query, [userId, missionType, incrementValue]);
+  },
+
+  /**
+   * 5. PROMPT 3: Reset diario global de misiones.
+   * Devuelve a cero absoluto el progreso, estados de completado y de premios reclamados
+   * para todos los registros del sistema masivamente.
+   */
+  async resetDailyMissions(): Promise<void> {
+    const query = `
+      UPDATE user_misiones
+      SET 
+        progreso = 0,
+        completado = false,
+        completed_at = NULL,
+        claimed = false,
+        claimed_at = NULL;
+    `;
+    await pool.query(query);
   }
 };
