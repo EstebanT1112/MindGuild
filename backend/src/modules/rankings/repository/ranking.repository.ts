@@ -20,7 +20,29 @@ export const rankingsRepository = {
   },
 
   // Tu lógica anterior adaptada a SQL puro y Postgres Pool
-  async getRankingData(type: string, weekYear: string, roomId?: string) {
+  async getRankingData(type: string, weekYears: string[], roomId?: string) {
+    if (type === 'semanal' && !roomId) {
+      const { rows } = await pool.query(
+        `
+          SELECT
+            p.id,
+            p.username,
+            p.avatar_url,
+            COALESCE(SUM(uws.total_minutes), 0)::int AS total_minutes
+          FROM profiles p
+          LEFT JOIN user_weekly_stats uws
+            ON uws.user_id = p.id
+            AND uws.week_year = ANY($1::text[])
+          GROUP BY p.id, p.username, p.avatar_url
+          ORDER BY COALESCE(SUM(uws.total_minutes), 0) DESC, p.username ASC
+          LIMIT 50;
+        `,
+        [weekYears]
+      );
+
+      return rows;
+    }
+
     // 1. Caso de RACHA (Viene de la tabla profiles)
     if (type === 'racha') {
       const { rows } = await pool.query(
@@ -54,13 +76,13 @@ export const rankingsRepository = {
         p.avatar_url
       FROM ${roomId ? 'room_user_weekly_stats ru' : 'user_weekly_stats ru'}
       INNER JOIN profiles p ON ru.user_id = p.id
-      WHERE ru.week_year = $1 
+      WHERE ru.week_year = ANY($1::text[])
       ${roomId ? 'AND ru.room_id = $2' : ''}
       ORDER BY ru.${column} DESC
       LIMIT 50;
     `;
 
-    const params = roomId ? [weekYear, roomId] : [weekYear];
+    const params = roomId ? [weekYears, roomId] : [weekYears];
     const { rows } = await pool.query(query, params);
     return rows;
   },
