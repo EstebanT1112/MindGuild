@@ -3,10 +3,7 @@ import { missionsRepository, type Mission } from '../repository/missions.reposit
 export const missionsService = {
   /**
    * Orquesta la asignación y obtención de misiones diarias para un usuario.
-   * Cumple con el Prompt 1:
-   * 1. Obtiene las misiones activas globales.
-   * 2. Intenta asignarlas al usuario (evitando duplicados en la base de datos).
-   * 3. Devuelve las misiones detalladas del usuario.
+   * Cumple con el Prompt 1.
    */
   async getAndAssignDailyMissions(userId: string): Promise<any[]> {
     if (!userId) {
@@ -31,5 +28,27 @@ export const missionsService = {
     const userMissions = await missionsRepository.getUserMissionsWithDetails(userId);
     
     return userMissions;
+  },
+
+  /**
+   * PROMPT 2: Registra e incrementa el progreso de un tipo específico de misión para el usuario.
+   * Valida la existencia del usuario, actualiza los valores y retorna la lista renovada.
+   */
+  async updateProgress(userId: string, missionType: string, incrementValue: number): Promise<any[]> {
+    if (!userId) {
+      throw new Error('El ID de usuario es requerido para actualizar el progreso.');
+    }
+    if (!missionType) {
+      throw new Error('El tipo de misión es requerido para procesar el incremento.');
+    }
+    if (incrementValue <= 0) {
+      throw new Error('El valor de incremento debe ser mayor a cero.');
+    }
+
+    // 1. Mandamos a actualizar de forma masiva el progreso en la BD para ese tipo de misión
+    await missionsRepository.updateMissionProgress(userId, missionType, incrementValue);
+
+    // 2. Retornamos el estado actualizado de todas sus misiones para refrescar la UI del celular
+    return await missionsRepository.getUserMissionsWithDetails(userId);
   }
 };
