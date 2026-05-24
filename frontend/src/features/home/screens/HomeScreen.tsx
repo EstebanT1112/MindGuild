@@ -22,19 +22,24 @@ export default function HomeScreen() {
   const [activeMissions, setActiveMissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // useEffect unificado y corregido que se conecta dinámicamente con el backend protegido
+  // useEffect unificado: pegándole a /missions porque API_BASE_URL ya incluye /api
   useEffect(() => {
     if (!accessToken) return;
 
     setLoading(true);
-    fetch(`${API_BASE_URL}/api/missions`, {
+    fetch(`${API_BASE_URL}/missions`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${accessToken}` 
       }
     })
-      .then(response => response.json())
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
       .then(data => {
         if (data.success) {
           // Mapeamos los datos de las misiones reales de Supabase con el porcentaje calculado
