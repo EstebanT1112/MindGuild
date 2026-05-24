@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { LogIn, Plus, Users } from 'lucide-react-native';
+import { Inbox, LogIn, Plus, Users } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { useAuthStore } from '../../../store/authStore';
 import RoomCard, { type RoomCardData } from '../components/RoomCard';
@@ -85,19 +85,26 @@ export default function RoomsScreen() {
             <ScrollView showsVerticalScrollIndicator={false} style={styles.scroll}>
                 <Text style={styles.sectionTitle}>MIS SALAS ({myRooms.length})</Text>
 
-                {myRooms.map(room => (
-                    <RoomCard
-                        key={room.id}
-                        room={room}
-                        onPress={() => {
-                            if (room.mode === 'Battle Royale') {
-                                navigation.navigate('BattleRoyale', { roomId: room.id, roomName: room.name });
-                            } else {
-                                navigation.navigate('LiveRoom', { roomId: room.id, roomName: room.name });
-                            }
-                        }}
-                    />
-                ))}
+                {myRooms.length === 0 ? (
+                    <View style={styles.emptyState}>
+                        <Inbox color="#64748b" size={28} />
+                        <Text style={styles.emptyText}>Todavia no tenes salas.</Text>
+                    </View>
+                ) : (
+                    myRooms.map(room => (
+                        <RoomCard
+                            key={room.id}
+                            room={room}
+                            onPress={() => {
+                                if (room.mode === 'Battle Royale') {
+                                    navigation.navigate('BattleRoyale', { roomId: room.id, roomName: room.name });
+                                } else {
+                                    navigation.navigate('LiveRoom', { roomId: room.id, roomName: room.name });
+                                }
+                            }}
+                        />
+                    ))
+                )}
             </ScrollView>
 
             <CreateRoomModal
@@ -174,4 +181,6 @@ const styles = StyleSheet.create({
         marginVertical: 15,
         letterSpacing: 1,
     },
+    emptyState: { alignItems: 'center', gap: 8, paddingVertical: 28 },
+    emptyText: { color: '#64748b', fontSize: 13, fontWeight: 'bold' },
 });

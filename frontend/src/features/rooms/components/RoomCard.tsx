@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { ChevronRight, Trophy, Users } from 'lucide-react-native';
 
 export type RoomCardData = {
   id: string;
@@ -12,6 +13,7 @@ export type RoomCardData = {
 
 export default function RoomCard({ room, onPress }: { room: RoomCardData; onPress: () => void }) {
   const isBR = room.mode === 'Battle Royale';
+  const accent = isBR ? '#a855f7' : '#22c55e';
 
   return (
     <Pressable style={styles.card} onPress={onPress}>
@@ -19,28 +21,25 @@ export default function RoomCard({ room, onPress }: { room: RoomCardData; onPres
         <View style={{ flex: 1 }}>
           <Text style={styles.name}>{room.name}</Text>
           <View style={styles.codeBox}>
-            <Text style={[styles.code, isBR && { color: '#a855f7' }]}>{room.code}</Text>
+            <Text style={[styles.code, { color: accent }]}>{room.code}</Text>
           </View>
         </View>
-        <Text style={styles.arrow}>›</Text>
+        <ChevronRight color="#64748b" size={18} />
       </View>
 
       <View style={styles.footer}>
         <View style={styles.left}>
-          <Text style={styles.meta}>{room.members} miembros</Text>
-          <Text style={[styles.meta, isBR && { color: '#a855f7', fontWeight: 'bold' }]}>{room.mode}</Text>
+          <View style={styles.metaIconRow}>
+            <Users color="#94a3b8" size={13} />
+            <Text style={styles.meta}>{room.members} miembros</Text>
+          </View>
+          <Text style={[styles.meta, isBR && { color: accent, fontWeight: 'bold' }]}>{room.mode}</Text>
           {room.teamsEnabled && <Text style={styles.teamsMeta}>Teams</Text>}
         </View>
-        <View style={[
-          styles.ranking,
-          isBR ? { backgroundColor: '#a855f722' } : { backgroundColor: '#22c55e22' },
-        ]}>
-          <Text style={[
-            styles.rankText,
-            isBR ? { color: '#a855f7' } : { color: '#22c55e' },
-          ]}>
-            #{room.ranking}
-          </Text>
+
+        <View style={[styles.ranking, { backgroundColor: isBR ? '#a855f722' : '#22c55e22' }]}>
+          <Trophy color={accent} size={13} />
+          <Text style={[styles.rankText, { color: accent }]}>#{room.ranking}</Text>
         </View>
       </View>
     </Pressable>
@@ -59,6 +58,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 10,
   },
   name: {
@@ -75,13 +75,8 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   code: {
-    color: '#22c55e',
     fontSize: 12,
     fontWeight: 'bold',
-  },
-  arrow: {
-    color: '#666',
-    fontSize: 20,
   },
   footer: {
     flexDirection: 'row',
@@ -90,8 +85,10 @@ const styles = StyleSheet.create({
   },
   left: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
   },
+  metaIconRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   meta: {
     color: '#aaa',
     fontSize: 12,
@@ -102,13 +99,14 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   ranking: {
-    backgroundColor: '#22c55e22',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 999,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   rankText: {
-    color: '#22c55e',
     fontSize: 12,
     fontWeight: 'bold',
   },

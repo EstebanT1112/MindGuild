@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import {
     Crown,
+    Castle,
     Edit2,
     Flame,
     Medal,
@@ -137,8 +138,8 @@ export default function ProfileScreen() {
                 <View style={styles.statsGrid}>
                     <StatCard icon={<Trophy color="#22c55e" size={24} />} value={`${profile?.total_study_minutes ?? 0}m`} label="Total Estudio" />
                     <StatCard icon={<Flame color="#fb923c" size={24} />} value={`${profile?.streak_days ?? 0} dias`} label="Racha Actual" />
-                    <StatCard icon={<Target color="#22c55e" size={24} />} value={`${profile?.weekly_stats.total_minutes ?? 0}m`} label="Semana" />
-                    <StatCard icon={<Star color="#22c55e" size={24} />} value={`${profile?.village.village_level ?? 1}`} label="Nivel Aldea" />
+                    <StatCard icon={<Medal color="#22c55e" size={24} />} value="0" label="Logros" />
+                    <StatCard icon={<Castle color="#22c55e" size={24} />} value={`${profile?.village.village_level ?? 1}`} label="Nivel Aldea" />
                 </View>
 
                 <WeeklyProgress
@@ -171,7 +172,9 @@ export default function ProfileScreen() {
                 <View style={styles.villageCard}>
                     <Text style={styles.villageTitle}>Tu Aldea en Evolucion</Text>
                     <View style={styles.villageMainRow}>
-                        <Image source={{ uri: fallbackAvatar }} style={styles.villageImage} />
+                        <View style={styles.villageIconBox}>
+                            <Castle color="#22c55e" size={46} />
+                        </View>
                         <View style={styles.villageInfo}>
                             <View style={styles.levelRow}>
                                 <Text style={styles.levelLabelText}>Nivel {profile?.village.village_level ?? 1}</Text>
@@ -259,7 +262,7 @@ const styles = StyleSheet.create({
     },
     villageTitle: { color: 'white', fontSize: 18, fontWeight: 'bold', marginBottom: 15 },
     villageMainRow: { flexDirection: 'row', gap: 15, alignItems: 'center' },
-    villageImage: { width: 100, height: 100, borderRadius: 20, borderWidth: 2, borderColor: '#22c55e' },
+    villageIconBox: { width: 100, height: 100, borderRadius: 20, borderWidth: 2, borderColor: '#22c55e', backgroundColor: '#0f172a', alignItems: 'center', justifyContent: 'center' },
     villageInfo: { flex: 1 },
     levelRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
     levelLabelText: { color: 'white', fontWeight: 'bold' },
