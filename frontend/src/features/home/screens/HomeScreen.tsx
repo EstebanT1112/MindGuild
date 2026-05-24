@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { ChevronRight, Inbox, Users } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import MissionCard from "../components/MissionCard";
 import StreakCard from "../components/StreakCard";
@@ -88,13 +89,16 @@ export default function HomeScreen() {
               <Text style={styles.roomName}>{room.name}</Text>
               <View style={styles.roomMeta}>
                 <View style={styles.codeBox}><Text style={styles.codeText}>{room.code}</Text></View>
-                <Text style={styles.roomMembers}>{room.members} 👥</Text>
+                <View style={styles.membersMeta}>
+                  <Users color="#94a3b8" size={13} />
+                  <Text style={styles.roomMembers}>{room.members}</Text>
+                </View>
                 <Text style={styles.roomMode}>{room.mode}</Text>
               </View>
             </View>
             <View style={styles.roomRight}>
               <View style={styles.rankBadge}><Text style={styles.rankText}>#{room.ranking}</Text></View>
-              <Text style={styles.arrow}>›</Text>
+              <ChevronRight color="#64748b" size={18} />
             </View>
           </Pressable>
         ))}
@@ -104,7 +108,10 @@ export default function HomeScreen() {
         {loading ? (
           <ActivityIndicator size="small" color="#22c55e" style={{ marginTop: 10 }} />
         ) : activeMissions.length === 0 ? (
-          <Text style={styles.emptyText}>No hay misiones asignadas para hoy.</Text>
+          <View style={styles.emptyState}>
+            <Inbox color="#64748b" size={24} />
+            <Text style={styles.emptyText}>No hay misiones asignadas para hoy.</Text>
+          </View>
         ) : (
           activeMissions.map((m) => (
             <MissionCard
@@ -132,6 +139,7 @@ const styles = StyleSheet.create({
   roomLeft: { flex: 1 },
   roomName: { color: "#fff", fontWeight: "bold", fontSize: 15, marginBottom: 8 },
   roomMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  membersMeta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   codeBox: { backgroundColor: "#111", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   codeText: { color: "#22c55e", fontSize: 11, fontWeight: "bold" },
   roomMembers: { color: "#aaa", fontSize: 12 },
@@ -139,6 +147,6 @@ const styles = StyleSheet.create({
   roomRight: { alignItems: 'center', gap: 6 },
   rankBadge: { backgroundColor: "#22c55e22", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
   rankText: { color: "#22c55e", fontSize: 12, fontWeight: "bold" },
-  arrow: { color: "#666", fontSize: 20 },
+  emptyState: { alignItems: 'center', gap: 8, marginTop: 12 },
   emptyText: { color: "#64748b", fontSize: 13, textAlign: 'center', marginTop: 10 },
 });

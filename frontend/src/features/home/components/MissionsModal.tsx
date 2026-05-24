@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
     View,
     Text,
@@ -7,8 +7,9 @@ import {
     Pressable,
     ScrollView,
 } from 'react-native';
+import { Check, Inbox, Target, X } from 'lucide-react-native';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
-// Interfaz alineada a la data real que nos da el Backend
 type Mission = {
     id: string | number;
     title: string;
@@ -21,92 +22,106 @@ type Mission = {
 interface MissionsModalProps {
     visible: boolean;
     onClose: () => void;
-    missions: Mission[]; // ⚡ Ahora recibe las misiones vivas del Home
+    missions: Mission[];
 }
 
 export default function MissionsModal({ visible, onClose, missions = [] }: MissionsModalProps) {
-    
-    // Clasificamos y ordenamos dinámicamente según la data de Supabase
     const active = missions
         .filter(m => !m.completed)
         .sort((a, b) => b.percentage - a.percentage);
 
     const completed = missions.filter(m => m.completed);
 
-    const renderMission = (m: Mission, done: boolean) => {
-        return (
-        <View key={m.id} style={[styles.card, done && styles.cardDone]}>
-            <View style={styles.cardHeader}>
-            <View style={{ flex: 1 }}>
-                <Text style={[styles.cardTitle, done && styles.cardTitleDone]}>
-                {m.title}
-                </Text>
-                <View style={styles.metaRow}>
-                <Text style={styles.metaText}>
-                    {m.progress}/{m.target}
-                </Text>
-                <View style={styles.rewardBadge}>
-                    <Text style={styles.rewardText}>+50 H</Text>
+    return (
+        <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+            <Pressable style={styles.overlay} onPress={onClose} />
+
+            <View style={styles.sheet}>
+                <View style={styles.handle} />
+
+                <View style={styles.sheetHeader}>
+                    <View style={styles.titleRow}>
+                        <Target color="#22c55e" size={20} />
+                        <Text style={styles.sheetTitle}>Todas las misiones</Text>
+                    </View>
+                    <Pressable style={styles.closeBtn} onPress={onClose}>
+                        <X color="#a1a1aa" size={18} />
+                    </Pressable>
                 </View>
-                </View>
+
+                <ScrollView showsVerticalScrollIndicator={false} style={styles.scroll}>
+                    <Text style={styles.sectionLabel}>EN PROGRESO ({active.length})</Text>
+                    {active.length === 0 && !completed.length ? (
+                        <View style={styles.emptyState}>
+                            <Inbox color="#64748b" size={28} />
+                            <Text style={styles.emptyText}>No hay misiones disponibles.</Text>
+                        </View>
+                    ) : (
+                        active.map(m => <MissionRow key={m.id} mission={m} done={false} />)
+                    )}
+
+                    {completed.length > 0 && (
+                        <>
+                            <Text style={[styles.sectionLabel, styles.sectionLabelDone]}>
+                                COMPLETADOS ({completed.length})
+                            </Text>
+                            {completed.map(m => <MissionRow key={m.id} mission={m} done />)}
+                        </>
+                    )}
+
+                    <View style={{ height: 40 }} />
+                </ScrollView>
             </View>
-            {done
-                ? <Text style={styles.checkIcon}>✓</Text>
-                : <Text style={styles.percentText}>{m.percentage}%</Text>
-            }
+        </Modal>
+    );
+}
+
+function MissionRow({ mission, done }: { mission: Mission; done: boolean }) {
+    const animatedProgress = useSharedValue(0);
+
+    useEffect(() => {
+        animatedProgress.value = withTiming(mission.percentage, {
+            duration: 650,
+            easing: Easing.out(Easing.cubic),
+        });
+    }, [animatedProgress, mission.percentage]);
+
+    const progressStyle = useAnimatedStyle(() => ({
+        width: `${animatedProgress.value}%`,
+    }));
+
+    return (
+        <View style={[styles.card, done && styles.cardDone]}>
+            <View style={styles.cardHeader}>
+                <View style={{ flex: 1 }}>
+                    <Text style={[styles.cardTitle, done && styles.cardTitleDone]}>{mission.title}</Text>
+                    <View style={styles.metaRow}>
+                        <Text style={styles.metaText}>{mission.progress}/{mission.target}</Text>
+                        <View style={styles.rewardBadge}>
+                            <Text style={styles.rewardText}>+50 H</Text>
+                        </View>
+                    </View>
+                </View>
+
+                {done ? (
+                    <View style={styles.checkBadge}>
+                        <Check color="#22c55e" size={18} />
+                    </View>
+                ) : (
+                    <Text style={styles.percentText}>{mission.percentage}%</Text>
+                )}
             </View>
 
             <View style={styles.barBg}>
-            <View
-                style={[
-                styles.barFill,
-                done && styles.barFillDone,
-                { width: `${m.percentage}%` },
-                ]}
-            />
+                <Animated.View
+                    style={[
+                        styles.barFill,
+                        done && styles.barFillDone,
+                        progressStyle,
+                    ]}
+                />
             </View>
         </View>
-        );
-    };
-
-    return (
-        <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-        <Pressable style={styles.overlay} onPress={onClose} />
-
-        <View style={styles.sheet}>
-            <View style={styles.handle} />
-
-            <View style={styles.sheetHeader}>
-            <Text style={styles.sheetTitle}>🎯 Todas las misiones</Text>
-            <Pressable style={styles.closeBtn} onPress={onClose}>
-                <Text style={styles.closeBtnText}>✕</Text>
-            </Pressable>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} style={styles.scroll}>
-
-            {/* Misiones Activas Reales */}
-            <Text style={styles.sectionLabel}>EN PROGRESO ({active.length})</Text>
-            {active.length === 0 && !completed.length ? (
-                <Text style={styles.emptyText}>No hay misiones disponibles.</Text>
-            ) : (
-                active.map(m => renderMission(m, false))
-            )}
-
-            {/* Misiones Completadas Reales */}
-            {completed.length > 0 && (
-                <>
-                <Text style={[styles.sectionLabel, styles.sectionLabelDone]}>
-                    COMPLETADOS ({completed.length})
-                </Text>
-                {completed.map(m => renderMission(m, true))}
-                </>
-            )}
-
-            <View style={{ height: 40 }} />
-            </ScrollView>
-        </View>
-        </Modal>
     );
 }
 
@@ -115,9 +130,9 @@ const styles = StyleSheet.create({
     sheet: { backgroundColor: '#1a1d29', borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 40, height: '80%', borderTopWidth: 1, borderColor: '#2a2f45' },
     handle: { width: 40, height: 4, backgroundColor: '#334155', borderRadius: 999, alignSelf: 'center', marginBottom: 16 },
     sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+    titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     sheetTitle: { color: '#ffffff', fontSize: 18, fontWeight: '900' },
     closeBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#222533', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#2e3245' },
-    closeBtnText: { color: '#a1a1aa', fontSize: 13 },
     scroll: { flex: 1 },
     sectionLabel: { color: '#64748b', fontSize: 11, fontWeight: '900', letterSpacing: 1, marginBottom: 12, marginTop: 4 },
     sectionLabelDone: { marginTop: 24, color: '#22c55e99' },
@@ -130,10 +145,11 @@ const styles = StyleSheet.create({
     metaText: { color: '#71717a', fontSize: 12 },
     rewardBadge: { backgroundColor: '#facc1520', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
     rewardText: { color: '#facc15', fontSize: 11, fontWeight: 'bold' },
-    checkIcon: { color: '#22c55e', fontSize: 18, fontWeight: 'bold', marginLeft: 8 },
+    checkBadge: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#22c55e22', alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
     percentText: { color: '#3b82f6', fontSize: 13, fontWeight: '900', marginLeft: 8 },
     barBg: { height: 6, backgroundColor: '#2e3245', borderRadius: 6, overflow: 'hidden' },
     barFill: { height: 6, backgroundColor: '#3b82f6', borderRadius: 6 },
     barFillDone: { backgroundColor: '#22c55e' },
-    emptyText: { color: '#64748b', fontSize: 13, textAlign: 'center', marginTop: 10 }
+    emptyState: { alignItems: 'center', gap: 8, paddingVertical: 24 },
+    emptyText: { color: '#64748b', fontSize: 13, textAlign: 'center', marginTop: 10 },
 });
