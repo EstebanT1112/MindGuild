@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import { ChevronRight, Info, PlayCircle, Settings, Users } from 'lucide-react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { useAuthStore } from '../../../store/authStore';
 import LeaveRoomButton from '../components/LeaveRoomButton';
@@ -195,18 +196,20 @@ export default function LiveRoomScreen() {
 
                 {/* Timer Section */}
                 <View style={styles.timerSection}>
-                    <View style={[styles.timerCircle, sessionType === 'libre' && { borderColor: '#06b6d4' }]}>
-                        <PlayCircle color={sessionType === 'libre' ? '#06b6d4' : '#22c55e'} size={32} />
+                    <TimerProgressRing
+                        isPomodoro={sessionType === 'pomodoro'}
+                        remainingRatio={durationMinutes > 0 ? secondsLeft / (durationMinutes * 60) : 0}
+                    >
                         <Text style={styles.timerValue}>{getDisplayTime()}</Text>
                         <Text style={styles.timerCycles}>
                             {sessionType === 'pomodoro' ? 'Fase de Enfoque' : 'Tiempo Acumulado'}
                         </Text>
-                    </View>
+                    </TimerProgressRing>
                 </View>
 
                 {/* Botón de control */}
                 <Pressable onPress={handleStartSession} style={styles.startBtn}>
-                    <PlayCircle color="white" size={24} fill="white" />
+                    <PlayCircle color="white" size={24} />
                     <Text style={styles.startBtnText}>
                         {isStudying ? "FINALIZAR SESION" : "COMENZAR SESION"}
                     </Text>
@@ -234,6 +237,67 @@ export default function LiveRoomScreen() {
     );
 }
 
+function TimerProgressRing({
+    children,
+    isPomodoro,
+    remainingRatio,
+}: {
+    children: React.ReactNode;
+    isPomodoro: boolean;
+    remainingRatio: number;
+}) {
+    const ticks = Array.from({ length: 48 }, (_, index) => index);
+    const safeRemaining = Math.max(0, Math.min(1, remainingRatio));
+
+    return (
+        <View style={[styles.timerCircle, !isPomodoro && styles.freeTimerCircle]}>
+            {isPomodoro && (
+                <View pointerEvents="none" style={styles.tickLayer}>
+                    {ticks.map(index => (
+                        <TimerTick
+                            key={index}
+                            index={index}
+                            total={ticks.length}
+                            remainingRatio={safeRemaining}
+                        />
+                    ))}
+                </View>
+            )}
+            <View style={styles.timerInner}>{children}</View>
+        </View>
+    );
+}
+
+function TimerTick({
+    index,
+    total,
+    remainingRatio,
+}: {
+    index: number;
+    total: number;
+    remainingRatio: number;
+}) {
+    const opacity = useSharedValue(1);
+    const scale = useSharedValue(1);
+    const active = index / total < remainingRatio;
+    const angle = (index / total) * 360;
+
+    useEffect(() => {
+        opacity.value = withTiming(active ? 1 : 0.18, { duration: 280 });
+        scale.value = withTiming(active ? 1 : 0.72, { duration: 280 });
+    }, [active, opacity, scale]);
+
+    const animatedStyle = useAnimatedStyle(() => ({
+        opacity: opacity.value,
+        transform: [
+            { rotate: `${angle}deg` },
+            { translateY: -116 },
+            { scale: scale.value },
+        ],
+    }));
+
+    return <Animated.View style={[styles.timerTick, animatedStyle]} />;
+}
 const styles = StyleSheet.create({
     loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
     loadingText: { color: '#94a3b8', fontWeight: 'bold' },
@@ -245,8 +309,12 @@ const styles = StyleSheet.create({
     configTitle: { color: 'white', fontSize: 16, fontWeight: 'bold' },
     configSub: { color: '#64748b', fontSize: 13, marginTop: 2 },
     timerSection: { alignItems: 'center', marginVertical: 30 },
-    timerCircle: { width: 240, height: 240, borderRadius: 120, borderWidth: 8, borderColor: '#22c55e', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a' },
-    timerValue: { color: 'white', fontSize: 56, fontWeight: '900', marginVertical: 5 },
+    timerCircle: { width: 240, height: 240, borderRadius: 120, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a' },
+    freeTimerCircle: { borderWidth: 8, borderColor: '#06b6d4' },
+    tickLayer: { position: 'absolute', width: 240, height: 240, alignItems: 'center', justifyContent: 'center' },
+    timerTick: { position: 'absolute', width: 5, height: 16, borderRadius: 999, backgroundColor: '#22c55e' },
+    timerInner: { width: 200, height: 200, borderRadius: 100, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a', borderWidth: 1, borderColor: '#1e293b', gap: 6 },
+    timerValue: { color: 'white', fontSize: 56, fontWeight: '900' },
     timerCycles: { color: '#64748b', fontSize: 16, fontWeight: 'bold' },
     startBtn: { backgroundColor: '#22c55e', height: 64, borderRadius: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 20 },
     startBtnText: { color: 'white', fontSize: 18, fontWeight: '900', letterSpacing: 1 },
