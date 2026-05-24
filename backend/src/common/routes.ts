@@ -3,7 +3,8 @@ import { AuthController } from '../modules/auth/controller/auth.controller.js';
 import { RoomsController } from '../modules/rooms/controller/rooms.controller.js';
 import { UsersController } from '../modules/users/controller/users.controller.js';
 import { rankingsController } from '../modules/rankings/controller/ranking.controller.js';
-import { missionsController } from '../modules/missions/controller/missions.controller.js'; // Importación de tu controlador
+import { missionsController } from '../modules/missions/controller/missions.controller.js'; 
+import { checkAuth } from './middleware/auth.middleware.js'; // ⚡ IMPORTAMOS EL MIDDLEWARE
 import studyRoutes from '../modules/study/study.routes.js';
 
 const router = Router();
@@ -30,10 +31,9 @@ router.use('/study', studyRoutes);
 // --- RANKINGS ---
 router.get('/ranking', rankingsController.getRanking);
 
-// --- MISIONES (RF-12) ---
-// Endpoint para obtener y asignar misiones diarias (Prompt 1)
-router.get('/missions', missionsController.getUserMissions);
-// Endpoint para actualizar el progreso de una misión (Prompt 2)
-router.post('/missions/progress', missionsController.updateUserMissionProgress);
+// --- MISIONES (RF-12) PROTEGIDAS ---
+// ⚡ Inyectamos 'checkAuth' antes de los controladores para que lean el ID dinámico
+router.get('/missions', checkAuth, missionsController.getUserMissions);
+router.post('/missions/progress', checkAuth, missionsController.updateUserMissionProgress);
 
 export default router;

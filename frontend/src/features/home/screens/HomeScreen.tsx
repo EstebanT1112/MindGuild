@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import axios from 'axios';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import MissionCard from "../components/MissionCard";
 import StreakCard from "../components/StreakCard";
 import MissionsModal from "../components/MissionsModal";
-
-// 🌐 CONFIGURACIÓN DEL BACKEND (Modificar acá según tu entorno local)
-const API_BASE_URL = 'http://192.168.100.201:3000'; 
+import { useAuthStore } from '../../../store/authStore'; 
+import { API_BASE_URL } from '../../../services/apiConfig';
 
 const recentRooms = [
   { id: 1, name: "Cálculo I - Final", code: "CALC-7X9P", mode: "Supervivencia", members: 5, ranking: 2 },
@@ -17,25 +15,42 @@ const recentRooms = [
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
+  const accessToken = useAuthStore(state => state.access_token); 
   const [missionsVisible, setMissionsVisible] = useState(false);
   
-  // Estado dinámico para guardar las misiones que devuelva tu Backend
+  // Estado dinámico para guardar las misiones reales de Supabase
   const [activeMissions, setActiveMissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // useEffect para pegarle a tu API apenas se abra el Home
+  // useEffect corregido y sincronizado con el backend del RF-12
   useEffect(() => {
-    axios.get(`${API_BASE_URL}/api/missions`)
-      .then(response => {
-        if (response.data.success) {
-          // Adaptamos la respuesta del backend para que coincida con las propiedades que espera tu MissionCard
-          const mappedMissions = response.data.data.map((m: any) => ({
-            id: m.user_mission_id,
-            title: m.title,
-            progress: m.progress,
-            target: m.target_value,
-            completed: m.completed
-          }));
+    if (!accessToken) return;
+
+    fetch(`${API_BASE_URL}/api/missions`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}` 
+      }
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          // Mapeamos los datos de las misiones reales de Supabase
+          const mappedMissions = data.data.map((m: any) => {
+            const currentProgress = m.progress ?? 0;
+            const goalValue = m.target_value ?? 1; // Evitamos división por cero
+            const calculatedPercentage = Math.min(100, Math.floor((currentProgress / goalValue) * 100));
+
+            return {
+              id: m.id || m.user_mission_id,
+              title: m.title || m.missions?.title || "Misión Diaria",
+              progress: currentProgress,
+              target: goalValue,
+              percentage: calculatedPercentage, 
+              completed: m.completed ?? false
+            };
+          });
           setActiveMissions(mappedMissions);
         }
       })
@@ -45,7 +60,7 @@ export default function HomeScreen() {
       .finally(() => {
         setLoading(false);
       });
-  }, []);
+  }, [accessToken]);
 
   const handleRoomPress = (room: any) => {
     navigation.navigate('Salas', {
@@ -80,7 +95,6 @@ export default function HomeScreen() {
 
         <Text style={styles.section}>MISIONES ACTIVAS</Text>
         
-        {/* Renderizado Condicional: Mientras carga o si muestra los datos reales */}
         {loading ? (
           <ActivityIndicator size="small" color="#22c55e" style={{ marginTop: 10 }} />
         ) : activeMissions.length === 0 ? (
@@ -98,6 +112,7 @@ export default function HomeScreen() {
         <MissionsModal
           visible={missionsVisible}
           onClose={() => setMissionsVisible(false)}
+          missions={activeMissions} 
         />
       </ScrollView>
     </ScreenLayout>
@@ -105,29 +120,9 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: {
-    paddingVertical: 10,
-    paddingBottom: 120,
-  },
-  section: {
-    color: "#64748b",
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 1,
-    marginBottom: 12,
-    marginTop: 20,
-  },
-  roomCard: {
-    backgroundColor: "#1a1d29",
-    borderRadius: 18,
-    padding: 16,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "#2a2f45",
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
+  content: { paddingVertical: 10, paddingBottom: 120 },
+  section: { color: "#64748b", fontSize: 12, fontWeight: '900', letterSpacing: 1, marginBottom: 12, marginTop: 20 },
+  roomCard: { backgroundColor: "#1a1d29", borderRadius: 18, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: "#2a2f45", flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   roomLeft: { flex: 1 },
   roomName: { color: "#fff", fontWeight: "bold", fontSize: 15, marginBottom: 8 },
   roomMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
