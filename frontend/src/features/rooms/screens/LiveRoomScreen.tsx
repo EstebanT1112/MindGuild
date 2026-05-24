@@ -10,6 +10,7 @@ import RoomRanking from '../components/RoomRanking';
 import SessionConfigModal, { type SessionConfigData } from '../components/SessionConfigModal';
 import TeamsSection from '../components/TeamsSection';
 import { fetchRoomDetails, type RoomDetails } from '../services/roomsService';
+import { endStudySession, startStudySession } from '../services/sessionsService';
 
 export default function LiveRoomScreen() {
     const route = useRoute<any>();
@@ -28,6 +29,7 @@ export default function LiveRoomScreen() {
     const [isStudying, setIsStudying] = useState(false);
     const [secondsElapsed, setSecondsElapsed] = useState(0); 
     const [secondsLeft, setSecondsLeft] = useState(25 * 60);  
+    const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
     const timerRef = useRef<any>(null);
 
     useEffect(() => {
@@ -72,29 +74,65 @@ export default function LiveRoomScreen() {
         }
     };
 
-    const handleStartSession = () => {
+    const handleStartSession = async () => {
         if (isStudying) {
             clearInterval(timerRef.current);
-            setIsStudying(false);
 
             const totalMinutesStudied = sessionType === 'pomodoro'
                 ? Math.floor(((durationMinutes * 60) - secondsLeft) / 60)
                 : Math.floor(secondsElapsed / 60);
 
-            Alert.alert(
-                "Sesión Finalizada",
-                `Estudiaste durante ${totalMinutesStudied} minutos en modo ${sessionType === 'pomodoro' ? 'Pomodoro' : 'Libre'}.`
-            );
+            if (!accessToken || !activeSessionId) {
+                Alert.alert('Error de sesion', 'No se encontro una sesion activa para finalizar.');
+                return;
+            }
+
+            try {
+                const result = await endStudySession(accessToken, activeSessionId, {
+                    ended_at: new Date().toISOString(),
+                    duration_minutes: totalMinutesStudied,
+                    paused_seconds: 0,
+                    evidence_photo_url: null,
+                    summary_text: null,
+                });
+
+                setActiveSessionId(null);
+                setIsStudying(false);
+
+                Alert.alert(
+                    'Sesion Finalizada',
+                    result.valid
+                        ? `Se acreditaron ${result.duration_minutes} minutos.`
+                        : `Estudiaste ${result.duration_minutes} minutos. Para sumar al ranking necesitas al menos 60 minutos.`
+                );
+            } catch (error: any) {
+                Alert.alert('Error de sesion', error.message ?? 'No se pudo finalizar la sesion.');
+            }
         } else {
-            setIsStudying(true);
+            if (!accessToken || !room?.id) {
+                Alert.alert('Error de sesion', 'No se pudo iniciar la sesion.');
+                return;
+            }
+
+            try {
+                const session = await startStudySession(accessToken, {
+                    room_id: room.id,
+                    mode: sessionType === 'pomodoro' ? 'pomodoro' : 'free',
+                });
+
+                setActiveSessionId(session.session_id);
+                setIsStudying(true);
+            } catch (error: any) {
+                Alert.alert('Error de sesion', error.message ?? 'No se pudo iniciar la sesion.');
+                return;
+            }
 
             if (sessionType === 'pomodoro') {
                 timerRef.current = setInterval(() => {
                     setSecondsLeft((prev) => {
                         if (prev <= 1) {
                             clearInterval(timerRef.current);
-                            setIsStudying(false);
-                            Alert.alert("¡Tiempo cumplido!", "Terminó tu ciclo de Pomodoro.");
+                            Alert.alert('Tiempo cumplido', 'Finaliza la sesion para guardar el tiempo.');
                             return 0;
                         }
                         return prev - 1;
