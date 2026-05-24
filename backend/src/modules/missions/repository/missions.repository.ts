@@ -38,34 +38,38 @@ export const missionsRepository = {
   },
 
   /**
-   * 2. Asigna una lista de misiones a un usuario específico.
-   */
-  /**
-   * 2. Asigna una lista de misiones a un usuario específico.
-   * CORREGIDO: Removidas columnas con default del TARGET del INSERT para coincidir con las expresiones de los parámetros.
+   * 2. Asigna una lista de misiones a un usuario específico de forma segura e individual.
+   * CORREGIDO: Evita fallos de conflictos masivos si la constraint única compuesta no está idéntica en PostgreSQL.
    */
   async assignMissionsToUser(userId: string, missionIds: string[]): Promise<void> {
     if (missionIds.length === 0) return;
 
-    const values: any[] = [];
-    const valueStrings: string[] = [];
-    
-    let paramIndex = 1;
+    // Ejecutamos inserts individuales controlados para asegurar que cada fila se cree de forma independiente
     for (const missionId of missionIds) {
-      valueStrings.push(`($${paramIndex}, $${paramIndex + 1})`);
-      values.push(userId, missionId);
-      paramIndex += 2;
+      try {
+        const query = `
+          INSERT INTO user_missions (user_id, mission_id, progress, completed)
+          VALUES ($1, $2, 0, false)
+          ON CONFLICT DO NOTHING;
+        `;
+        await pool.query(query, [userId, missionId]);
+      } catch (innerError) {
+        // Fallback secundario si la base de datos no tiene declarada la clave explícita de conflicto compuesto
+        try {
+          const checkQuery = `SELECT id FROM user_missions WHERE user_id = $1 AND mission_id = $2;`;
+          const { rowCount } = await pool.query(checkQuery, [userId, missionId]);
+          
+          if (rowCount === 0) {
+            const insertQuery = `INSERT INTO user_missions (user_id, mission_id, progress, completed) VALUES ($1, $2, 0, false);`;
+            await pool.query(insertQuery, [userId, missionId]);
+          }
+        } catch (err) {
+          console.error(`❌ No se pudo auto-asignar la misión ${missionId} al usuario ${userId}:`, err);
+        }
+      }
     }
-
-    // Al dejar solo user_id y mission_id, coincide 1:1 con el par de parámetros enviados en el loop
-    const query = `
-      INSERT INTO user_missions (user_id, mission_id)
-      VALUES ${valueStrings.join(', ')}
-      ON CONFLICT (user_id, mission_id) DO NOTHING;
-    `;
-
-    await pool.query(query, values);
   },
+
   /**
    * 3. Obtiene el listado de misiones del usuario con el detalle global cruzado.
    */
