@@ -18,7 +18,8 @@ export const rankingsService = {
     }
     // FIX: Cambiamos "this" por el nombre del objeto para fijar el contexto puro
     const weekYear = rankingsService.getCurrentWeekYear();
-    const rawData = await rankingsRepository.getRankingData(type, weekYear, roomId);
+    const legacyWeekYear = rankingsService.getLegacyWeekYear();
+    const rawData = await rankingsRepository.getRankingData(type, [weekYear, legacyWeekYear], roomId);
 
     const formattedRanking: RankingEntry[] = rawData.map((item, index) => {
       let value = 0;
@@ -72,6 +73,22 @@ export const rankingsService = {
   },
 
   getCurrentWeekYear(): string {
+    const now = new Date();
+    const current = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    const currentDay = current.getUTCDay() || 7;
+    current.setUTCDate(current.getUTCDate() + 4 - currentDay);
+
+    const weekYear = current.getUTCFullYear();
+    const firstThursday = new Date(Date.UTC(weekYear, 0, 4));
+    const day = firstThursday.getUTCDay() || 7;
+    const yearStart = new Date(firstThursday);
+    yearStart.setUTCDate(firstThursday.getUTCDate() - day + 1);
+    const weekNumber = Math.ceil((((current.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+
+    return `${weekYear}-W${String(weekNumber).padStart(2, '0')}`;
+  },
+
+  getLegacyWeekYear(): string {
     const now = new Date();
     const oneJan = new Date(now.getFullYear(), 0, 1);
     const numberOfDays = Math.floor((now.getTime() - oneJan.getTime()) / (24 * 60 * 60 * 1000));

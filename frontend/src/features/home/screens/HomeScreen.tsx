@@ -22,10 +22,11 @@ export default function HomeScreen() {
   const [activeMissions, setActiveMissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // useEffect corregido y sincronizado con el backend del RF-12
+  // useEffect unificado y corregido que se conecta dinámicamente con el backend protegido
   useEffect(() => {
     if (!accessToken) return;
 
+    setLoading(true);
     fetch(`${API_BASE_URL}/api/missions`, {
       method: 'GET',
       headers: {
@@ -36,7 +37,7 @@ export default function HomeScreen() {
       .then(response => response.json())
       .then(data => {
         if (data.success) {
-          // Mapeamos los datos de las misiones reales de Supabase
+          // Mapeamos los datos de las misiones reales de Supabase con el porcentaje calculado
           const mappedMissions = data.data.map((m: any) => {
             const currentProgress = m.progress ?? 0;
             const goalValue = m.target_value ?? 1; // Evitamos división por cero

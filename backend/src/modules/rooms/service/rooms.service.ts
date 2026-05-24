@@ -37,10 +37,24 @@ export const RoomsService = {
   },
 
   async leaveRoom(userId: string, roomId: string) {
+    if (!roomId) {
+      throw new RoomValidationError('room_id es requerido');
+    }
+
+    const membership = await RoomsRepository.findMembership(roomId, userId);
+
+    if (!membership) {
+      throw new RoomNotFoundError('El usuario no pertenece a la sala');
+    }
+
+    if (!membership.is_active) {
+      throw new RoomConflictError('El usuario ya se encuentra inactivo en la sala');
+    }
+
     const result = await RoomsRepository.deactivateMember(userId, roomId);
 
     if (!result) {
-      throw new Error('El usuario no pertenece a la sala o ya se encuentra inactivo');
+      throw new RoomConflictError('No se pudo procesar la salida de sala');
     }
 
     return { success: true, message: 'Salida de sala procesada con exito' };

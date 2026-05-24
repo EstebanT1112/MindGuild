@@ -31,10 +31,20 @@ export interface RankingEntry {
     position: number;
 }
 
+export interface RankingResponse {
+    success: boolean;
+    data: {
+        type: string;
+        scope: string;
+        week: string;
+        data: RankingEntry[];
+    };
+}
+
 export async function fetchRanking(
     type: 'semanal' | 'racha' | 'academico' | 'jefes',
     token?: string // Opcional por si manejan tokens en el estado global
-): Promise<RankingEntry[]> {
+): Promise<RankingResponse> {
     try {
         const response = await fetch(`${API_BASE_URL}/ranking?type=${type}`, {
             method: 'GET',
