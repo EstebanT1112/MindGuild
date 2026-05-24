@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, SafeAreaView, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, Pressable, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Brain, Users, Crown, Users2, UserCircle } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 
@@ -51,8 +52,8 @@ export default function ScreenLayout({ children, title, type = 'rooms', icon, ri
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
       <View style={styles.container}>
         
         {/* HEADER UNIFICADO (MindGuild Style) */}
