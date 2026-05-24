@@ -1,30 +1,37 @@
 import { View, Text, StyleSheet } from "react-native";
 import { Flame } from 'lucide-react-native';
 
-export default function StreakCard() {
-  const streakData = {
-    currentStreak: 7,
-    bestStreak: 12,
-    todayCompleted: true,
-  };
+interface StreakCardProps {
+  currentStreak: number;
+  active: boolean;
+  loading?: boolean;
+}
+
+export default function StreakCard({ currentStreak, active, loading = false }: StreakCardProps) {
+  const accentColor = active ? '#fb923c' : '#64748b';
+  const softAccentColor = active ? '#fdba74' : '#94a3b8';
+  const borderColor = active ? '#fb923c33' : '#334155';
+  const statusText = active ? 'Activa' : 'Inactiva';
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { borderColor }]}>
       <View style={styles.row}>
         <View style={styles.left}>
           <View style={styles.icon}>
-            <Flame color="#fb923c" size={46} strokeWidth={1.45} />
+            <Flame color={accentColor} size={46} strokeWidth={1.45} />
           </View>
 
           <View>
-            <Text style={styles.days}>{streakData.currentStreak} dias</Text>
+            <Text style={[styles.days, { color: accentColor }]}>
+              {loading ? '--' : currentStreak} dias
+            </Text>
             <Text style={styles.label}>Racha actual</Text>
           </View>
         </View>
 
         <View style={styles.right}>
-          <Text style={styles.label}>Mejor</Text>
-          <Text style={styles.best}>{streakData.bestStreak} dias</Text>
+          <Text style={styles.label}>Estado</Text>
+          <Text style={[styles.status, { color: softAccentColor }]}>{loading ? '...' : statusText}</Text>
         </View>
       </View>
     </View>
@@ -38,7 +45,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: "#fb923c33",
   },
   row: {
     flexDirection: "row",
@@ -68,9 +74,8 @@ const styles = StyleSheet.create({
   right: {
     alignItems: "flex-end",
   },
-  best: {
+  status: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#fdba74",
   },
 });
