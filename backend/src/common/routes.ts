@@ -5,6 +5,7 @@ import { UsersController } from '../modules/users/controller/users.controller.js
 import { rankingsController } from '../modules/rankings/controller/ranking.controller.js';
 import { missionsController } from '../modules/missions/controller/missions.controller.js'; // Importación de tu controlador
 import studyRoutes from '../modules/study/study.routes.js';
+import sessionRoutes from '../modules/sessions/session.routes.js';
 
 const router = Router();
 
@@ -26,6 +27,9 @@ router.get('/rooms/:roomId', RoomsController.getRoomDetails);
 
 // --- STUDY (Módulos externos) ---
 router.use('/study', studyRoutes);
+
+// --- SESSIONS ---
+router.use('/sessions', sessionRoutes);
 
 // --- RANKINGS ---
 router.get('/ranking', rankingsController.getRanking);
