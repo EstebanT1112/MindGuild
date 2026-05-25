@@ -1,12 +1,12 @@
 # Índice de Temas Consultados — Entrega 1 (IA)
 
-## 👥 Integrantes del Equipo
+## Integrantes del Equipo
 - **Rodrigo Castaño** (Asistente de IA principal: Gemini)
 - **Esteban Trillo** (Asistente de IA principal: Codex)
 
 ---
 
-## 📂 Estructura de la Entrega (`/ia/entrega-1/`)
+## Estructura de la Entrega (`/ia/entrega-1/`)
 - `chatGemini.cm`: Registro de interacciones enfocadas en UI/UX móvil, maquetado de vistas, tipado estricto en el frontend y operaciones avanzadas de Git.
 - `chatCodex.cm`: Registro de interacciones orientadas a la arquitectura inicial del proyecto, configuración de entornos locales, scripts de dependencias y conexión de servicios.
 
