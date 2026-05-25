@@ -11,7 +11,7 @@ export default function StreakCard({ currentStreak, active, loading = false }: S
   const accentColor = active ? '#fb923c' : '#64748b';
   const softAccentColor = active ? '#fdba74' : '#94a3b8';
   const borderColor = active ? '#fb923c33' : '#334155';
-  const statusText = active ? 'Activa' : 'Inactiva';
+  const statusText = active ? 'Activa' : currentStreak > 0 ? 'Pendiente' : 'Inactiva';
 
   return (
     <View style={[styles.card, { borderColor }]}>

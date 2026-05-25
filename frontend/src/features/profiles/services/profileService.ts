@@ -8,6 +8,7 @@ export interface FullProfile {
   bio: string | null;
   streak_days: number;
   total_study_minutes: number;
+  streak_completed_today: boolean;
   weekly_stats: {
     total_minutes: number;
     consistency_score: number;
