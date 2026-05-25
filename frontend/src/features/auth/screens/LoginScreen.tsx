@@ -102,9 +102,6 @@ export default function LoginScreen() {
                             </Pressable>
                         </View>
 
-                        <Pressable style={styles.forgotRow}>
-                            <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
-                        </Pressable>
 
                         <Pressable
                             style={[styles.btnPrimary, loading && { opacity: 0.7 }]}
@@ -117,16 +114,6 @@ export default function LoginScreen() {
                             }
                         </Pressable>
 
-                        <View style={styles.divider}>
-                            <View style={styles.dividerLine} />
-                            <Text style={styles.dividerText}>o</Text>
-                            <View style={styles.dividerLine} />
-                        </View>
-
-                        <Pressable style={styles.btnGoogle}>
-                            <Text style={styles.googleIcon}>G</Text>
-                            <Text style={styles.btnGoogleText}>Continuar con Google</Text>
-                        </Pressable>
                     </View>
 
                     {/* FOOTER */}
@@ -254,27 +241,6 @@ const styles = StyleSheet.create({
     dividerText: {
         color: '#64748b',
         fontSize: 14,
-    },
-    btnGoogle: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#0f172a',
-        borderWidth: 1,
-        borderColor: '#334155',
-        height: 56,
-        borderRadius: 18,
-        gap: 12,
-    },
-    googleIcon: {
-        color: '#ffffff',
-        fontSize: 18,
-        fontWeight: '900',
-    },
-    btnGoogleText: {
-        color: '#ffffff',
-        fontSize: 15,
-        fontWeight: 'bold',
     },
     footer: {
         flexDirection: 'row',
