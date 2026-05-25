@@ -8,7 +8,6 @@ export default function SettingsModal({ visible, onClose }: { visible: boolean; 
 
   const [notifications, setNotifications] = useState(true);
   const [sounds, setSounds] = useState(true);
-  const [darkMode, setDarkMode] = useState(true);
   const [publicProfile, setPublicProfile] = useState(true);
 
   const handleLogout = () => {
@@ -79,12 +78,7 @@ export default function SettingsModal({ visible, onClose }: { visible: boolean; 
               value={sounds} 
               onValueChange={setSounds} 
             />
-            <SettingSwitch 
-              title="Modo Oscuro" 
-              sub="Tema oscuro activado" 
-              value={darkMode} 
-              onValueChange={setDarkMode} 
-            />
+            
             <SettingSwitch 
               title="Perfil Público" 
               sub="Otros usuarios pueden ver tu perfil" 

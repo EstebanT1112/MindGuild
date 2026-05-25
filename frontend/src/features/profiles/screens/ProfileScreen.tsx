@@ -29,15 +29,16 @@ import StatCard from '../components/StatCard';
 import WeeklyProgress from '../components/WeeklyProgress';
 
 import {
-  fetchMyProfile,
-  type FullProfile,
-  updateMyProfile
+    fetchMyProfile,
+    type FullProfile,
+    updateMyProfile
 } from '../services/profileService';
 
 import {
-  fetchAchievements,
-  type Achievement
+    fetchAchievements,
+    type Achievement
 } from '../services/achievementsService';
+
 const fallbackAvatar = 'https://ui-avatars.com/api/?background=1e293b&color=ffffff&name=MG';
 
 export default function ProfileScreen() {
@@ -50,6 +51,7 @@ export default function ProfileScreen() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [achievements, setAchievements] = useState<Achievement[]>([]);
+    
     const avatarUri = profile?.avatar_url || fallbackAvatar;
 
     useEffect(() => {
@@ -63,8 +65,11 @@ export default function ProfileScreen() {
         try {
             const data = await fetchMyProfile(accessToken);
             setProfile(data);
+            
+            // Traemos los logros de forma correcta
             const achievementData = await fetchAchievements(accessToken);
             setAchievements(achievementData);
+            
             setUser({ id: data.id, email: data.email, username: data.username });
         } catch (error: any) {
             Alert.alert('Error de perfil', error.message ?? 'No se pudo cargar el perfil.');
@@ -111,23 +116,27 @@ export default function ProfileScreen() {
 
     return (
         <ScreenLayout title="MI PERFIL" type="profiles">
-            <View style={styles.actionButtons}>
-                <Pressable
-                    style={[styles.iconBtn, styles.editBtnActive]}
-                    onPress={() => setEditModalVisible(true)}
-                >
-                    <Edit2 color="#3b82f6" size={18} />
-                </Pressable>
-
-                <Pressable
-                    style={styles.iconBtn}
-                    onPress={() => setSettingsVisible(true)}
-                >
-                    <Settings color="#94a3b8" size={18} />
-                </Pressable>
-            </View>
-
+            {/* El ScrollView envuelve todo, incluidos los botones superiores */}
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+                
+                {/* Botones de acción contenidos en el flujo del scroll */}
+                <View style={styles.actionButtons}>
+                    <Pressable
+                        style={[styles.iconBtn, styles.editBtnActive]}
+                        onPress={() => setEditModalVisible(true)}
+                    >
+                        <Edit2 color="#3b82f6" size={18} />
+                    </Pressable>
+
+                    <Pressable
+                        style={styles.iconBtn}
+                        onPress={() => setSettingsVisible(true)}
+                    >
+                        <Settings color="#94a3b8" size={18} />
+                    </Pressable>
+                </View>
+
+                {/* Información Principal del Perfil */}
                 <View style={styles.profileSection}>
                     <View style={styles.avatarContainer}>
                         <View style={styles.avatarBorder}>
@@ -146,6 +155,7 @@ export default function ProfileScreen() {
                     </View>
                 </View>
 
+                {/* Grid de Estadísticas */}
                 <View style={styles.statsGrid}>
                     <StatCard icon={<Trophy color="#22c55e" size={24} />} value={`${profile?.total_study_minutes ?? 0}m`} label="Total Estudio" />
                     <StatCard icon={<Flame color="#fb923c" size={24} />} value={`${profile?.streak_days ?? 0} dias`} label="Racha Actual" />
@@ -153,18 +163,20 @@ export default function ProfileScreen() {
                     <StatCard icon={<Castle color="#22c55e" size={24} />} value={`${profile?.village.village_level ?? 1}`} label="Nivel Aldea" />
                 </View>
 
+                {/* Progreso Semanal */}
                 <WeeklyProgress
                     data={[0, 0, 0, 0, 0, 0, profile?.weekly_stats.total_minutes ?? 0]}
                     totalMinutes={profile?.weekly_stats.total_minutes ?? 0}
                 />
 
+                {/* Sección de Medallas / Logros Unificada */}
                 <View style={styles.medalsSection}>
                     <View style={styles.sectionHeaderRow}>
                         <Medal color="#facc15" size={20} />
                         <Text style={styles.sectionTitle}>Medallas Desbloqueadas</Text>
                     </View>
                     <View style={styles.medalsGrid}>
-                        {achievements.map((m, i) => (
+                        {achievements.map((m) => (
                             <View key={m.id} style={[styles.medalCard, !m.unlocked && { opacity: 0.4 }]}>
                                 <Medal color={m.unlocked ? '#22c55e' : '#4b5563'} size={30}/>
                                 <Text style={styles.medalName}>{m.name}</Text>
@@ -173,6 +185,7 @@ export default function ProfileScreen() {
                     </View>
                 </View>
 
+                {/* Tarjeta de la Aldea */}
                 <View style={styles.villageCard}>
                     <Text style={styles.villageTitle}>Tu Aldea en Evolucion</Text>
                     <View style={styles.villageMainRow}>
@@ -193,6 +206,7 @@ export default function ProfileScreen() {
                 </View>
             </ScrollView>
 
+            {/* Modales */}
             <EditProfileModal
                 visible={isEditModalVisible}
                 onClose={() => setEditModalVisible(false)}
@@ -218,11 +232,16 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'flex-end',
         gap: 10,
-        marginBottom: -10,
+        paddingHorizontal: 4,
+        marginBottom: 10,
     },
     iconBtn: {
-        width: 40, height: 40, borderRadius: 12,
-        backgroundColor: '#1e293b', alignItems: 'center', justifyContent: 'center'
+        width: 40, 
+        height: 40, 
+        borderRadius: 12,
+        backgroundColor: '#1e293b', 
+        alignItems: 'center', 
+        justifyContent: 'center'
     },
     loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
     loadingText: { color: '#94a3b8', fontWeight: 'bold' },
