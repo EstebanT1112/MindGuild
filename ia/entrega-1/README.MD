@@ -12,7 +12,7 @@
 
 ---
 
-## 🛠️ Listado de Habilidades y Temas de IA Utilizados (Skills)
+## Listado de Habilidades y Temas de IA Utilizados (Skills)
 
 A continuación se detallan las competencias y problemas técnicos resueltos mediante el uso estratégico de asistentes de Inteligencia Artificial durante el ciclo de desarrollo de la Entrega 1:
 
