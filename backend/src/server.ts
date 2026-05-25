@@ -17,6 +17,9 @@ app.use('/api', router);
 
 const PORT = process.env.PORT || 3000;
 
+app.listen(PORT, () => {
+    console.log(`🚀 Servidor de MindGuild corriendo en http://localhost:${PORT}`);
+});
 // Escuchamos explícitamente en '0.0.0.0' para que no se quede cerrado solo en localhost
 app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`🚀 Servidor de MindGuild corriendo en cualquier interfaz en el puerto ${PORT}`);

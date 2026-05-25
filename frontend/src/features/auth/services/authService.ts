@@ -54,6 +54,8 @@ export async function login(
     password: string
 ): Promise<LoginResult> {
     const authResult = await loginWithAuth0(email, password);
+    //Prueba de post
+    //console.log(authResult.access_token);
     const profile = await getCurrentProfile(authResult.access_token);
 
     return {

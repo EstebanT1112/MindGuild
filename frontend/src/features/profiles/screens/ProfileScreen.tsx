@@ -27,8 +27,17 @@ import EditProfileModal from '../components/EditProfileModal';
 import SettingsModal from '../components/SettingsModal';
 import StatCard from '../components/StatCard';
 import WeeklyProgress from '../components/WeeklyProgress';
-import { fetchMyProfile, type FullProfile, updateMyProfile } from '../services/profileService';
 
+import {
+  fetchMyProfile,
+  type FullProfile,
+  updateMyProfile
+} from '../services/profileService';
+
+import {
+  fetchAchievements,
+  type Achievement
+} from '../services/achievementsService';
 const fallbackAvatar = 'https://ui-avatars.com/api/?background=1e293b&color=ffffff&name=MG';
 
 export default function ProfileScreen() {
@@ -40,7 +49,7 @@ export default function ProfileScreen() {
     const [profile, setProfile] = useState<FullProfile | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-
+    const [achievements, setAchievements] = useState<Achievement[]>([]);
     const avatarUri = profile?.avatar_url || fallbackAvatar;
 
     useEffect(() => {
@@ -54,6 +63,8 @@ export default function ProfileScreen() {
         try {
             const data = await fetchMyProfile(accessToken);
             setProfile(data);
+            const achievementData = await fetchAchievements(accessToken);
+            setAchievements(achievementData);
             setUser({ id: data.id, email: data.email, username: data.username });
         } catch (error: any) {
             Alert.alert('Error de perfil', error.message ?? 'No se pudo cargar el perfil.');
@@ -153,16 +164,9 @@ export default function ProfileScreen() {
                         <Text style={styles.sectionTitle}>Medallas Desbloqueadas</Text>
                     </View>
                     <View style={styles.medalsGrid}>
-                        {[
-                            { name: '3 Dias Consecutivos', Icon: Flame, color: '#fb923c', unlocked: (profile?.streak_days ?? 0) >= 3 },
-                            { name: 'Auditor Implacable', Icon: Target, color: '#3b82f6', unlocked: false },
-                            { name: 'Estudiante Dedicado', Icon: Medal, color: '#22c55e', unlocked: (profile?.total_study_minutes ?? 0) > 0 },
-                            { name: 'Maestro del Focus', Icon: Target, color: '#4b5563', unlocked: false },
-                            { name: 'Racha de 7 dias', Icon: Zap, color: '#4b5563', unlocked: (profile?.streak_days ?? 0) >= 7 },
-                            { name: 'Top 3 Ranking', Icon: Crown, color: '#4b5563', unlocked: false },
-                        ].map((m, i) => (
-                            <View key={i} style={[styles.medalCard, !m.unlocked && { opacity: 0.4 }]}>
-                                <m.Icon color={m.color} size={30} />
+                        {achievements.map((m, i) => (
+                            <View key={m.id} style={[styles.medalCard, !m.unlocked && { opacity: 0.4 }]}>
+                                <Medal color={m.unlocked ? '#22c55e' : '#4b5563'} size={30}/>
                                 <Text style={styles.medalName}>{m.name}</Text>
                             </View>
                         ))}
