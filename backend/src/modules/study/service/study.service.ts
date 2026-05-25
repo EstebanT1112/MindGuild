@@ -1,5 +1,7 @@
 import { studyRepository } from '../repository/study.repository.js';
-
+import { achievementService } from '../../achievements/service/achievement.service.js';
+import type { UserAchievement }
+from '../../achievements/types/achievement.types.js';
 export const studyService = {
   /**
    * Registra el impacto de una sesión aprobada en todas las estadísticas.
@@ -22,8 +24,23 @@ export const studyService = {
       validatedData.durationMinutes
     );
 
-    
-
+    // RF-13 → manejar evento automatico de achievements
+    let unlockedAchievements: UserAchievement[] = [];
+    //Nos aseguramos q si falla achievements 
+    // no falle toda la sesion
+    try {
+      unlockedAchievements =
+        await achievementService.handleAchievementEvent(
+          validatedData.userId,
+          'session_completed'
+        );
+    } catch (error) {
+      console.error(
+        'Error processing achievements',
+        error
+      );
+    }
+  
     return {
       success: true,
       message: "Tiempo de estudio impactado correctamente en rankings y perfil",
@@ -31,7 +48,8 @@ export const studyService = {
         userId: validatedData.userId,
         minutesAdded: validatedData.durationMinutes,
         currentWeek: weekYear,
-        newTotalHistorical: newTotalAccumulated
+        newTotalHistorical: newTotalAccumulated,
+        unlockedAchievements
       }
     };
   },

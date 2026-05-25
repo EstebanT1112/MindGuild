@@ -4,7 +4,7 @@ import { RoomsController } from '../modules/rooms/controller/rooms.controller.js
 import { UsersController } from '../modules/users/controller/users.controller.js';
 import { rankingsController } from '../modules/rankings/controller/ranking.controller.js';
 import studyRoutes from '../modules/study/study.routes.js';
-
+import achievementRoutes from '../modules/achievements/achievements.routes.js';
 const router = Router();
 
 // --- AUTH ---
@@ -26,4 +26,6 @@ router.use('/study', studyRoutes);
 // Usamos el objeto rankingsController que definimos en el otro archivo
 router.get('/ranking', rankingsController.getRanking);
 
+// --- ACHIEVEMENTS ---
+router.use('/achievements', achievementRoutes);
 export default router;

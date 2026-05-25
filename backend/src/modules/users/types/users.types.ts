@@ -6,6 +6,8 @@ export interface BasicProfile {
   bio: string | null;
   streak_days: number;
   total_study_minutes: number;
+  //Lo agrego para el REQ 15
+  expo_push_token?: string | null;
 }
 
 export interface WeeklyStats {
@@ -28,6 +30,8 @@ export interface UpdateProfileDTO {
   username?: string;
   avatar_url?: string | null;
   bio?: string | null;
+  //Lo agrego para el REQ 15
+  expo_push_token?: string | null;
 }
 
 export class UserValidationError extends Error {

@@ -1,0 +1,158 @@
+import { achievementRepository 
+} from '../repository/achievement.repository.js';
+
+import type { Achievement, UserAchievement, AchievementStatus, AchievementEventType
+} from '../types/achievement.types.js';
+//REQ 15
+import { notificationService }
+  from '../../notifications/service/notification.service.js';
+
+
+export const achievementService = {
+  //Evalua achievements segun el evento recibido, defino el return type como Achievement
+  async evaluateAchievements(userId: string, eventType: AchievementEventType): Promise<Achievement[]> {
+    //Busco logros activos
+    const achievements =
+      await achievementRepository.getActiveAchievementsByType(eventType);
+    //Si no hay logros, corto
+    if (!achievements.length) {
+      return [];
+    }
+    //Busco logros ya desbloqueados
+    const unlocked =
+      await achievementRepository.getUnlockedAchievements(userId);
+    //Coleccion de ids ya desbloqueados 
+    const unlockedIds = new Set(
+      unlocked.map(a => a.achievement_id)
+    );
+    //Filtro los logros ya desbloqueados
+    const pendingAchievements =
+      achievements.filter(
+        achievement =>
+          !unlockedIds.has(achievement.id)
+      );
+    //Obtengo progreso real segun evento
+    let progress = 0;
+    switch (eventType) {
+
+      case 'session_completed':
+        progress =
+          await achievementRepository
+            .countCompletedSessions(userId);
+        break;
+
+      case 'streak_updated':
+         throw new Error(
+          'streak_updated not implemented'
+        );
+
+      case 'room_participation':
+        throw new Error(
+          'room_participation not implemented'
+        );
+    }
+    const achievementsToUnlock: Achievement[] = [];
+    //Evaluo el cumplimiento de que
+    // progress>achievement.target_value
+    for (const achievement of pendingAchievements) {
+
+      const completed =
+        progress >= achievement.target_value;
+
+      if (completed) {
+        achievementsToUnlock.push(achievement);
+      }
+    }
+    //retorno solo los logros  cumplidos
+    return achievementsToUnlock;
+  },
+
+  async unlockAchievements(
+    userId: string,
+    achievements: Achievement[]
+  ): Promise<UserAchievement[]> {
+    
+    if (achievements.length === 0) {
+      return [];
+    }
+
+    const achievementIds = achievements.map(a => a.id);
+
+    // Persistir achievements desbloqueados
+    const unlockedAchievements =
+      await achievementRepository
+        .saveUnlockedAchievements(
+          userId,
+          achievementIds
+        );
+
+    // RF-15 → generar notifications
+    for (const achievement of achievements) {
+
+      try {
+
+        await notificationService
+          .notifyAchievementUnlocked(
+            userId,
+            achievement
+          );
+
+      } catch (error) {
+
+        // No romper flujo principal
+        console.error(
+          'Error notifying achievement unlock',
+          error
+        );
+      }
+    }
+
+    return unlockedAchievements;
+  },
+  //REQ 13 - Prompt 3
+  //Funcion que coordina el flujo
+  async handleAchievementEvent(
+    userId: string,
+    eventType: AchievementEventType
+  ): Promise<UserAchievement[]> {
+
+    // Evalo que logros cumplen condiciones
+    const achievements =
+      await this.evaluateAchievements(
+        userId,
+        eventType
+      );
+
+    // Si no hay logros nuevos, corta el flujo
+    if (!achievements.length) {
+      return [];
+    }
+
+    // Persiste logros desbloqueados
+    return await this.unlockAchievements(
+      userId,
+      achievements
+    );
+  },
+  //REQ 14- Obtiene todos los achievements activos (Prompt 1)
+  async getAllAchievements(): Promise<Achievement[]> {
+
+    return await achievementRepository
+      .getAllActiveAchievements();
+  },
+  //REQ 14 - Retorna los logros desbloqueados del usuario
+  async getUserUnlockedAchievements(
+    userId: string
+  ): Promise<UserAchievement[]> {
+
+    return await achievementRepository
+      .getUserUnlockedAchievements(userId);
+  },
+
+  //REQ 14 - Construye el estado completo de achievements del usuario
+  async getUserAchievements(
+    userId: string
+  ): Promise<AchievementStatus[]> {
+    return achievementRepository.getUserAchievements(userId);
+  },
+};

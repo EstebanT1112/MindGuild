@@ -88,6 +88,12 @@ function normalizeUpdateInput(input: UpdateProfileDTO): UpdateProfileDTO {
     const value = input.bio?.trim();
     data.bio = value || null;
   }
+  
+  //lO AGREGO PARA EL REQ 15
+  if (Object.prototype.hasOwnProperty.call(input, 'expo_push_token')) {
+    const value = input.expo_push_token?.trim();
+    data.expo_push_token = value || null;
+  }
 
   return data;
 }

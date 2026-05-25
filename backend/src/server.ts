@@ -1,10 +1,10 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import router from './common/routes.js';
-
 dotenv.config({ override: true });
 
 const app = express();
+
 app.use(express.json()); // Clave para que entienda los JSON que mandás
 
 // Usamos las rutas que definimos para tus requerimientos
