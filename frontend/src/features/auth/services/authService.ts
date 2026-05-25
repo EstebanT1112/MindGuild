@@ -54,6 +54,7 @@ export async function login(
     email: string,
     password: string
 ): Promise<LoginResult> {
+    // RF-02: valida credenciales en Auth0 y sincroniza la sesion con el perfil local.
     const authResult = await loginWithAuth0(email, password);
     const profile = await getCurrentProfile(authResult.access_token);
 
@@ -117,6 +118,7 @@ export async function loginWithAuth0(
     email: string,
     password: string
 ): Promise<Auth0Result> {
+    // Solicita a Auth0 un access_token usando las credenciales del usuario.
     const tokenRes = await safeFetch(`https://${AUTH0_DOMAIN}/oauth/token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -170,6 +172,7 @@ async function createProfile(input: {
 }
 
 async function getCurrentProfile(accessToken: string): Promise<ProfileResult> {
+    // Usa el access_token para que el backend valide identidad y devuelva el perfil local.
     const response = await safeFetch(`${API_BASE_URL}/auth/me`, {
         method: 'GET',
         headers: {

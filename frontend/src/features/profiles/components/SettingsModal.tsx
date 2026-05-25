@@ -11,6 +11,7 @@ export default function SettingsModal({ visible, onClose }: { visible: boolean; 
   const [darkMode, setDarkMode] = useState(true);
   const [publicProfile, setPublicProfile] = useState(true);
 
+  // RF-02: confirma el cierre y borra la sesion local de Zustand.
   const handleLogout = () => {
     Alert.alert(
       'Cerrar sesion',

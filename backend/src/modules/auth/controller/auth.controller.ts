@@ -40,6 +40,7 @@ export const AuthController = {
   },
 
   async me(req: Request, res: Response) {
+    // RF-02: valida el Bearer token y devuelve el perfil asociado a la sesion.
     try {
       const accessToken = extractBearerToken(req);
       const profile = await AuthService.getProfileFromAccessToken(accessToken);

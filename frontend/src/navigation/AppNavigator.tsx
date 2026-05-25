@@ -12,6 +12,7 @@ import { useAuthStore } from '../store/authStore';
 const Stack = createNativeStackNavigator();
 
 export default function AppNavigator() {
+  // RF-02: el estado de sesion decide si se muestra el stack publico o privado.
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
 
   return (

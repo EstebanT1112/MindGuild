@@ -49,6 +49,7 @@ export const AuthService = {
   },
 
   async getProfileFromAccessToken(accessToken: string): Promise<RegisteredProfile> {
+    // RF-02: confirma la identidad en Auth0 y la cruza con el perfil activo local.
     if (!accessToken) {
       throw new AuthUnauthorizedError('Token requerido');
     }
