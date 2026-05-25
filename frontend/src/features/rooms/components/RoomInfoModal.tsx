@@ -10,6 +10,7 @@ interface Props {
 }
 
 export default function RoomInfoModal({ visible, room, onClose }: Props) {
+  // RF-06: muestra en modal los datos de sala ya cargados por la pantalla.
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.backdrop}>

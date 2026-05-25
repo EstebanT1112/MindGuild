@@ -103,6 +103,7 @@ export async function fetchRoomDetails(
   accessToken: string,
   roomId: string
 ): Promise<RoomDetails> {
+  // RF-06: obtiene la sala completa validando acceso en backend.
   const response = await fetch(`${API_BASE_URL}/rooms/${roomId}`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,

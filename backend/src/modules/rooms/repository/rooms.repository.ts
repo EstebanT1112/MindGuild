@@ -113,6 +113,7 @@ export const RoomsRepository = {
   },
 
   async findActiveRoomById(roomId: string): Promise<Omit<RoomDetails, 'members'> | null> {
+    // RF-06: obtiene los datos base de la sala antes de sumar integrantes.
     const { rows } = await pool.query(
       `
         SELECT id, name, mode, invite_code, owner_id, max_members, is_active, teams_enabled
@@ -127,6 +128,7 @@ export const RoomsRepository = {
   },
 
   async getActiveMembers(roomId: string): Promise<RoomMember[]> {
+    // RF-06: cruza room_members con profiles para listar solo integrantes activos.
     const { rows } = await pool.query(
       `
         SELECT

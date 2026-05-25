@@ -26,6 +26,7 @@ export const RoomsController = {
   },
 
   async getRoomDetails(req: Request, res: Response) {
+    // RF-06: devuelve datos de sala solo si el usuario tiene membresia activa.
     try {
       const user = await getAuthenticatedProfile(req);
       const roomId = Array.isArray(req.params.roomId) ? req.params.roomId[0] : req.params.roomId;

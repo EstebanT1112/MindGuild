@@ -93,6 +93,7 @@ export const RoomsService = {
   },
 
   async getRoomDetails(userId: string, roomId: string): Promise<RoomDetails> {
+    // RF-06: valida acceso, obtiene datos base y agrega integrantes activos.
     if (!roomId) {
       throw new RoomValidationError('roomId es requerido');
     }
