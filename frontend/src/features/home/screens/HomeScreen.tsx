@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { ChevronRight, Inbox, Users } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { API_BASE_URL } from '../../../services/apiConfig';
@@ -67,7 +67,7 @@ export default function HomeScreen() {
       });
   }, [accessToken]);
 
-  useEffect(() => {
+  const loadProfile = useCallback(() => {
     if (!accessToken) return;
 
     setProfileLoading(true);
@@ -81,6 +81,8 @@ export default function HomeScreen() {
         setProfileLoading(false);
       });
   }, [accessToken]);
+
+  useFocusEffect(loadProfile);
 
   useEffect(() => {
     if (!accessToken) return;
