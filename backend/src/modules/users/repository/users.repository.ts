@@ -86,6 +86,25 @@ export const UsersRepository = {
 
     return (rows[0] as VillageState | undefined) ?? null;
   },
+
+  async hasValidSessionToday(userId: string): Promise<boolean> {
+    const { rows } = await pool.query(
+      `
+        SELECT 1
+        FROM study_sessions
+        WHERE user_id = $1
+          AND status = 'completed'
+          AND valid = true
+          AND (ended_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date =
+            (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date
+        LIMIT 1;
+      `,
+      [userId]
+    );
+
+    return rows.length > 0;
+  },
+
   //REQ 15 PUSH
   async getExpoPushToken(userId: string) {
     const { rows } = await pool.query(

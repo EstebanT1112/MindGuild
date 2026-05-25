@@ -113,7 +113,7 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <StreakCard
           currentStreak={profile?.streak_days ?? 0}
-          active={(profile?.streak_days ?? 0) > 0}
+          active={Boolean(profile?.streak_completed_today)}
           loading={profileLoading}
         />
 
