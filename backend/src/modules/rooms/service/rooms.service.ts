@@ -38,6 +38,7 @@ export const RoomsService = {
   },
 
   async leaveRoom(userId: string, roomId: string) {
+    // RF-07: valida membresia activa antes de marcar al usuario como inactivo.
     if (!roomId) {
       throw new RoomValidationError('room_id es requerido');
     }

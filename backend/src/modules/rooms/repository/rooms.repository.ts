@@ -223,6 +223,7 @@ export const RoomsRepository = {
   },
 
   async deactivateMember(userId: string, roomId: string) {
+    // RF-07: baja logica; conserva historial y permite reactivacion futura.
     const query = `
       UPDATE room_members
       SET is_active = false, left_at = NOW()
@@ -234,6 +235,7 @@ export const RoomsRepository = {
   },
 
   async checkActiveMembership(userId: string, roomId: string): Promise<boolean> {
+    // Verifica membresia activa para flujos que deben excluir usuarios salidos.
     const query = `
       SELECT 1
       FROM room_members

@@ -142,6 +142,7 @@ export async function leaveRoom(
   accessToken: string,
   roomId: string
 ): Promise<{ success: boolean; message: string }> {
+  // RF-07: solicita la baja logica del usuario dentro de una sala.
   const response = await fetch(`${API_BASE_URL}/rooms/leave`, {
     method: 'POST',
     headers: {

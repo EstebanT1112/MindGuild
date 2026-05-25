@@ -93,6 +93,7 @@ export const RoomsController = {
   },
 
   async handleLeaveRoom(req: Request, res: Response) {
+    // RF-07: procesa la salida de sala del usuario autenticado.
     try {
       const user = await getAuthenticatedProfile(req);
       const { room_id } = req.body;

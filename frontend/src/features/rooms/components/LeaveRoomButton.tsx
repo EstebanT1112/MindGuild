@@ -14,6 +14,7 @@ export default function LeaveRoomButton({ roomId }: Props) {
   const accessToken = useAuthStore(state => state.access_token);
   const [submitting, setSubmitting] = useState(false);
 
+  // RF-07: pide confirmacion antes de ejecutar la baja logica de membresia.
   const confirmLeave = () => {
     Alert.alert(
       'Abandonar sala',
@@ -25,6 +26,7 @@ export default function LeaveRoomButton({ roomId }: Props) {
     );
   };
 
+  // RF-07: llama al backend para abandonar la sala y saca al usuario de la vista.
   const handleLeave = async () => {
     if (!roomId || !accessToken || submitting) return;
 
