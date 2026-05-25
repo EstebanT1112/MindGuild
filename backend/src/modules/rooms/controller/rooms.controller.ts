@@ -26,6 +26,7 @@ export const RoomsController = {
   },
 
   async getRoomDetails(req: Request, res: Response) {
+    // RF-06: devuelve datos de sala solo si el usuario tiene membresia activa.
     try {
       const user = await getAuthenticatedProfile(req);
       const roomId = Array.isArray(req.params.roomId) ? req.params.roomId[0] : req.params.roomId;
@@ -59,6 +60,7 @@ export const RoomsController = {
   },
 
   async createRoom(req: Request, res: Response) {
+    // RF-04: crea una sala privada para el usuario autenticado como owner.
     try {
       const owner = await getAuthenticatedProfile(req);
       const room = await RoomsService.createRoom(owner.id, req.body);
@@ -91,6 +93,7 @@ export const RoomsController = {
   },
 
   async handleLeaveRoom(req: Request, res: Response) {
+    // RF-07: procesa la salida de sala del usuario autenticado.
     try {
       const user = await getAuthenticatedProfile(req);
       const { room_id } = req.body;
@@ -125,6 +128,7 @@ export const RoomsController = {
   },
 
   async joinRoom(req: Request, res: Response) {
+    // RF-05: une al usuario autenticado a una sala usando un codigo de invitacion.
     try {
       const user = await getAuthenticatedProfile(req);
       const room = await RoomsService.joinRoom(user.id, req.body?.invite_code);
@@ -158,6 +162,7 @@ export const RoomsController = {
 };
 
 async function getAuthenticatedProfile(req: Request) {
+  // Resuelve el perfil local a partir del Bearer token de Auth0.
   const authorization = req.headers.authorization;
 
   if (!authorization?.startsWith('Bearer ')) {

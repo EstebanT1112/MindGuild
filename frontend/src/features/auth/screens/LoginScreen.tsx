@@ -27,6 +27,7 @@ export default function LoginScreen() {
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
 
+    // RF-02: autentica en Auth0, carga el perfil local y activa la sesion global.
     const handleLogin = async () => {
         if (!email.trim() || !password.trim()) {
             Alert.alert('Campos incompletos', 'Completá todos los campos para continuar.');

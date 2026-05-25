@@ -34,6 +34,7 @@ export async function register(
     password: string,
     username: string
 ): Promise<RegisterResult> {
+    // Orquesta RF-01: primero crea el usuario en Auth0 y luego persiste el perfil en backend.
     console.log('Register step: Auth0 signup');
     const authResult = await registerWithAuth0(email, password);
     console.log('Register step: backend profile', API_BASE_URL);
@@ -53,6 +54,7 @@ export async function login(
     email: string,
     password: string
 ): Promise<LoginResult> {
+    // RF-02: valida credenciales en Auth0 y sincroniza la sesion con el perfil local.
     const authResult = await loginWithAuth0(email, password);
     //Prueba de post
     //console.log(authResult.access_token);
@@ -68,6 +70,7 @@ export async function registerWithAuth0(
     email: string,
     password: string
 ): Promise<Auth0Result> {
+    // Registra credenciales en Auth0 y obtiene el access_token necesario para leer /userinfo.
     const signupRes = await safeFetch(`https://${AUTH0_DOMAIN}/dbconnections/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -117,6 +120,7 @@ export async function loginWithAuth0(
     email: string,
     password: string
 ): Promise<Auth0Result> {
+    // Solicita a Auth0 un access_token usando las credenciales del usuario.
     const tokenRes = await safeFetch(`https://${AUTH0_DOMAIN}/oauth/token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -150,6 +154,7 @@ async function createProfile(input: {
     email: string;
     username: string;
 }): Promise<ProfileResult> {
+    // Crea el perfil de dominio en MindGuild usando el identificador externo de Auth0.
     const response = await safeFetch(`${API_BASE_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -169,6 +174,7 @@ async function createProfile(input: {
 }
 
 async function getCurrentProfile(accessToken: string): Promise<ProfileResult> {
+    // Usa el access_token para que el backend valide identidad y devuelva el perfil local.
     const response = await safeFetch(`${API_BASE_URL}/auth/me`, {
         method: 'GET',
         headers: {
@@ -189,6 +195,7 @@ async function getCurrentProfile(accessToken: string): Promise<ProfileResult> {
 }
 
 async function fetchAuth0UserInfo(accessToken: string) {
+    // Obtiene el sub de Auth0, que el sistema usa como auth_user_id.
     const userRes = await safeFetch(`https://${AUTH0_DOMAIN}/userinfo`, {
         headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -203,6 +210,7 @@ async function fetchAuth0UserInfo(accessToken: string) {
 }
 
 async function safeFetch(url: string, options: RequestInit, networkMessage?: string) {
+    // Normaliza errores de red para que la UI muestre mensajes consistentes.
     try {
         return await fetch(url, options);
     } catch (error) {
@@ -226,6 +234,7 @@ async function parseJson(response: Response) {
 }
 
 function buildError(data: any): AuthError {
+    // Traduce errores de Auth0/backend a un formato comun para la app.
     const code = data.code || data.error || 'unknown_error';
     const message = resolveErrorMessage(code, data.description || data.error_description);
     return { code, message };

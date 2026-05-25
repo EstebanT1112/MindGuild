@@ -9,6 +9,7 @@ import {
 
 export const AuthController = {
   async register(req: Request, res: Response) {
+    // RF-01: recibe el perfil ya autenticado por Auth0 y lo crea en la base local.
     try {
       const profile = await AuthService.registerProfile(req.body);
       return res.status(201).json(profile);
@@ -39,6 +40,7 @@ export const AuthController = {
   },
 
   async me(req: Request, res: Response) {
+    // RF-02: valida el Bearer token y devuelve el perfil asociado a la sesion.
     try {
       const accessToken = extractBearerToken(req);
       const profile = await AuthService.getProfileFromAccessToken(accessToken);
@@ -63,6 +65,7 @@ export const AuthController = {
 };
 
 function extractBearerToken(req: Request): string {
+  // Extrae el token Bearer para endpoints que necesitan identificar al usuario.
   const authorization = req.headers.authorization;
 
   if (!authorization?.startsWith('Bearer ')) {

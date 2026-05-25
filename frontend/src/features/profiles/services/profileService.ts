@@ -26,6 +26,7 @@ export interface UpdateProfileInput {
 }
 
 export async function fetchMyProfile(accessToken: string): Promise<FullProfile> {
+  // RF-03: pide al backend el perfil unificado con stats semanales y aldea.
   const response = await fetch(`${API_BASE_URL}/users/me`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -45,6 +46,7 @@ export async function updateMyProfile(
   accessToken: string,
   input: UpdateProfileInput
 ): Promise<FullProfile> {
+  // RF-03: actualiza solo campos editables y espera el perfil completo actualizado.
   const response = await fetch(`${API_BASE_URL}/users/me`, {
     method: 'PATCH',
     headers: {

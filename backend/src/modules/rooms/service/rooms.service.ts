@@ -16,6 +16,7 @@ const VALID_ROOM_MODES: RoomMode[] = ['survival', 'battle_royale'];
 
 export const RoomsService = {
   async createRoom(ownerId: string, input: Partial<CreateRoomDTO>): Promise<CreatedRoom> {
+    // RF-04: valida datos y delega la creacion transaccional de sala + owner.
     const data = normalizeCreateRoomInput(input);
     validateCreateRoomInput(data);
 
@@ -37,6 +38,7 @@ export const RoomsService = {
   },
 
   async leaveRoom(userId: string, roomId: string) {
+    // RF-07: valida membresia activa antes de marcar al usuario como inactivo.
     if (!roomId) {
       throw new RoomValidationError('room_id es requerido');
     }
@@ -61,6 +63,7 @@ export const RoomsService = {
   },
 
   async joinRoom(userId: string, inviteCode: string): Promise<JoinedRoom> {
+    // RF-05: valida codigo, capacidad y membresia antes de insertar o reactivar.
     const normalizedCode = normalizeInviteCode(inviteCode);
 
     if (!normalizedCode) {
@@ -91,6 +94,7 @@ export const RoomsService = {
   },
 
   async getRoomDetails(userId: string, roomId: string): Promise<RoomDetails> {
+    // RF-06: valida acceso, obtiene datos base y agrega integrantes activos.
     if (!roomId) {
       throw new RoomValidationError('roomId es requerido');
     }
@@ -117,6 +121,7 @@ export const RoomsService = {
 };
 
 function normalizeCreateRoomInput(input: Partial<CreateRoomDTO>): CreateRoomDTO {
+  // Normaliza el contrato recibido desde frontend antes de validar.
   return {
     name: (input.name ?? '').trim(),
     mode: input.mode as RoomMode,
@@ -125,6 +130,7 @@ function normalizeCreateRoomInput(input: Partial<CreateRoomDTO>): CreateRoomDTO 
 }
 
 function validateCreateRoomInput(input: CreateRoomDTO) {
+  // Aplica reglas de negocio previas al insert en rooms.
   if (!input.name) {
     throw new RoomValidationError('El nombre de la sala es requerido');
   }
@@ -143,6 +149,7 @@ async function validateJoinConditions(
   roomId: string,
   maxMembers: number
 ): Promise<MembershipJoinStatus> {
+  // Determina si la union es nueva o una reactivacion, y bloquea salas llenas.
   const membership = await RoomsRepository.findMembership(roomId, userId);
 
   if (membership?.is_active) {
@@ -159,5 +166,6 @@ async function validateJoinConditions(
 }
 
 function normalizeInviteCode(inviteCode: string): string {
+  // Permite que el usuario ingrese el codigo con espacios o minusculas.
   return (inviteCode ?? '').trim().toUpperCase();
 }

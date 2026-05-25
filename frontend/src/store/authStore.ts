@@ -29,12 +29,14 @@ export const useAuthStore = create<AuthState>((set) => ({
     access_token: null,
     isAuthenticated: false,
 
+    // RF-02: guarda la sesion en memoria y habilita la navegacion autenticada.
     setSession: (auth_user_id, email, access_token, user) =>
         set({ auth_user_id, email, access_token, user: user ?? null, isAuthenticated: true }),
 
     setUser: (user) =>
         set({ user }),
 
+    // RF-02: limpia token y usuario para volver al flujo publico de login.
     clearSession: () =>
         set({
             user: null,

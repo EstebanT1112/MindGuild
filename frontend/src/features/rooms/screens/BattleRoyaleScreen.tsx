@@ -27,6 +27,7 @@ export default function BattleRoyaleScreen() {
         loadRoom();
     }, [route.params?.roomId, accessToken]);
 
+    // RF-06: carga datos de sala e integrantes activos para la visualizacion.
     const loadRoom = async () => {
         if (!accessToken || !route.params?.roomId) return;
 

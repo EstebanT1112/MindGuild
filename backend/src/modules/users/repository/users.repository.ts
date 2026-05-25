@@ -3,6 +3,7 @@ import type { BasicProfile, UpdateProfileDTO, VillageState, WeeklyStats } from '
 
 export const UsersRepository = {
   async resetExpiredStreak(userId: string): Promise<void> {
+    // Mantiene la racha consistente al consultar perfil sin depender de un job externo.
     await pool.query(
       `
         UPDATE profiles
@@ -27,6 +28,7 @@ export const UsersRepository = {
   },
 
   async findProfileById(userId: string): Promise<BasicProfile | null> {
+    // Obtiene los datos base editables y calculados desde profiles.
     const { rows } = await pool.query(
       `
         SELECT id, username, email, avatar_url, bio, streak_days, total_study_minutes, expo_push_token
@@ -41,6 +43,7 @@ export const UsersRepository = {
   },
 
   async findProfileByUsername(username: string): Promise<{ id: string } | null> {
+    // Verifica unicidad de username antes de actualizar.
     const { rows } = await pool.query(
       `
         SELECT id
@@ -55,6 +58,7 @@ export const UsersRepository = {
   },
 
   async getWeeklyStats(userId: string, weekYear: string): Promise<WeeklyStats | null> {
+    // Lee los acumulados semanales; si no hay fila, el service aplica defaults.
     const { rows } = await pool.query(
       `
         SELECT total_minutes, consistency_score, academic_score, bosses_count
@@ -69,6 +73,7 @@ export const UsersRepository = {
   },
 
   async getVillageState(userId: string): Promise<VillageState | null> {
+    // Lee el nivel visual de aldea; si falta, el service devuelve nivel 1.
     const { rows } = await pool.query(
       `
         SELECT village_level
@@ -97,6 +102,7 @@ export const UsersRepository = {
   },
 
   async updateProfile(userId: string, data: UpdateProfileDTO): Promise<BasicProfile | null> {
+    // Construye un UPDATE dinamico para modificar solo campos enviados.
     const fields: string[] = [];
     const values: Array<string | null> = [];
 

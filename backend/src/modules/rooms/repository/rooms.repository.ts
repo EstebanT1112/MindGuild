@@ -12,6 +12,7 @@ import type {
 
 export const RoomsRepository = {
   async createRoomWithOwner(ownerId: string, data: CreateRoomDTO): Promise<CreatedRoom> {
+    // RF-04: crea sala y membresia owner en una misma transaccion.
     const client = await pool.connect();
 
     try {
@@ -38,6 +39,7 @@ export const RoomsRepository = {
   },
 
   async insertRoom(client: any, ownerId: string, data: CreateRoomDTO): Promise<CreatedRoom> {
+    // Genera un invite_code unico y reintenta si la base detecta colision.
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const inviteCode = generateInviteCode();
 
@@ -65,6 +67,7 @@ export const RoomsRepository = {
   },
 
   async userExists(userId: string): Promise<boolean> {
+    // Verifica que el owner exista y este activo antes de crear la sala.
     const { rows } = await pool.query(
       `
         SELECT 1
@@ -110,6 +113,7 @@ export const RoomsRepository = {
   },
 
   async findActiveRoomById(roomId: string): Promise<Omit<RoomDetails, 'members'> | null> {
+    // RF-06: obtiene los datos base de la sala antes de sumar integrantes.
     const { rows } = await pool.query(
       `
         SELECT id, name, mode, invite_code, owner_id, max_members, is_active, teams_enabled
@@ -124,6 +128,7 @@ export const RoomsRepository = {
   },
 
   async getActiveMembers(roomId: string): Promise<RoomMember[]> {
+    // RF-06: cruza room_members con profiles para listar solo integrantes activos.
     const { rows } = await pool.query(
       `
         SELECT
@@ -147,6 +152,7 @@ export const RoomsRepository = {
   },
 
   async findActiveRoomByInviteCode(inviteCode: string): Promise<JoinableRoom | null> {
+    // RF-05: resuelve la sala asociada al codigo ingresado por el usuario.
     const { rows } = await pool.query(
       `
         SELECT id, name, mode, invite_code, max_members, is_active, teams_enabled
@@ -161,6 +167,7 @@ export const RoomsRepository = {
   },
 
   async countActiveMembers(roomId: string): Promise<number> {
+    // Cuenta solo miembros activos para validar capacidad disponible.
     const { rows } = await pool.query(
       `
         SELECT COUNT(*)::int AS count
@@ -174,6 +181,7 @@ export const RoomsRepository = {
   },
 
   async findMembership(roomId: string, userId: string): Promise<{ id: string; is_active: boolean } | null> {
+    // Busca si el usuario ya tiene una membresia previa en la sala.
     const { rows } = await pool.query(
       `
         SELECT id, is_active
@@ -188,6 +196,7 @@ export const RoomsRepository = {
   },
 
   async joinRoom(room: JoinableRoom, userId: string, status: MembershipJoinStatus): Promise<JoinedRoom> {
+    // Crea membresia nueva o reactiva la existente segun validateJoinConditions.
     if (status === 'new') {
       await pool.query(
         `
@@ -214,6 +223,7 @@ export const RoomsRepository = {
   },
 
   async deactivateMember(userId: string, roomId: string) {
+    // RF-07: baja logica; conserva historial y permite reactivacion futura.
     const query = `
       UPDATE room_members
       SET is_active = false, left_at = NOW()
@@ -225,6 +235,7 @@ export const RoomsRepository = {
   },
 
   async checkActiveMembership(userId: string, roomId: string): Promise<boolean> {
+    // Verifica membresia activa para flujos que deben excluir usuarios salidos.
     const query = `
       SELECT 1
       FROM room_members
@@ -236,6 +247,7 @@ export const RoomsRepository = {
 };
 
 function generateInviteCode(): string {
+  // Usa un alfabeto sin caracteres ambiguos para generar codigos compartibles.
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
 

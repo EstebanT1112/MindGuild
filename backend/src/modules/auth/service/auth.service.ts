@@ -15,6 +15,7 @@ const AUTH0_DOMAIN = process.env.AUTH0_DOMAIN ?? 'mindguildestebanapp.au.auth0.c
 
 export const AuthService = {
   async registerProfile(input: Partial<RegisterProfileDTO> = {}): Promise<RegisteredProfile> {
+    // RF-01: normaliza, valida unicidad y delega la creacion transaccional del perfil.
     const data = normalizeRegisterInput(input);
     validateRegisterInput(data);
 
@@ -48,6 +49,7 @@ export const AuthService = {
   },
 
   async getProfileFromAccessToken(accessToken: string): Promise<RegisteredProfile> {
+    // RF-02: confirma la identidad en Auth0 y la cruza con el perfil activo local.
     if (!accessToken) {
       throw new AuthUnauthorizedError('Token requerido');
     }
@@ -66,6 +68,7 @@ export const AuthService = {
 };
 
 async function validateTokenWithAuth0(accessToken: string): Promise<Auth0UserInfo> {
+  // Valida el token contra Auth0 y recupera la identidad externa del usuario.
   const response = await fetch(`https://${AUTH0_DOMAIN}/userinfo`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
@@ -87,6 +90,7 @@ async function validateTokenWithAuth0(accessToken: string): Promise<Auth0UserInf
 }
 
 function normalizeRegisterInput(input: Partial<RegisterProfileDTO>): RegisterProfileDTO {
+  // Limpia datos de entrada y normaliza email antes de validar o persistir.
   return {
     auth_user_id: (input.auth_user_id ?? '').trim(),
     email: (input.email ?? '').trim().toLowerCase(),
@@ -95,6 +99,7 @@ function normalizeRegisterInput(input: Partial<RegisterProfileDTO>): RegisterPro
 }
 
 function validateRegisterInput(input: RegisterProfileDTO) {
+  // Aplica las reglas minimas del contrato POST /auth/register.
   if (!input.auth_user_id || !input.email || !input.username) {
     throw new AuthValidationError('auth_user_id, email y username son requeridos');
   }

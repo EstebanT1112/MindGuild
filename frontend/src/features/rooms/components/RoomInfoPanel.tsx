@@ -5,6 +5,7 @@ import type { RoomDetails } from '../services/roomsService';
 const fallbackAvatar = 'https://ui-avatars.com/api/?background=1e293b&color=ffffff&name=MG';
 
 export default function RoomInfoPanel({ room }: { room: RoomDetails }) {
+  // RF-06: renderiza datos basicos y miembros activos de la sala.
   const modeLabel = room.mode === 'battle_royale' ? 'Battle Royale' : 'Supervivencia';
 
   return (

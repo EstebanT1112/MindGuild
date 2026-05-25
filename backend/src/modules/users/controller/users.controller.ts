@@ -6,6 +6,7 @@ import { UserConflictError, UserNotFoundError, UserValidationError } from '../ty
 
 export const UsersController = {
   async getMe(req: Request, res: Response) {
+    // RF-03: devuelve el perfil completo del usuario autenticado.
     try {
       const userId = await getAuthenticatedProfileId(req);
       const profile = await UsersService.getFullProfile(userId);
@@ -16,6 +17,7 @@ export const UsersController = {
   },
 
   async updateMe(req: Request, res: Response) {
+    // RF-03: actualiza campos editables y responde con el perfil completo actualizado.
     try {
       const userId = await getAuthenticatedProfileId(req);
       const profile = await UsersService.updateProfile(userId, req.body);
@@ -27,6 +29,7 @@ export const UsersController = {
 };
 
 async function getAuthenticatedProfileId(req: Request): Promise<string> {
+  // Reutiliza AuthService para resolver el profile_id desde el token de Auth0.
   const authorization = req.headers.authorization;
 
   if (!authorization?.startsWith('Bearer ')) {
@@ -41,6 +44,7 @@ async function getAuthenticatedProfileId(req: Request): Promise<string> {
 }
 
 function handleUserError(res: Response, error: any) {
+  // Centraliza el mapeo de errores de users a respuestas HTTP.
   if (error instanceof AuthUnauthorizedError) {
     return res.status(401).json({ error: error.message });
   }

@@ -44,6 +44,7 @@ export async function createRoom(
   accessToken: string,
   input: { name: string; mode: RoomMode; teams_enabled: boolean }
 ): Promise<CreatedRoom> {
+  // RF-04: solicita al backend la creacion de sala privada con owner autenticado.
   const response = await fetch(`${API_BASE_URL}/rooms`, {
     method: 'POST',
     headers: {
@@ -63,6 +64,7 @@ export async function createRoom(
 }
 
 export async function joinRoom(accessToken: string, inviteCode: string): Promise<JoinedRoom> {
+  // RF-05: solicita unirse a una sala existente mediante invite_code.
   const response = await fetch(`${API_BASE_URL}/rooms/join`, {
     method: 'POST',
     headers: {
@@ -101,6 +103,7 @@ export async function fetchRoomDetails(
   accessToken: string,
   roomId: string
 ): Promise<RoomDetails> {
+  // RF-06: obtiene la sala completa validando acceso en backend.
   const response = await fetch(`${API_BASE_URL}/rooms/${roomId}`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -139,6 +142,7 @@ export async function leaveRoom(
   accessToken: string,
   roomId: string
 ): Promise<{ success: boolean; message: string }> {
+  // RF-07: solicita la baja logica del usuario dentro de una sala.
   const response = await fetch(`${API_BASE_URL}/rooms/leave`, {
     method: 'POST',
     headers: {
