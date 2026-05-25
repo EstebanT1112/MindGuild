@@ -27,7 +27,17 @@ import EditProfileModal from '../components/EditProfileModal';
 import SettingsModal from '../components/SettingsModal';
 import StatCard from '../components/StatCard';
 import WeeklyProgress from '../components/WeeklyProgress';
-import { fetchMyProfile, type FullProfile, updateMyProfile } from '../services/profileService';
+
+import {
+    fetchMyProfile,
+    type FullProfile,
+    updateMyProfile
+} from '../services/profileService';
+
+import {
+    fetchAchievements,
+    type Achievement
+} from '../services/achievementsService';
 
 const fallbackAvatar = 'https://ui-avatars.com/api/?background=1e293b&color=ffffff&name=MG';
 
@@ -40,7 +50,8 @@ export default function ProfileScreen() {
     const [profile, setProfile] = useState<FullProfile | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-
+    const [achievements, setAchievements] = useState<Achievement[]>([]);
+    
     const avatarUri = profile?.avatar_url || fallbackAvatar;
 
     useEffect(() => {
@@ -54,6 +65,11 @@ export default function ProfileScreen() {
         try {
             const data = await fetchMyProfile(accessToken);
             setProfile(data);
+            
+            // Traemos los logros de forma correcta
+            const achievementData = await fetchAchievements(accessToken);
+            setAchievements(achievementData);
+            
             setUser({ id: data.id, email: data.email, username: data.username });
         } catch (error: any) {
             Alert.alert('Error de perfil', error.message ?? 'No se pudo cargar el perfil.');
@@ -100,10 +116,10 @@ export default function ProfileScreen() {
 
     return (
         <ScreenLayout title="MI PERFIL" type="profiles">
-            {/* El ScrollView ahora envuelve ABSOLUTAMENTE TODO, incluidos los botones */}
+            {/* El ScrollView envuelve todo, incluidos los botones superiores */}
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
                 
-                {/* Los botones quedan arriba de todo, pero al estar adentro del ScrollView, suben al scrollear */}
+                {/* Botones de acción contenidos en el flujo del scroll */}
                 <View style={styles.actionButtons}>
                     <Pressable
                         style={[styles.iconBtn, styles.editBtnActive]}
@@ -153,24 +169,16 @@ export default function ProfileScreen() {
                     totalMinutes={profile?.weekly_stats.total_minutes ?? 0}
                 />
 
-                {/* Sección de Medallas */}
+                {/* Sección de Medallas / Logros Unificada */}
                 <View style={styles.medalsSection}>
                     <View style={styles.sectionHeaderRow}>
                         <Medal color="#facc15" size={20} />
                         <Text style={styles.sectionTitle}>Medallas Desbloqueadas</Text>
                     </View>
                     <View style={styles.medalsGrid}>
-                        {[
-                            { name: '3 Dias Consecutivos', Icon: Flame, color: '#fb923c', unlocked: (profile?.streak_days ?? 0) >= 3 },
-                            { name: 'Auditor Implacable', Icon: Target, color: '#3b82f6', unlocked: false },
-                            { name: 'Estudiante Dedicado', Icon: Medal, color: '#22c55e', unlocked: (profile?.total_study_minutes ?? 0) > 0 },
-                            { name: 'Maestro del Focus', Icon: Target, color: '#4b5563', unlocked: false },
-                            { name: 'Racha de 7 dias', Icon: Zap, color: '#4b5563', unlocked: (profile?.streak_days ?? 0) >= 7 },
-                            { name: 'Top 3 Ranking', Icon: Crown, color: '#4b5563', unlocked: false },
-                        ].map((m, i) => (
-                            <View key={i} style={[styles.medalCard, !m.unlocked && { opacity: 0.4 }]}>
-                                <m.Icon color={m.color} size={30} />
-                                <m.Icon color={m.color} size={30} />
+                        {achievements.map((m) => (
+                            <View key={m.id} style={[styles.medalCard, !m.unlocked && { opacity: 0.4 }]}>
+                                <Medal color={m.unlocked ? '#22c55e' : '#4b5563'} size={30}/>
                                 <Text style={styles.medalName}>{m.name}</Text>
                             </View>
                         ))}
@@ -225,7 +233,7 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
         gap: 10,
         paddingHorizontal: 4,
-        marginBottom: 10, // Un margen controlado para que no se pegue al avatar
+        marginBottom: 10,
     },
     iconBtn: {
         width: 40, 
@@ -238,8 +246,6 @@ const styles = StyleSheet.create({
     loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
     loadingText: { color: '#94a3b8', fontWeight: 'bold' },
     editBtnActive: { borderColor: '#3b82f6', borderWidth: 1 },
-    
-    // Dejamos el profileSection limpio
     profileSection: { alignItems: 'center', marginBottom: 20 },
     avatarContainer: { position: 'relative' },
     avatarBorder: {

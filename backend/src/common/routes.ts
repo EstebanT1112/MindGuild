@@ -6,6 +6,7 @@ import { rankingsController } from '../modules/rankings/controller/ranking.contr
 import { missionsController } from '../modules/missions/controller/missions.controller.js'; 
 import { checkAuth } from './middleware/auth.middleware.js'; // ⚡ IMPORTAMOS EL MIDDLEWARE
 import studyRoutes from '../modules/study/study.routes.js';
+import achievementRoutes from '../modules/achievements/achievements.routes.js';
 import sessionRoutes from '../modules/sessions/session.routes.js';
 
 const router = Router();
@@ -34,6 +35,9 @@ router.use('/sessions', sessionRoutes);
 
 // --- RANKINGS ---
 router.get('/ranking', rankingsController.getRanking);
+
+// --- ACHIEVEMENTS ---
+router.use('/achievements', achievementRoutes);
 
 // --- MISIONES (RF-12) PROTEGIDAS ---
 // ⚡ Inyectamos 'checkAuth' antes de los controladores para que lean el ID dinámico
