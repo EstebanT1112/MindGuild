@@ -16,6 +16,7 @@ const VALID_ROOM_MODES: RoomMode[] = ['survival', 'battle_royale'];
 
 export const RoomsService = {
   async createRoom(ownerId: string, input: Partial<CreateRoomDTO>): Promise<CreatedRoom> {
+    // RF-04: valida datos y delega la creacion transaccional de sala + owner.
     const data = normalizeCreateRoomInput(input);
     validateCreateRoomInput(data);
 
@@ -117,6 +118,7 @@ export const RoomsService = {
 };
 
 function normalizeCreateRoomInput(input: Partial<CreateRoomDTO>): CreateRoomDTO {
+  // Normaliza el contrato recibido desde frontend antes de validar.
   return {
     name: (input.name ?? '').trim(),
     mode: input.mode as RoomMode,
@@ -125,6 +127,7 @@ function normalizeCreateRoomInput(input: Partial<CreateRoomDTO>): CreateRoomDTO 
 }
 
 function validateCreateRoomInput(input: CreateRoomDTO) {
+  // Aplica reglas de negocio previas al insert en rooms.
   if (!input.name) {
     throw new RoomValidationError('El nombre de la sala es requerido');
   }

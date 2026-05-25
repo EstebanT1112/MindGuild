@@ -44,6 +44,7 @@ export async function createRoom(
   accessToken: string,
   input: { name: string; mode: RoomMode; teams_enabled: boolean }
 ): Promise<CreatedRoom> {
+  // RF-04: solicita al backend la creacion de sala privada con owner autenticado.
   const response = await fetch(`${API_BASE_URL}/rooms`, {
     method: 'POST',
     headers: {

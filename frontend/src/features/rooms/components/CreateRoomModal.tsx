@@ -28,6 +28,7 @@ export default function CreateRoomModal({
 
   const selectedModeLabel = modes.find(mode => mode.value === selectedMode)?.label ?? 'Supervivencia';
 
+  // RF-04: envia al padre los datos necesarios para crear una sala privada.
   const handleCreate = () => {
     onCreate({ name: roomName, mode: selectedMode, teams_enabled: teamsEnabled });
   };

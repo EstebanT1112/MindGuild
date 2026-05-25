@@ -59,6 +59,7 @@ export const RoomsController = {
   },
 
   async createRoom(req: Request, res: Response) {
+    // RF-04: crea una sala privada para el usuario autenticado como owner.
     try {
       const owner = await getAuthenticatedProfile(req);
       const room = await RoomsService.createRoom(owner.id, req.body);
@@ -158,6 +159,7 @@ export const RoomsController = {
 };
 
 async function getAuthenticatedProfile(req: Request) {
+  // Resuelve el perfil local a partir del Bearer token de Auth0.
   const authorization = req.headers.authorization;
 
   if (!authorization?.startsWith('Bearer ')) {

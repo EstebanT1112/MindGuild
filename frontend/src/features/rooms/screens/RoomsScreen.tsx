@@ -34,6 +34,7 @@ export default function RoomsScreen() {
         }
     };
 
+    // RF-04: crea la sala en backend, muestra el invite_code y actualiza el listado local.
     const handleCreateRoom = async (input: { name: string; mode: RoomMode; teams_enabled: boolean }) => {
         if (!accessToken) return;
 
@@ -124,6 +125,7 @@ export default function RoomsScreen() {
 }
 
 function mapCreatedRoomToCard(room: CreatedRoom): RoomCardData {
+    // Adapta la respuesta de creacion al formato visual usado por RoomCard.
     return {
         id: room.id,
         name: room.name,

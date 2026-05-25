@@ -12,6 +12,7 @@ import type {
 
 export const RoomsRepository = {
   async createRoomWithOwner(ownerId: string, data: CreateRoomDTO): Promise<CreatedRoom> {
+    // RF-04: crea sala y membresia owner en una misma transaccion.
     const client = await pool.connect();
 
     try {
@@ -38,6 +39,7 @@ export const RoomsRepository = {
   },
 
   async insertRoom(client: any, ownerId: string, data: CreateRoomDTO): Promise<CreatedRoom> {
+    // Genera un invite_code unico y reintenta si la base detecta colision.
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const inviteCode = generateInviteCode();
 
@@ -65,6 +67,7 @@ export const RoomsRepository = {
   },
 
   async userExists(userId: string): Promise<boolean> {
+    // Verifica que el owner exista y este activo antes de crear la sala.
     const { rows } = await pool.query(
       `
         SELECT 1
@@ -236,6 +239,7 @@ export const RoomsRepository = {
 };
 
 function generateInviteCode(): string {
+  // Usa un alfabeto sin caracteres ambiguos para generar codigos compartibles.
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
 
