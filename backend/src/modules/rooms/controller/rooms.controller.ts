@@ -126,6 +126,7 @@ export const RoomsController = {
   },
 
   async joinRoom(req: Request, res: Response) {
+    // RF-05: une al usuario autenticado a una sala usando un codigo de invitacion.
     try {
       const user = await getAuthenticatedProfile(req);
       const room = await RoomsService.joinRoom(user.id, req.body?.invite_code);

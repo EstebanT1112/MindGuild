@@ -12,6 +12,7 @@ interface Props {
 export default function JoinRoomModal({ visible, loading = false, onClose, onJoin }: Props) {
   const [code, setCode] = useState('');
 
+  // RF-05: envia el codigo ingresado para intentar unirse a la sala.
   const handleJoin = () => {
     onJoin(code);
   };

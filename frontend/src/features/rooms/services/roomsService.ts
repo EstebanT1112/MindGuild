@@ -64,6 +64,7 @@ export async function createRoom(
 }
 
 export async function joinRoom(accessToken: string, inviteCode: string): Promise<JoinedRoom> {
+  // RF-05: solicita unirse a una sala existente mediante invite_code.
   const response = await fetch(`${API_BASE_URL}/rooms/join`, {
     method: 'POST',
     headers: {

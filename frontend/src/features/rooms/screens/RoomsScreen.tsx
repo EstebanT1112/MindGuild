@@ -51,6 +51,7 @@ export default function RoomsScreen() {
         }
     };
 
+    // RF-05: une al usuario a una sala por codigo y actualiza el listado local.
     const handleJoinRoom = async (inviteCode: string) => {
         if (!accessToken) return;
 

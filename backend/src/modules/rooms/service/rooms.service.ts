@@ -62,6 +62,7 @@ export const RoomsService = {
   },
 
   async joinRoom(userId: string, inviteCode: string): Promise<JoinedRoom> {
+    // RF-05: valida codigo, capacidad y membresia antes de insertar o reactivar.
     const normalizedCode = normalizeInviteCode(inviteCode);
 
     if (!normalizedCode) {
@@ -146,6 +147,7 @@ async function validateJoinConditions(
   roomId: string,
   maxMembers: number
 ): Promise<MembershipJoinStatus> {
+  // Determina si la union es nueva o una reactivacion, y bloquea salas llenas.
   const membership = await RoomsRepository.findMembership(roomId, userId);
 
   if (membership?.is_active) {
@@ -162,5 +164,6 @@ async function validateJoinConditions(
 }
 
 function normalizeInviteCode(inviteCode: string): string {
+  // Permite que el usuario ingrese el codigo con espacios o minusculas.
   return (inviteCode ?? '').trim().toUpperCase();
 }
