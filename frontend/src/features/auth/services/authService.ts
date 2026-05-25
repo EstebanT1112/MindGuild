@@ -34,6 +34,7 @@ export async function register(
     password: string,
     username: string
 ): Promise<RegisterResult> {
+    // Orquesta RF-01: primero crea el usuario en Auth0 y luego persiste el perfil en backend.
     console.log('Register step: Auth0 signup');
     const authResult = await registerWithAuth0(email, password);
     console.log('Register step: backend profile', API_BASE_URL);
@@ -66,6 +67,7 @@ export async function registerWithAuth0(
     email: string,
     password: string
 ): Promise<Auth0Result> {
+    // Registra credenciales en Auth0 y obtiene el access_token necesario para leer /userinfo.
     const signupRes = await safeFetch(`https://${AUTH0_DOMAIN}/dbconnections/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -148,6 +150,7 @@ async function createProfile(input: {
     email: string;
     username: string;
 }): Promise<ProfileResult> {
+    // Crea el perfil de dominio en MindGuild usando el identificador externo de Auth0.
     const response = await safeFetch(`${API_BASE_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -187,6 +190,7 @@ async function getCurrentProfile(accessToken: string): Promise<ProfileResult> {
 }
 
 async function fetchAuth0UserInfo(accessToken: string) {
+    // Obtiene el sub de Auth0, que el sistema usa como auth_user_id.
     const userRes = await safeFetch(`https://${AUTH0_DOMAIN}/userinfo`, {
         headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -201,6 +205,7 @@ async function fetchAuth0UserInfo(accessToken: string) {
 }
 
 async function safeFetch(url: string, options: RequestInit, networkMessage?: string) {
+    // Normaliza errores de red para que la UI muestre mensajes consistentes.
     try {
         return await fetch(url, options);
     } catch (error) {
@@ -224,6 +229,7 @@ async function parseJson(response: Response) {
 }
 
 function buildError(data: any): AuthError {
+    // Traduce errores de Auth0/backend a un formato comun para la app.
     const code = data.code || data.error || 'unknown_error';
     const message = resolveErrorMessage(code, data.description || data.error_description);
     return { code, message };

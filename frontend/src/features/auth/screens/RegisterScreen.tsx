@@ -26,6 +26,7 @@ export default function RegisterScreen() {
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
 
+    // Ejecuta el flujo RF-01: valida la UI, registra en Auth0 y crea el perfil local.
     const handleRegister = async () => {
         if (!username.trim() || !email.trim() || !password.trim()) {
             Alert.alert('Campos incompletos', 'Completá todos los campos para continuar.');

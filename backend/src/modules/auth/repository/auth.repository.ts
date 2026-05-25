@@ -3,6 +3,7 @@ import type { RegisterProfileDTO, RegisteredProfile } from '../types/auth.types.
 
 export const AuthRepository = {
   async findExistingProfile({ auth_user_id, email, username }: RegisterProfileDTO) {
+    // Busca duplicados antes del insert para devolver errores de negocio claros.
     const query = `
       SELECT auth0_user_id, email, username
       FROM profiles
@@ -17,6 +18,7 @@ export const AuthRepository = {
   },
 
   async createProfile(data: RegisterProfileDTO): Promise<RegisteredProfile> {
+    // Crea el perfil y su aldea inicial en una transaccion para evitar estados parciales.
     const client = await pool.connect();
 
     try {
@@ -72,6 +74,7 @@ export const AuthRepository = {
   },
 
   async findProfileByAuth0UserId(authUserId: string): Promise<RegisteredProfile | null> {
+    // Resuelve el perfil local a partir del sub de Auth0.
     const { rows } = await pool.query(
       `
         SELECT id, email, username
@@ -86,6 +89,7 @@ export const AuthRepository = {
   },
 
   async updateLastLoginAt(profileId: string): Promise<void> {
+    // Registra actividad de login sin modificar datos editables del perfil.
     await pool.query(
       `
         UPDATE profiles

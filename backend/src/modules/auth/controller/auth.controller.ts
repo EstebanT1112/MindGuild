@@ -9,6 +9,7 @@ import {
 
 export const AuthController = {
   async register(req: Request, res: Response) {
+    // RF-01: recibe el perfil ya autenticado por Auth0 y lo crea en la base local.
     try {
       const profile = await AuthService.registerProfile(req.body);
       return res.status(201).json(profile);
@@ -63,6 +64,7 @@ export const AuthController = {
 };
 
 function extractBearerToken(req: Request): string {
+  // Extrae el token Bearer para endpoints que necesitan identificar al usuario.
   const authorization = req.headers.authorization;
 
   if (!authorization?.startsWith('Bearer ')) {
