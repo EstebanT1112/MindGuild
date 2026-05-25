@@ -113,11 +113,15 @@ export const sessionsRepository = {
         await client.query(
           `
             UPDATE profiles
-            SET total_study_minutes = total_study_minutes + $2
+            SET
+              total_study_minutes = total_study_minutes + $2,
+              updated_at = NOW()
             WHERE id = $1;
           `,
           [session.user_id, data.duration_minutes]
         );
+
+        await updateUserStreakAfterValidSession(client, session.user_id, session.id);
 
         const weekYear = getWeekYear();
 
@@ -175,6 +179,46 @@ export const sessionsRepository = {
     return rows[0];
   },
 };
+
+async function updateUserStreakAfterValidSession(client: any, userId: string, sessionId: string) {
+  await client.query(
+    `
+      WITH streak_state AS (
+        SELECT
+          EXISTS (
+            SELECT 1
+            FROM study_sessions
+            WHERE user_id = $1
+              AND id <> $2
+              AND status = 'completed'
+              AND valid = true
+              AND (ended_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date =
+                (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date
+          ) AS has_valid_today,
+          EXISTS (
+            SELECT 1
+            FROM study_sessions
+            WHERE user_id = $1
+              AND status = 'completed'
+              AND valid = true
+              AND (ended_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date =
+                (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date - INTERVAL '1 day'
+          ) AS has_valid_yesterday
+      )
+      UPDATE profiles
+      SET
+        streak_days = CASE
+          WHEN streak_state.has_valid_today THEN profiles.streak_days
+          WHEN streak_state.has_valid_yesterday THEN profiles.streak_days + 1
+          ELSE 1
+        END,
+        updated_at = NOW()
+      FROM streak_state
+      WHERE profiles.id = $1;
+    `,
+    [userId, sessionId]
+  );
+}
 
 function getWeekYear(): string {
   const now = new Date();

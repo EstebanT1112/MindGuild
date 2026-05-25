@@ -2,6 +2,30 @@ import { pool } from '../../../common/config/db.js';
 import type { BasicProfile, UpdateProfileDTO, VillageState, WeeklyStats } from '../types/users.types.js';
 
 export const UsersRepository = {
+  async resetExpiredStreak(userId: string): Promise<void> {
+    await pool.query(
+      `
+        UPDATE profiles
+        SET
+          streak_days = 0,
+          updated_at = NOW()
+        WHERE id = $1
+          AND streak_days > 0
+          AND NOT EXISTS (
+            SELECT 1
+            FROM study_sessions
+            WHERE user_id = $1
+              AND status = 'completed'
+              AND valid = true
+              AND (ended_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date BETWEEN
+                (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date - INTERVAL '1 day'
+                AND (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date
+          );
+      `,
+      [userId]
+    );
+  },
+
   async findProfileById(userId: string): Promise<BasicProfile | null> {
     const { rows } = await pool.query(
       `
