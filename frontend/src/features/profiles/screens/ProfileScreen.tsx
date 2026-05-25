@@ -100,23 +100,27 @@ export default function ProfileScreen() {
 
     return (
         <ScreenLayout title="MI PERFIL" type="profiles">
-            <View style={styles.actionButtons}>
-                <Pressable
-                    style={[styles.iconBtn, styles.editBtnActive]}
-                    onPress={() => setEditModalVisible(true)}
-                >
-                    <Edit2 color="#3b82f6" size={18} />
-                </Pressable>
-
-                <Pressable
-                    style={styles.iconBtn}
-                    onPress={() => setSettingsVisible(true)}
-                >
-                    <Settings color="#94a3b8" size={18} />
-                </Pressable>
-            </View>
-
+            {/* El ScrollView ahora envuelve ABSOLUTAMENTE TODO, incluidos los botones */}
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+                
+                {/* Los botones quedan arriba de todo, pero al estar adentro del ScrollView, suben al scrollear */}
+                <View style={styles.actionButtons}>
+                    <Pressable
+                        style={[styles.iconBtn, styles.editBtnActive]}
+                        onPress={() => setEditModalVisible(true)}
+                    >
+                        <Edit2 color="#3b82f6" size={18} />
+                    </Pressable>
+
+                    <Pressable
+                        style={styles.iconBtn}
+                        onPress={() => setSettingsVisible(true)}
+                    >
+                        <Settings color="#94a3b8" size={18} />
+                    </Pressable>
+                </View>
+
+                {/* Información Principal del Perfil */}
                 <View style={styles.profileSection}>
                     <View style={styles.avatarContainer}>
                         <View style={styles.avatarBorder}>
@@ -135,6 +139,7 @@ export default function ProfileScreen() {
                     </View>
                 </View>
 
+                {/* Grid de Estadísticas */}
                 <View style={styles.statsGrid}>
                     <StatCard icon={<Trophy color="#22c55e" size={24} />} value={`${profile?.total_study_minutes ?? 0}m`} label="Total Estudio" />
                     <StatCard icon={<Flame color="#fb923c" size={24} />} value={`${profile?.streak_days ?? 0} dias`} label="Racha Actual" />
@@ -142,11 +147,13 @@ export default function ProfileScreen() {
                     <StatCard icon={<Castle color="#22c55e" size={24} />} value={`${profile?.village.village_level ?? 1}`} label="Nivel Aldea" />
                 </View>
 
+                {/* Progreso Semanal */}
                 <WeeklyProgress
                     data={[0, 0, 0, 0, 0, 0, profile?.weekly_stats.total_minutes ?? 0]}
                     totalMinutes={profile?.weekly_stats.total_minutes ?? 0}
                 />
 
+                {/* Sección de Medallas */}
                 <View style={styles.medalsSection}>
                     <View style={styles.sectionHeaderRow}>
                         <Medal color="#facc15" size={20} />
@@ -163,12 +170,14 @@ export default function ProfileScreen() {
                         ].map((m, i) => (
                             <View key={i} style={[styles.medalCard, !m.unlocked && { opacity: 0.4 }]}>
                                 <m.Icon color={m.color} size={30} />
+                                <m.Icon color={m.color} size={30} />
                                 <Text style={styles.medalName}>{m.name}</Text>
                             </View>
                         ))}
                     </View>
                 </View>
 
+                {/* Tarjeta de la Aldea */}
                 <View style={styles.villageCard}>
                     <Text style={styles.villageTitle}>Tu Aldea en Evolucion</Text>
                     <View style={styles.villageMainRow}>
@@ -189,6 +198,7 @@ export default function ProfileScreen() {
                 </View>
             </ScrollView>
 
+            {/* Modales */}
             <EditProfileModal
                 visible={isEditModalVisible}
                 onClose={() => setEditModalVisible(false)}
@@ -214,15 +224,22 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'flex-end',
         gap: 10,
-        marginBottom: -10,
+        paddingHorizontal: 4,
+        marginBottom: 10, // Un margen controlado para que no se pegue al avatar
     },
     iconBtn: {
-        width: 40, height: 40, borderRadius: 12,
-        backgroundColor: '#1e293b', alignItems: 'center', justifyContent: 'center'
+        width: 40, 
+        height: 40, 
+        borderRadius: 12,
+        backgroundColor: '#1e293b', 
+        alignItems: 'center', 
+        justifyContent: 'center'
     },
     loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
     loadingText: { color: '#94a3b8', fontWeight: 'bold' },
     editBtnActive: { borderColor: '#3b82f6', borderWidth: 1 },
+    
+    // Dejamos el profileSection limpio
     profileSection: { alignItems: 'center', marginBottom: 20 },
     avatarContainer: { position: 'relative' },
     avatarBorder: {
