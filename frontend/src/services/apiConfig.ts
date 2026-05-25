@@ -31,12 +31,40 @@ export interface RankingEntry {
     position: number;
 }
 
-export async function fetchRanking(type: 'semanal' | 'racha' | 'academico' | 'jefes'): Promise<RankingEntry[]> {
-    const response = await fetch(`${API_BASE_URL}/ranking?type=${type}`);
+export interface RankingResponse {
+    success: boolean;
+    data: {
+        type: string;
+        scope: string;
+        week: string;
+        data: RankingEntry[];
+    };
+}
 
-    if (!response.ok) {
-        throw new Error('Error al obtener el ranking');
+export async function fetchRanking(
+    type: 'semanal' | 'racha' | 'academico' | 'jefes',
+    token?: string // Opcional por si manejan tokens en el estado global
+): Promise<RankingResponse> {
+    try {
+        const response = await fetch(`${API_BASE_URL}/ranking?type=${type}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                // Mandamos el token si es que lo tenés guardado en el login
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            }
+        });
+
+        // REVISIÓN CLAVE: Si no es OK, leemos el JSON interno para ver el error real del backend
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            console.log('❌ Detalle del error que mandó el Backend:', errorData);
+            throw new Error(errorData.error || 'Error al obtener el ranking');
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error('💥 Error dentro de fetchRanking:', error);
+        throw error;
     }
-
-    return await response.json();
 }

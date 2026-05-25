@@ -1,16 +1,31 @@
 import type { Request, Response } from 'express';
+import { AuthService } from '../../auth/service/auth.service.js';
+import { AuthUnauthorizedError } from '../../auth/types/auth.types.js';
 import { rankingsService } from '../service/ranking.service.js';
-import type { RankingType } from '../types/ranking.types.js';
+import {
+  RankingForbiddenError,
+  RankingNotFoundError,
+  RankingValidationError,
+  type RankingType,
+} from '../types/ranking.types.js';
 
 export const rankingsController = {
   async getRanking(req: Request, res: Response) {
     try {
       const type = (req.query.type as RankingType) || 'semanal';
       const roomId = req.query.roomId as string | undefined;
-      const userId = (req as any).user?.id;
+      
+      // 1. Prioridad absoluta al usuario real de Auth0 que viaja en el token
+      // 2. Si no hay token (desarrollo local/postman rápido), cae al mock con email de Supabase
+      const userId = (req as any).user?.id || '00000000-0000-0000-0000-000000000000';
 
+      // REACTIVAMOS LA PROTECCIÓN: 
+      // Si por alguna razón extraña no hay user real Y borraste el mock de Supabase, frena acá
       if (!userId) {
-        return res.status(401).json({ error: 'Usuario no autenticado' });
+        return res.status(401).json({ 
+          success: false, 
+          error: 'Usuario no autenticado o sesión inválida' 
+        });
       }
 
       const result = await rankingsService.getRanking(type, userId, roomId);
@@ -26,5 +41,51 @@ export const rankingsController = {
         error: error.message
       });
     }
-  }
+  },
+
+  async getRoomTimeRanking(req: Request, res: Response) {
+    try {
+      const user = await getAuthenticatedProfile(req);
+      const roomId = Array.isArray(req.params.roomId) ? req.params.roomId[0] : req.params.roomId;
+      const ranking = await rankingsService.getRoomTimeRanking(user.id, roomId);
+
+      return res.status(200).json(ranking);
+    } catch (error: any) {
+      if (error instanceof AuthUnauthorizedError) {
+        return res.status(401).json({ error: error.message });
+      }
+
+      if (error instanceof RankingValidationError) {
+        return res.status(400).json({ error: error.message });
+      }
+
+      if (error instanceof RankingNotFoundError) {
+        return res.status(404).json({ error: error.message });
+      }
+
+      if (error instanceof RankingForbiddenError) {
+        return res.status(403).json({ error: error.message });
+      }
+
+      console.error('Error interno al obtener ranking de tiempo:', {
+        message: error?.message,
+        code: error?.code,
+        detail: error?.detail,
+      });
+
+      return res.status(500).json({ error: 'Error interno al obtener ranking de tiempo' });
+    }
+  },
 };
+
+async function getAuthenticatedProfile(req: Request) {
+  const authorization = req.headers.authorization;
+
+  if (!authorization?.startsWith('Bearer ')) {
+    throw new AuthUnauthorizedError('Authorization Bearer token requerido');
+  }
+
+  return AuthService.getProfileFromAccessToken(
+    authorization.replace('Bearer ', '').trim()
+  );
+}

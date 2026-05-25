@@ -1,5 +1,12 @@
 import { rankingsRepository } from '../repository/ranking.repository.js';
-import type { RankingType, RankingEntry } from '../types/ranking.types.js';
+import {
+  RankingForbiddenError,
+  RankingNotFoundError,
+  RankingValidationError,
+  type RankingEntry,
+  type RankingType,
+  type RoomTimeRankingEntry,
+} from '../types/ranking.types.js';
 
 export const rankingsService = {
   async getRanking(type: RankingType, userId: string, roomId?: string) {
@@ -9,11 +16,10 @@ export const rankingsService = {
         throw new Error('No tienes acceso al ranking de esta sala');
       }
     }
-
-    // Usamos this para llamar a la función interna del objeto
-    const weekYear = this.getCurrentWeekYear();
-
-    const rawData = await rankingsRepository.getRankingData(type, weekYear, roomId);
+    // FIX: Cambiamos "this" por el nombre del objeto para fijar el contexto puro
+    const weekYear = rankingsService.getCurrentWeekYear();
+    const legacyWeekYear = rankingsService.getLegacyWeekYear();
+    const rawData = await rankingsRepository.getRankingData(type, [weekYear, legacyWeekYear], roomId);
 
     const formattedRanking: RankingEntry[] = rawData.map((item, index) => {
       let value = 0;
@@ -27,7 +33,7 @@ export const rankingsService = {
         username: item.username,
         avatar_url: item.avatar_url,
         value: value || 0,
-        position: index + 1
+        position: index + 1,
       };
     });
 
@@ -35,16 +41,58 @@ export const rankingsService = {
       type,
       scope: roomId ? 'room' : 'global',
       week: weekYear,
-      data: formattedRanking
+      data: formattedRanking,
     };
   },
 
-  // LE SACAMOS EL PRIVATE: Ahora es una función normal del objeto
+  async getRoomTimeRanking(userId: string, roomId: string): Promise<RoomTimeRankingEntry[]> {
+    if (!roomId) {
+      throw new RankingValidationError('roomId es requerido');
+    }
+
+    const roomExists = await rankingsRepository.roomExists(roomId);
+
+    if (!roomExists) {
+      throw new RankingNotFoundError('Sala no encontrada');
+    }
+
+    const member = await rankingsRepository.getMemberStatus(roomId, userId);
+
+    if (!member?.is_active) {
+      throw new RankingForbiddenError('No tienes acceso al ranking de esta sala');
+    }
+
+    const ranking = await rankingsRepository.getRoomTimeRanking(roomId);
+
+    return ranking.map(item => ({
+      user_id: item.user_id,
+      username: item.username,
+      avatar_url: item.avatar_url,
+      total_minutes: Number(item.total_minutes) || 0,
+    }));
+  },
+
   getCurrentWeekYear(): string {
+    const now = new Date();
+    const current = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    const currentDay = current.getUTCDay() || 7;
+    current.setUTCDate(current.getUTCDate() + 4 - currentDay);
+
+    const weekYear = current.getUTCFullYear();
+    const firstThursday = new Date(Date.UTC(weekYear, 0, 4));
+    const day = firstThursday.getUTCDay() || 7;
+    const yearStart = new Date(firstThursday);
+    yearStart.setUTCDate(firstThursday.getUTCDate() - day + 1);
+    const weekNumber = Math.ceil((((current.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+
+    return `${weekYear}-W${String(weekNumber).padStart(2, '0')}`;
+  },
+
+  getLegacyWeekYear(): string {
     const now = new Date();
     const oneJan = new Date(now.getFullYear(), 0, 1);
     const numberOfDays = Math.floor((now.getTime() - oneJan.getTime()) / (24 * 60 * 60 * 1000));
     const weekNumber = Math.ceil((now.getDay() + 1 + numberOfDays) / 7);
     return `${weekNumber}-${now.getFullYear()}`;
-  }
+  },
 };

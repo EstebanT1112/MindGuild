@@ -11,6 +11,8 @@ const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,30}$/;
 
 export const UsersService = {
   async getFullProfile(userId: string): Promise<FullProfile> {
+    await UsersRepository.resetExpiredStreak(userId);
+
     const profile = await UsersRepository.findProfileById(userId);
 
     if (!profile) {

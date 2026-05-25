@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, SafeAreaView, StatusBar } from 'react-native';
-import { ArrowLeft, Users, Crown, Users2 } from 'lucide-react-native';
+import { View, Text, StyleSheet, Pressable, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { ArrowLeft, Brain, Users, Crown, Users2, UserCircle } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 
 interface Props {
@@ -8,20 +9,38 @@ interface Props {
   title: string;
   type?: 'home' | 'rooms' | 'rankings' | 'friends' | 'profiles' | 'auth' ;
   icon?: React.ReactNode;
+  rightAction?: React.ReactNode;
 }
 
-export default function ScreenLayout({ children, title, type = 'rooms', icon }: Props) {
+export default function ScreenLayout({ children, title, type = 'rooms', icon, rightAction }: Props) {
   const navigation = useNavigation<any>();
 
   // Configuración del botón izquierdo (Avatar o Volver)
   const renderLeftButton = () => {
-    if (type === 'home' || type === 'profiles') {
+    if (type === 'home') {
       return (
         <Pressable 
           style={styles.profileBtn} 
           onPress={() => navigation.navigate('Perfil')}
         >
           <Text style={styles.profileBtnText}>P</Text>
+        </Pressable>
+      );
+    }
+
+    if (type === 'profiles') {
+      return (
+        <Pressable
+          style={styles.backBtn}
+          onPress={() => {
+            if (navigation.canGoBack()) {
+              navigation.goBack();
+            } else {
+              navigation.navigate('MainTabs', { screen: 'Home' });
+            }
+          }}
+        >
+          <ArrowLeft color="#94a3b8" size={20} />
         </Pressable>
       );
     }
@@ -33,29 +52,31 @@ export default function ScreenLayout({ children, title, type = 'rooms', icon }: 
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" />
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
       <View style={styles.container}>
         
         {/* HEADER UNIFICADO (MindGuild Style) */}
         <View style={styles.headerContainer}>
           {renderLeftButton()}
 
-          <View style={styles.titleGroup}>
+          <View style={[styles.titleGroup, type === 'home' && styles.homeTitleGroup]}>
             {icon ? icon : (
               type === 'rooms' ? <Users color="#22c55e" size={22} /> :
               type === 'rankings' ? <Crown color="#facc15" size={22} /> :
               type === 'friends' ? <Users2 color="#22c55e" size={22} /> :
-              type === 'profiles' ? <Users color="#22c55e" size={22} /> :
+              type === 'profiles' ? <UserCircle color="#22c55e" size={22} /> :
               type === 'auth' ? <Users color="#22c55e" size={22} /> : null
             )}
             <Text style={[styles.headerText, type === 'home' && styles.headerText]}>{title}</Text>
           </View>
 
-          <View style={styles.coinBadge}>
-            <View style={styles.hCoin}><Text style={styles.hText}>H</Text></View>
-            <Text style={styles.coinAmount}>1,250</Text>
-          </View>
+          {rightAction ?? (
+            <View style={styles.coinBadge}>
+              <View style={styles.hCoin}><Brain color="#0f172a" size={20} strokeWidth={2.2} /></View>
+              <Text style={styles.coinAmount}>1,250</Text>
+            </View>
+          )}
         </View>
 
         {/* CONTENIDO (Con el padding que te gusta) */}
@@ -87,6 +108,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1e293b', alignItems: 'center', justifyContent: 'center'
   },
   titleGroup: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  homeTitleGroup: { position: 'absolute', left: 0, right: 0, justifyContent: 'center' },
   headerText: { 
     color: 'white', 
     fontSize: 20, 
@@ -94,7 +116,7 @@ const styles = StyleSheet.create({
   },
   coinBadge: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#1e293b', borderRadius: 25,
+    backgroundColor: '#facc15', borderRadius: 25,
     padding: 5, paddingRight: 15
   },
   hCoin: {
@@ -102,6 +124,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#facc15', alignItems: 'center', justifyContent: 'center'
   },
   hText: { fontWeight: '900', fontSize: 14, color: '#0f172a' },
-  coinAmount: { color: 'white', fontWeight: 'bold', marginLeft: 8, fontSize: 16 },
+  coinAmount: { color: '#0f172a', fontWeight: 'bold', marginLeft: 8, fontSize: 16 },
   content: { flex: 1 },
 });

@@ -1,4 +1,7 @@
 import { View, Text, StyleSheet, Pressable } from "react-native";
+import { Check, Target } from 'lucide-react-native';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { useEffect } from 'react';
 
 type Mission = {
   title: string;
@@ -10,10 +13,26 @@ export default function MissionCard({ mission, onPress }: { mission: Mission; on
   const progressRatio = mission.progress / mission.target;
   const progressPercent = Math.min(progressRatio * 100, 100);
   const isCompleted = mission.progress >= mission.target;
+  const animatedProgress = useSharedValue(0);
+
+  useEffect(() => {
+    animatedProgress.value = withTiming(progressPercent, {
+      duration: 650,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [animatedProgress, progressPercent]);
+
+  const progressStyle = useAnimatedStyle(() => ({
+    width: `${animatedProgress.value}%`,
+  }));
 
   return (
     <Pressable style={[styles.card, isCompleted && styles.completed]} onPress={onPress}>
       <View style={styles.header}>
+        <View style={styles.iconBox}>
+          <Target color={isCompleted ? '#22c55e' : '#3b82f6'} size={18} />
+        </View>
+
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>{mission.title}</Text>
           <View style={styles.metaRow}>
@@ -25,15 +44,20 @@ export default function MissionCard({ mission, onPress }: { mission: Mission; on
             </View>
           </View>
         </View>
-        {isCompleted && <Text style={styles.check}>✓</Text>}
+
+        {isCompleted && (
+          <View style={styles.checkBadge}>
+            <Check color="#22c55e" size={18} />
+          </View>
+        )}
       </View>
 
       <View style={styles.bar}>
-        <View
+        <Animated.View
           style={[
             styles.progress,
             isCompleted && styles.progressCompleted,
-            { width: `${progressPercent}%` },
+            progressStyle,
           ]}
         />
       </View>
@@ -56,8 +80,17 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    alignItems: 'center',
+    gap: 10,
     marginBottom: 8,
+  },
+  iconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#0f172a',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     color: "#fff",
@@ -84,10 +117,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "bold",
   },
-  check: {
-    color: "#22c55e",
-    fontSize: 18,
-    fontWeight: "bold",
+  checkBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#22c55e22',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   bar: {
     height: 6,

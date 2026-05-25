@@ -2,7 +2,23 @@ import React, { useState } from 'react';
 import { Modal, View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { X, Minus, Plus, Timer, Infinity as InfinityIcon } from 'lucide-react-native';
 
-export default function SessionConfigModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+// Interfaz para pasar la configuración limpia
+export interface SessionConfigData {
+  sessionType: 'pomodoro' | 'libre';
+  duration: number;
+  cycles: number;
+  shortBreak: number;
+  longBreak: number;
+  longBreakFreq: number;
+}
+
+interface Props {
+  visible: boolean;
+  onClose: () => void;
+  onSave?: (data: SessionConfigData) => void;
+}
+
+export default function SessionConfigModal({ visible, onClose, onSave }: Props) {
   const [sessionType, setSessionType] = useState<'pomodoro' | 'libre'>('pomodoro');
   const [duration, setDuration] = useState(25);
   const [cycles, setCycles] = useState(4);
@@ -13,6 +29,20 @@ export default function SessionConfigModal({ visible, onClose }: { visible: bool
   // Opciones rápidas para los chips
   const durationOptions = [15, 25, 45, 60];
   const shortBreakOptions = [3, 5, 10];
+
+  const handleSave = () => {
+    if (onSave) {
+      onSave({
+        sessionType,
+        duration,
+        cycles,
+        shortBreak,
+        longBreak,
+        longBreakFreq
+      });
+    }
+    onClose();
+  };
 
   const Counter = ({ value, setter, color = '#22c55e', min = 1 }: any) => (
     <View style={styles.counterRow}>
@@ -29,112 +59,109 @@ export default function SessionConfigModal({ visible, onClose }: { visible: bool
   );
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
+    <Modal visible={visible} animationType="slide" transparent={true}>
       <View style={styles.overlay}>
-        <View style={styles.content}>
-          <View style={styles.header}>
-            <Text style={styles.title}>Configurar Sesión</Text>
-            <Pressable onPress={onClose} style={styles.closeBtn}><X color="white" size={20} /></Pressable>
-          </View>
+        <View style={styles.container}>
           
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+          <View style={styles.header}>
+            <View style={styles.headerTitleBox}>
+              <Timer color="#22c55e" size={22} />
+              <Text style={styles.title}>Configurar Sesión</Text>
+            </View>
+            <Pressable onPress={onClose} style={styles.closeBtn}>
+              <X color="#94a3b8" size={20} />
+            </Pressable>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
             
-            {/* TIPO DE SESIÓN */}
-            <Text style={styles.sectionLabel}>TIPO DE SESIÓN</Text>
-            <View style={styles.typeRow}>
+            {/* TIPO DE ESTUDIO */}
+            <Text style={styles.label}>MODO DE ESTUDIO</Text>
+            <View style={styles.modeToggleRow}>
               <Pressable 
-                style={[styles.typeCard, sessionType === 'pomodoro' && styles.typeCardActive]} 
+                style={[styles.modeBtn, sessionType === 'pomodoro' && styles.modeBtnActive]} 
                 onPress={() => setSessionType('pomodoro')}
               >
-                <Timer color={sessionType === 'pomodoro' ? '#22c55e' : '#64748b'} size={32} />
-                <Text style={[styles.typeTitle, sessionType === 'pomodoro' && { color: '#22c55e' }]}>Pomodoro</Text>
-                <Text style={styles.typeSub}>Sesión enfocada</Text>
+                <Timer color={sessionType === 'pomodoro' ? 'white' : '#64748b'} size={20} />
+                <Text style={[styles.modeBtnText, sessionType === 'pomodoro' && styles.modeBtnTextActive]}>Pomodoro</Text>
               </Pressable>
+
               <Pressable 
-                style={[styles.typeCard, sessionType === 'libre' && styles.typeCardActiveLibre]} 
+                style={[styles.modeBtn, sessionType === 'libre' && styles.modeBtnActive]} 
                 onPress={() => setSessionType('libre')}
               >
-                <InfinityIcon color={sessionType === 'libre' ? '#94a3b8' : '#64748b'} size={32} />
-                <Text style={styles.typeTitle}>Libre</Text>
-                <Text style={styles.typeSub}>Sin límites</Text>
+                <InfinityIcon color={sessionType === 'libre' ? 'white' : '#64748b'} size={20} />
+                <Text style={[styles.modeBtnText, sessionType === 'libre' && styles.modeBtnTextActive]}>Modo Libre</Text>
               </Pressable>
             </View>
 
-            {/* DURACIÓN */}
-            <View style={styles.configBox}>
-              <View style={styles.boxHeader}>
-                <Text style={styles.boxTitle}>Duración</Text>
-                <Text style={styles.boxSub}>por ciclo</Text>
-              </View>
-              <Counter value={duration} setter={setDuration} />
-              <Text style={styles.unitLabel}>minutos</Text>
-              <View style={styles.chipRow}>
-                {durationOptions.map(opt => (
-                  <Pressable 
-                    key={opt} 
-                    style={[styles.chip, duration === opt && styles.chipActive]} 
-                    onPress={() => setDuration(opt)}
-                  >
-                    <Text style={[styles.chipText, duration === opt && styles.chipTextActive]}>{opt}m</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
+            {sessionType === 'pomodoro' ? (
+              <>
+                {/* CONFIG POMODORO */}
+                <Text style={styles.label}>TIEMPO DE ENFOQUE (MINUTOS)</Text>
+                <Counter value={duration} setter={setDuration} color="#22c55e" min={5} />
+                <View style={styles.chipRow}>
+                  {durationOptions.map(opt => (
+                    <Pressable 
+                      key={opt} 
+                      style={[styles.chip, duration === opt && styles.chipActive]} 
+                      onPress={() => setDuration(opt)}
+                    >
+                      <Text style={[styles.chipText, duration === opt && styles.chipTextActive]}>{opt}m</Text>
+                    </Pressable>
+                  ))}
+                </View>
 
-            {/* CICLOS */}
-            <View style={styles.configBox}>
-              <View style={styles.boxHeader}>
-                <Text style={styles.boxTitle}>Ciclos</Text>
-                <Text style={styles.boxSub}>repeticiones</Text>
-              </View>
-              <Counter value={cycles} setter={setCycles} />
-              <Text style={styles.unitLabel}>ciclos</Text>
-              <Text style={styles.totalStudy}>Total estudio: <Text style={{color: '#22c55e'}}>{duration * cycles} min</Text></Text>
-            </View>
+                <View style={styles.divider} />
 
-            {/* DESCANSO CORTO */}
-            <View style={styles.configBox}>
-              <View style={styles.boxHeader}>
-                <Text style={styles.boxTitle}>Descanso Corto</Text>
-                <Text style={styles.boxSub}>entre ciclos</Text>
-              </View>
-              <Counter value={shortBreak} setter={setShortBreak} color="#06b6d4" />
-              <Text style={styles.unitLabel}>minutos</Text>
-              <View style={styles.chipRow}>
-                {shortBreakOptions.map(opt => (
-                  <Pressable 
-                    key={opt} 
-                    style={[styles.chip, styles.chipBreak, shortBreak === opt && styles.chipActiveBreak]} 
-                    onPress={() => setShortBreak(opt)}
-                  >
-                    <Text style={[styles.chipText, shortBreak === opt && styles.chipTextActive]}>{opt}m</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
+                <Text style={styles.label}>CANTIDAD DE CICLOS</Text>
+                <Counter value={cycles} setter={setCycles} color="#eab308" min={1} />
 
-            {/* DESCANSO LARGO */}
-            <View style={styles.configBox}>
-              <View style={styles.boxHeader}>
-                <Text style={styles.boxTitle}>Descanso Largo</Text>
-                <Text style={styles.boxSub}>ocasional</Text>
-              </View>
-              <Counter value={longBreak} setter={setLongBreak} color="#a855f7" />
-              <Text style={styles.unitLabel}>minutos</Text>
-              
-              <View style={styles.divider} />
-              
-              <Text style={styles.subBoxTitle}>Cada cuántos ciclos</Text>
-              <View style={styles.freqRow}>
-                  <Counter value={longBreakFreq} setter={setLongBreakFreq} color="#a855f7" />
-              </View>
-              <Text style={styles.freqHint}>Descanso largo después del ciclo {longBreakFreq}, {longBreakFreq*2}, {longBreakFreq*3}...</Text>
-            </View>
+                <View style={styles.divider} />
 
-            <Pressable style={styles.saveBtn} onPress={onClose}>
-              <Text style={styles.saveBtnText}>Guardar Configuración</Text>
-            </Pressable>
+                <Text style={styles.label}>RECREO CORTO (MINUTOS)</Text>
+                <Counter value={shortBreak} setter={setShortBreak} color="#06b6d4" min={1} />
+                <View style={styles.chipRow}>
+                  {shortBreakOptions.map(opt => (
+                    <Pressable 
+                      key={opt} 
+                      style={[styles.chip, shortBreak === opt && styles.chipActiveBreak]} 
+                      onPress={() => setShortBreak(opt)}
+                    >
+                      <Text style={[styles.chipText, shortBreak === opt && styles.chipTextActive]}>{opt}m</Text>
+                    </Pressable>
+                  ))}
+                </View>
+
+                <View style={styles.divider} />
+
+                <Text style={styles.label}>RECREO LARGO (MINUTOS)</Text>
+                <Counter value={longBreak} setter={setLongBreak} color="#3b82f6" min={5} />
+
+                <View style={styles.divider} />
+
+                <Text style={styles.label}>FRECUENCIA DE RECREO LARGO (CADA X CICLOS)</Text>
+                <Counter value={longBreakFreq} setter={setLongBreakFreq} color="#a855f7" min={1} />
+
+                <Text style={styles.totalStudy}>Tiempo total de estudio: {duration * cycles} minutos</Text>
+              </>
+            ) : (
+              <View style={styles.libreNoticeBox}>
+                <InfinityIcon color="#22c55e" size={40} />
+                <Text style={styles.libreNoticeTitle}>Modo Libre Activado</Text>
+                <Text style={styles.libreNoticeDesc}>
+                  El cronómetro contará de forma progresiva comenzando en 00:00. Ideal para flujos de enfoque continuos sin pausas preprogramadas.
+                </Text>
+              </View>
+            )}
+
           </ScrollView>
+
+          {/* BOTÓN DE ACCIÓN PRINCIPAL */}
+          <Pressable style={styles.saveBtn} onPress={handleSave}>
+            <Text style={styles.saveBtnText}>GUARDAR CONFIGURACIÓN</Text>
+          </Pressable>
+
         </View>
       </View>
     </Modal>
@@ -142,45 +169,34 @@ export default function SessionConfigModal({ visible, onClose }: { visible: bool
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'flex-end' },
-  content: { backgroundColor: '#1e293b', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 25, height: '90%' },
+  overlay: { flex: 1, backgroundColor: 'rgba(2, 6, 23, 0.85)', justifyContent: 'flex-end' },
+  container: { backgroundColor: '#0f172a', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, maxHeight: '85%', borderWidth: 1, borderColor: '#1e293b' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  title: { color: 'white', fontSize: 22, fontWeight: 'bold' },
-  closeBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#334155', alignItems: 'center', justifyContent: 'center' },
-  
-  sectionLabel: { color: '#64748b', fontSize: 12, fontWeight: 'bold', marginBottom: 15, letterSpacing: 1 },
-  typeRow: { flexDirection: 'row', gap: 15, marginBottom: 25 },
-  typeCard: { flex: 1, backgroundColor: '#0f172a', borderRadius: 24, padding: 20, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
-  typeCardActive: { borderColor: '#22c55e', backgroundColor: '#14532d22' },
-  typeCardActiveLibre: { borderColor: '#4b5563' },
-  typeTitle: { color: 'white', fontSize: 16, fontWeight: 'bold', marginTop: 10 },
-  typeSub: { color: '#64748b', fontSize: 12 },
-
-  configBox: { backgroundColor: '#0f172a', borderRadius: 28, padding: 20, marginBottom: 15, borderWidth: 1, borderColor: '#334155' },
-  boxHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 20 },
-  boxTitle: { color: 'white', fontSize: 18, fontWeight: 'bold' },
-  boxSub: { color: '#64748b', fontSize: 12 },
-  
+  headerTitleBox: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  title: { color: 'white', fontSize: 20, fontWeight: '900' },
+  closeBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#1e293b', alignItems: 'center', justifyContent: 'center' },
+  scroll: { paddingBottom: 30 },
+  label: { color: '#64748b', fontSize: 11, fontWeight: '900', letterSpacing: 1, marginBottom: 15, textAlign: 'center' },
   counterRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 20 },
   stepBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#1e293b', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#334155' },
   valueDisplay: { width: 80, alignItems: 'center' },
   valueText: { fontSize: 42, fontWeight: '900' },
-  unitLabel: { color: '#64748b', fontSize: 12, textAlign: 'center', marginTop: 5 },
-  
-  chipRow: { flexDirection: 'row', justifyContent: 'center', gap: 10, marginTop: 20 },
+  chipRow: { flexDirection: 'row', justifyContent: 'center', gap: 10, marginTop: 15 },
   chip: { backgroundColor: '#1e293b', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: '#334155' },
   chipActive: { backgroundColor: '#14532d', borderColor: '#22c55e' },
-  chipBreak: { },
   chipActiveBreak: { backgroundColor: '#083344', borderColor: '#06b6d4' },
   chipText: { color: '#94a3b8', fontWeight: 'bold' },
   chipTextActive: { color: 'white' },
-
-  totalStudy: { color: '#64748b', textAlign: 'center', marginTop: 15, fontWeight: 'bold' },
-  divider: { height: 1, backgroundColor: '#334155', marginVertical: 20 },
-  subBoxTitle: { color: '#94a3b8', fontSize: 14, fontWeight: 'bold', marginBottom: 15 },
-  freqRow: { marginBottom: 10 },
-  freqHint: { color: '#4b5563', fontSize: 12, textAlign: 'center', marginTop: 10 },
-
-  saveBtn: { backgroundColor: '#22c55e', borderRadius: 24, padding: 20, alignItems: 'center', marginTop: 10 },
-  saveBtnText: { color: 'white', fontWeight: '900', fontSize: 18 }
+  totalStudy: { color: '#64748b', textAlign: 'center', marginTop: 15, fontWeight: 'bold', fontSize: 13 },
+  divider: { height: 1, backgroundColor: '#1e293b', marginVertical: 20 },
+  modeToggleRow: { flexDirection: 'row', gap: 12, marginBottom: 25 },
+  modeBtn: { flex: 1, height: 50, borderRadius: 14, backgroundColor: '#1e293b', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: '#334155' },
+  modeBtnActive: { backgroundColor: '#12a14b', borderColor: '#22c55e' },
+  modeBtnText: { color: '#64748b', fontWeight: 'bold', fontSize: 14 },
+  modeBtnTextActive: { color: 'white' },
+  libreNoticeBox: { alignItems: 'center', padding: 20, backgroundColor: '#22c55e10', borderRadius: 20, borderWidth: 1, borderColor: '#22c55e30', marginVertical: 20 },
+  libreNoticeTitle: { color: 'white', fontSize: 16, fontWeight: 'bold', marginTop: 10, marginBottom: 5 },
+  libreNoticeDesc: { color: '#64748b', fontSize: 13, textAlign: 'center', lineHeight: 20 },
+  saveBtn: { backgroundColor: '#22c55e', height: 58, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginTop: 15 },
+  saveBtnText: { color: 'white', fontSize: 15, fontWeight: '900', letterSpacing: 0.5 }
 });
