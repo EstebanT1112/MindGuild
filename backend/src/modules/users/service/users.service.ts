@@ -11,6 +11,7 @@ const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,30}$/;
 
 export const UsersService = {
   async getFullProfile(userId: string): Promise<FullProfile> {
+    // RF-03: compone perfil basico, estadisticas semanales y estado de aldea.
     await UsersRepository.resetExpiredStreak(userId);
 
     const profile = await UsersRepository.findProfileById(userId);
@@ -39,6 +40,7 @@ export const UsersService = {
   },
 
   async updateProfile(userId: string, input: UpdateProfileDTO): Promise<FullProfile> {
+    // RF-03: aplica patch parcial solo sobre campos editables del perfil.
     const data = normalizeUpdateInput(input);
     validateUpdateInput(data);
 
@@ -75,6 +77,7 @@ export const UsersService = {
 };
 
 function normalizeUpdateInput(input: UpdateProfileDTO): UpdateProfileDTO {
+  // Distingue campos no enviados de campos enviados vacios para soportar PATCH parcial.
   const data: UpdateProfileDTO = {};
 
   if (Object.prototype.hasOwnProperty.call(input, 'username')) {
@@ -95,6 +98,7 @@ function normalizeUpdateInput(input: UpdateProfileDTO): UpdateProfileDTO {
 }
 
 function validateUpdateInput(input: UpdateProfileDTO) {
+  // Valida reglas de negocio antes de tocar la tabla profiles.
   if (input.username !== undefined && !USERNAME_REGEX.test(input.username)) {
     throw new UserValidationError(
       'El username debe tener 3 a 30 caracteres y solo puede usar letras, numeros o guion bajo'
@@ -115,6 +119,7 @@ function validateUpdateInput(input: UpdateProfileDTO) {
 }
 
 function getWeekYear(): string {
+  // Calcula la semana usada para leer user_weekly_stats.
   const now = new Date();
   const oneJan = new Date(now.getFullYear(), 0, 1);
   const numberOfDays = Math.floor((now.getTime() - oneJan.getTime()) / (24 * 60 * 60 * 1000));

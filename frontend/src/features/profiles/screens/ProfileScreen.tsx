@@ -47,6 +47,7 @@ export default function ProfileScreen() {
         loadProfile();
     }, [accessToken]);
 
+    // RF-03: obtiene el perfil completo y sincroniza el usuario global.
     const loadProfile = async () => {
         if (!accessToken) return;
 
@@ -62,6 +63,7 @@ export default function ProfileScreen() {
         }
     };
 
+    // RF-03: envia cambios editables y refresca la respuesta completa del perfil.
     const handleSaveProfile = async (data: { username: string; bio: string; avatar_url: string }) => {
         if (!accessToken) return;
 

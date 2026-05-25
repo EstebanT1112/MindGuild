@@ -23,6 +23,7 @@ export default function EditProfileModal({
   onSave,
   currentData,
 }: EditProfileModalProps) {
+  // RF-03: mantiene un formulario local para editar solo datos permitidos del perfil.
   const [username, setUsername] = useState(currentData.username);
   const [bio, setBio] = useState(currentData.bio);
   const [avatarUrl, setAvatarUrl] = useState(currentData.avatar_url ?? '');
