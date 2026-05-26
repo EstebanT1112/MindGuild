@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRoute } from '@react-navigation/native';
-import { ChevronRight, Info, PlayCircle, Settings, Users } from 'lucide-react-native';
+import { ChevronRight, Info, Settings, Users } from 'lucide-react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { useAuthStore } from '../../../store/authStore';
@@ -209,8 +209,10 @@ export default function LiveRoomScreen() {
                 </View>
 
                 {/* Botón de control */}
-                <Pressable onPress={handleStartSession} style={styles.startBtn}>
-                    <PlayCircle color="white" size={24} />
+                <Pressable
+                    onPress={handleStartSession}
+                    style={[styles.startBtn, isStudying && styles.finishBtn]}
+                >
                     <Text style={styles.startBtnText}>
                         {isStudying ? "FINALIZAR SESION" : "COMENZAR SESION"}
                     </Text>
@@ -318,5 +320,6 @@ const styles = StyleSheet.create({
     timerValue: { color: 'white', fontSize: 56, fontWeight: '900' },
     timerCycles: { color: '#64748b', fontSize: 16, fontWeight: 'bold' },
     startBtn: { backgroundColor: '#22c55e', height: 64, borderRadius: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 20 },
+    finishBtn: { backgroundColor: '#dc2626' },
     startBtnText: { color: 'white', fontSize: 18, fontWeight: '900', letterSpacing: 1 },
 });
