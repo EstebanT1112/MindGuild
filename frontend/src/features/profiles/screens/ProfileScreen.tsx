@@ -214,11 +214,12 @@ export default function ProfileScreen() {
                     <StatCard icon={<Castle color="#22c55e" size={24} />} value={`${profile?.village.village_level ?? 1}`} label="Nivel Aldea" />
                 </View>
 
-                {/* Progreso Semanal */}
+                {/* IMPLEMENTAR EN LA E2 */}
+                {/* Progreso Semanal
                 <WeeklyProgress
                     data={[0, 0, 0, 0, 0, 0, profile?.weekly_stats.total_minutes ?? 0]}
                     totalMinutes={profile?.weekly_stats.total_minutes ?? 0}
-                />
+                /> */}
 
                 {/* Sección de Medallas / Logros Unificada */}
                 <View style={styles.medalsSection}>
