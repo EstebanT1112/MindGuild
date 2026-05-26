@@ -10,15 +10,22 @@ import {
     View,
 } from 'react-native';
 import {
+    Award,
+    BookOpen,
+    CalendarCheck,
+    Compass,
     Crown,
     Castle,
     Edit2,
     Flame,
+    Gem,
     Medal,
+    Network,
     Settings,
+    Shield,
     Star,
-    Target,
     Trophy,
+    Users,
     Zap,
 } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
@@ -40,6 +47,44 @@ import {
 } from '../services/achievementsService';
 
 const fallbackAvatar = 'https://ui-avatars.com/api/?background=1e293b&color=ffffff&name=MG';
+
+const renderAchievementIcon = (achievement: Achievement) => {
+    const color = achievement.unlocked ? '#22c55e' : '#64748b';
+    const props = { color, size: 30 };
+
+    switch (achievement.badge_icon) {
+        case 'star':
+            return <Star {...props} />;
+        case 'flame':
+        case 'fire':
+            return <Flame {...props} />;
+        case 'book':
+            return <BookOpen {...props} />;
+        case 'calendar-check':
+            return <CalendarCheck {...props} />;
+        case 'compass':
+            return <Compass {...props} />;
+        case 'users':
+            return <Users {...props} />;
+        case 'trophy':
+            return <Trophy {...props} />;
+        case 'zap':
+            return <Zap {...props} />;
+        case 'crown':
+            return <Crown {...props} />;
+        case 'award':
+            return <Award {...props} />;
+        case 'network':
+            return <Network {...props} />;
+        case 'shield':
+            return <Shield {...props} />;
+        case 'gem':
+            return <Gem {...props} />;
+        case 'medal':
+        default:
+            return <Medal {...props} />;
+    }
+};
 
 export default function ProfileScreen() {
     const accessToken = useAuthStore(state => state.access_token);
@@ -67,12 +112,15 @@ export default function ProfileScreen() {
         try {
             const data = await fetchMyProfile(accessToken);
             setProfile(data);
-            
-            // Traemos los logros de forma correcta
-            const achievementData = await fetchAchievements(accessToken);
-            setAchievements(achievementData);
-            
             setUser({ id: data.id, email: data.email, username: data.username });
+
+            try {
+                const achievementData = await fetchAchievements(accessToken);
+                setAchievements(achievementData);
+            } catch (achievementError) {
+                console.warn('No se pudieron cargar los logros', achievementError);
+                setAchievements([]);
+            }
         } catch (error: any) {
             Alert.alert('Error de perfil', error.message ?? 'No se pudo cargar el perfil.');
         } finally {
@@ -176,13 +224,18 @@ export default function ProfileScreen() {
                 <View style={styles.medalsSection}>
                     <View style={styles.sectionHeaderRow}>
                         <Medal color="#facc15" size={20} />
-                        <Text style={styles.sectionTitle}>Medallas Desbloqueadas</Text>
+                        <Text style={styles.sectionTitle}>Logros y medallas</Text>
                     </View>
                     <View style={styles.medalsGrid}>
-                        {achievements.map((m) => (
-                            <View key={m.id} style={[styles.medalCard, !m.unlocked && { opacity: 0.4 }]}>
-                                <Medal color={m.unlocked ? '#22c55e' : '#4b5563'} size={30}/>
+                        {achievements.length === 0 ? (
+                            <Text style={styles.emptyAchievementsText}>Todavia no hay logros disponibles.</Text>
+                        ) : achievements.map((m) => (
+                            <View key={m.id} style={[styles.medalCard, !m.unlocked && styles.lockedMedalCard]}>
+                                {renderAchievementIcon(m)}
                                 <Text style={styles.medalName}>{m.name}</Text>
+                                <Text style={[styles.medalStatus, m.unlocked && styles.medalStatusUnlocked]}>
+                                    {m.unlocked ? 'Desbloqueado' : 'Pendiente'}
+                                </Text>
                             </View>
                         ))}
                     </View>
@@ -281,7 +334,11 @@ const styles = StyleSheet.create({
         padding: 15, borderRadius: 20, alignItems: 'center',
         gap: 8, borderWidth: 1, borderColor: '#334155'
     },
+    lockedMedalCard: { opacity: 0.55 },
     medalName: { color: 'white', fontSize: 10, textAlign: 'center', fontWeight: 'bold' },
+    medalStatus: { color: '#94a3b8', fontSize: 9, textAlign: 'center', fontWeight: '700' },
+    medalStatusUnlocked: { color: '#22c55e' },
+    emptyAchievementsText: { color: '#94a3b8', fontSize: 13, textAlign: 'center', width: '100%' },
     villageCard: {
         backgroundColor: '#1e293b', borderRadius: 28,
         padding: 20, marginBottom: 40, borderWidth: 1, borderColor: '#334155'
