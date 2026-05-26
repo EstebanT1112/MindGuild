@@ -13,7 +13,7 @@ export interface Achievement {
 export async function fetchAchievements(
   accessToken: string
 ): Promise<Achievement[]> {
-  const response = await fetch(`${API_BASE_URL}/achievements`, {
+  const response = await fetch(`${API_BASE_URL}/achievements/me`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },

@@ -51,6 +51,7 @@ export default function ProfileScreen() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [achievements, setAchievements] = useState<Achievement[]>([]);
+    const unlockedAchievementsCount = achievements.filter(achievement => achievement.unlocked).length;
     
     const avatarUri = profile?.avatar_url || fallbackAvatar;
 
@@ -161,7 +162,7 @@ export default function ProfileScreen() {
                 <View style={styles.statsGrid}>
                     <StatCard icon={<Trophy color="#22c55e" size={24} />} value={`${profile?.total_study_minutes ?? 0}m`} label="Total Estudio" />
                     <StatCard icon={<Flame color="#fb923c" size={24} />} value={`${profile?.streak_days ?? 0} dias`} label="Racha Actual" />
-                    <StatCard icon={<Medal color="#22c55e" size={24} />} value="0" label="Logros" />
+                    <StatCard icon={<Medal color="#22c55e" size={24} />} value={`${unlockedAchievementsCount}`} label="Logros" />
                     <StatCard icon={<Castle color="#22c55e" size={24} />} value={`${profile?.village.village_level ?? 1}`} label="Nivel Aldea" />
                 </View>
 
