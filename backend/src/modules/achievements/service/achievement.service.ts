@@ -89,7 +89,14 @@ export const achievementService = {
         );
 
     // RF-15 → generar notifications
+    const unlockedIds = new Set(
+      unlockedAchievements.map(a => a.achievement_id)
+    );
+
     for (const achievement of achievements) {
+      if (!unlockedIds.has(achievement.id)) {
+        continue;
+      }
 
       try {
 
