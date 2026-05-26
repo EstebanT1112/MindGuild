@@ -25,7 +25,7 @@ export const notificationService = {
     data: CreateNotificationInput
   ): Promise<Notification> {
 
-    return await notificationService
+    return await notificationRepository
       .createNotification(data);
   },
 
