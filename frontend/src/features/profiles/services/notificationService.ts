@@ -1,5 +1,10 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
+
+const getExpoProjectId = () =>
+  Constants.expoConfig?.extra?.eas?.projectId ??
+  Constants.easConfig?.projectId;
 
 export async function registerForPushNotifications() {
   if (!Device.isDevice) {
@@ -26,8 +31,11 @@ export async function registerForPushNotifications() {
     return null;
   }
 
+  const projectId = getExpoProjectId();
   const tokenData =
-    await Notifications.getExpoPushTokenAsync();
+    await Notifications.getExpoPushTokenAsync(
+      projectId ? { projectId } : undefined
+    );
 
   return tokenData.data;
 }

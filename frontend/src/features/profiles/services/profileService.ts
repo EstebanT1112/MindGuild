@@ -24,6 +24,7 @@ export interface UpdateProfileInput {
   username?: string;
   avatar_url?: string | null;
   bio?: string | null;
+  expo_push_token?: string | null;
 }
 
 export async function fetchMyProfile(accessToken: string): Promise<FullProfile> {
