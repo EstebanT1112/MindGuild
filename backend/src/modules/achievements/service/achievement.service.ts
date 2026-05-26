@@ -42,14 +42,16 @@ export const achievementService = {
         break;
 
       case 'streak_updated':
-         throw new Error(
-          'streak_updated not implemented'
-        );
+        progress =
+          await achievementRepository
+            .getCurrentStreak(userId);
+        break;
 
       case 'room_participation':
-        throw new Error(
-          'room_participation not implemented'
-        );
+        progress =
+          await achievementRepository
+            .countActiveRoomMemberships(userId);
+        break;
     }
     const achievementsToUnlock: Achievement[] = [];
     //Evaluo el cumplimiento de que

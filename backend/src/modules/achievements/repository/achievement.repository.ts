@@ -57,7 +57,37 @@ export const achievementRepository = {
         WHERE user_id = $1
         AND status = 'completed'
         AND valid = true
-        AND approval_status = 'approved';
+        AND duration_minutes >= 60;
+      `,
+      [userId]
+    );
+
+    return rows[0]?.total ?? 0;
+  },
+
+  async getCurrentStreak(userId: string): Promise<number> {
+    const { rows } = await pool.query(
+      `
+        SELECT streak_days
+        FROM profiles
+        WHERE id = $1
+        LIMIT 1;
+      `,
+      [userId]
+    );
+
+    return rows[0]?.streak_days ?? 0;
+  },
+
+  async countActiveRoomMemberships(userId: string): Promise<number> {
+    const { rows } = await pool.query(
+      `
+        SELECT COUNT(*)::int AS total
+        FROM room_members rm
+        JOIN rooms r ON r.id = rm.room_id
+        WHERE rm.user_id = $1
+          AND rm.is_active = true
+          AND r.is_active = true;
       `,
       [userId]
     );
