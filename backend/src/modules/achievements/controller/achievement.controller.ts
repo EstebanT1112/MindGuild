@@ -3,6 +3,10 @@ import { achievementService }
 from '../service/achievement.service.js';
 import { AuthService }
   from '../../auth/service/auth.service.js';
+import {
+  AuthNotFoundError,
+  AuthUnauthorizedError
+} from '../../auth/types/auth.types.js';
 
 export const achievementController = {
   //REQ 14 - GET/achievements
@@ -40,6 +44,16 @@ export const achievementController = {
         data: achievements,
       });
     } catch (error: any) {
+      if (
+        error instanceof AuthUnauthorizedError ||
+        error instanceof AuthNotFoundError
+      ) {
+        return res.status(401).json({
+          success: false,
+          error: error.message,
+        });
+      }
+
       return res.status(500).json({
         success: false,
         error: error.message || 'Error al obtener logros',
@@ -58,7 +72,7 @@ async function getAuthenticatedProfileId(
     req.headers.authorization;
 
   if (!authorization?.startsWith('Bearer ')) {
-    throw new Error(
+    throw new AuthUnauthorizedError(
       'Authorization Bearer token requerido'
     );
   }
