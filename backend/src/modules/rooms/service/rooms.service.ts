@@ -1,4 +1,5 @@
 import { RoomsRepository } from '../repository/rooms.repository.js';
+import { achievementService } from '../../achievements/service/achievement.service.js';
 import {
   RoomConflictError,
   RoomNotFoundError,
@@ -27,7 +28,9 @@ export const RoomsService = {
     }
 
     try {
-      return await RoomsRepository.createRoomWithOwner(ownerId, data);
+      const room = await RoomsRepository.createRoomWithOwner(ownerId, data);
+      await processRoomParticipationAchievements(ownerId);
+      return room;
     } catch (error: any) {
       if (error?.code === '23505') {
         throw new RoomConflictError('No se pudo crear la sala por un conflicto de datos');
@@ -79,7 +82,9 @@ export const RoomsService = {
     const membershipStatus = await validateJoinConditions(userId, room.id, room.max_members);
 
     try {
-      return await RoomsRepository.joinRoom(room, userId, membershipStatus);
+      const joinedRoom = await RoomsRepository.joinRoom(room, userId, membershipStatus);
+      await processRoomParticipationAchievements(userId);
+      return joinedRoom;
     } catch (error: any) {
       if (error?.code === '23505') {
         throw new RoomConflictError('El usuario ya pertenece a la sala');
@@ -168,4 +173,12 @@ async function validateJoinConditions(
 function normalizeInviteCode(inviteCode: string): string {
   // Permite que el usuario ingrese el codigo con espacios o minusculas.
   return (inviteCode ?? '').trim().toUpperCase();
+}
+
+async function processRoomParticipationAchievements(userId: string) {
+  try {
+    await achievementService.handleAchievementEvent(userId, 'room_participation');
+  } catch (error) {
+    console.error('Error processing room participation achievements', error);
+  }
 }

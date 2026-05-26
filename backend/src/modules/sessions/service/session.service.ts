@@ -1,4 +1,5 @@
 import { sessionsRepository } from '../repository/session.repository.js';
+import { achievementService } from '../../achievements/service/achievement.service.js';
 import {
   SessionConflictError,
   SessionForbiddenError,
@@ -61,7 +62,25 @@ export const sessionsService = {
 
     validateSessionOwnershipAndStatus(session.user_id, userId, session.status);
 
-    return sessionsRepository.completeSession(session, data);
+    const completedSession = await sessionsRepository.completeSession(session, data);
+
+    if (completedSession.valid) {
+      try {
+        const [sessionAchievements, streakAchievements] = await Promise.all([
+          achievementService.handleAchievementEvent(userId, 'session_completed'),
+          achievementService.handleAchievementEvent(userId, 'streak_updated'),
+        ]);
+
+        return {
+          ...completedSession,
+          unlocked_achievements: [...sessionAchievements, ...streakAchievements],
+        };
+      } catch (error) {
+        console.error('Error processing session achievements', error);
+      }
+    }
+
+    return completedSession;
   },
 
   async cancelSession(userId: string, sessionId: string) {
