@@ -4,6 +4,7 @@ export interface Achievement {
   id: string;
   name: string;
   description: string;
+  badge_icon?: string | null;
   type: string;
   target_value: number;
   unlocked: boolean;
