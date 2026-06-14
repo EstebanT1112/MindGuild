@@ -1,11 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ChevronDown, ChevronUp, Trophy } from 'lucide-react-native';
+import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
-import {
-  fetchRoomTimeRanking,
-  type RoomTimeRankingEntry,
-} from '../services/roomsService';
 
 interface Props {
   roomId?: string;
@@ -16,28 +13,26 @@ const futureRankingTabs = ['Team', 'Respuestas', 'Jefes', 'Individual'];
 
 export default function RoomRanking({ roomId }: Props) {
   const accessToken = useAuthStore(state => state.access_token);
-  const [isExpanded, setIsExpanded] = useState(true);
-  const [ranking, setRanking] = useState<RoomTimeRankingEntry[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const rankingEntry = useAppDataStore(state => roomId ? state.roomRankings[roomId] : undefined);
+  const loadRoomRanking = useAppDataStore(state => state.loadRoomRanking);
+  const ranking = rankingEntry?.data ?? [];
+  const loading = rankingEntry?.isLoading ?? false;
+  const error = rankingEntry?.error ?? null;
 
   useEffect(() => {
-    loadRanking();
-  }, [roomId, accessToken]);
+    if (isExpanded) {
+      loadRanking();
+    }
+  }, [isExpanded, roomId, accessToken]);
 
   const loadRanking = async () => {
     if (!roomId || !accessToken) return;
 
-    setLoading(true);
-    setError(null);
-
     try {
-      const data = await fetchRoomTimeRanking(accessToken, roomId);
-      setRanking(data);
+      await loadRoomRanking(accessToken, roomId);
     } catch (err: any) {
-      setError(err.message ?? 'No se pudo cargar el ranking');
-    } finally {
-      setLoading(false);
+      console.error('No se pudo cargar el ranking de sala', err);
     }
   };
 
