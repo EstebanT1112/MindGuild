@@ -20,10 +20,11 @@ export const UsersService = {
       throw new UserNotFoundError('Usuario no encontrado');
     }
 
-    const [weeklyStats, village, streakCompletedToday] = await Promise.all([
+    const [weeklyStats, village, streakCompletedToday, authProviders] = await Promise.all([
       UsersRepository.getWeeklyStats(userId, getWeekYear()),
       UsersRepository.getVillageState(userId),
       UsersRepository.hasValidSessionToday(userId),
+      UsersRepository.getAuthProviders(userId),
     ]);
 
     return {
@@ -38,6 +39,7 @@ export const UsersService = {
         village_level: 1,
       },
       streak_completed_today: streakCompletedToday,
+      auth_providers: authProviders,
     };
   },
 

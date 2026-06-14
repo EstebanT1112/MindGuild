@@ -5,8 +5,11 @@ import {
   AuthUnauthorizedError,
   AuthValidationError,
   type Auth0UserInfo,
+  type LinkGoogleResult,
   type RegisterProfileDTO,
   type RegisteredProfile,
+  type SocialLoginDTO,
+  type SocialLoginResult,
 } from '../types/auth.types.js';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -49,13 +52,13 @@ export const AuthService = {
   },
 
   async getProfileFromAccessToken(accessToken: string): Promise<RegisteredProfile> {
-    // RF-02: confirma la identidad en Auth0 y la cruza con el perfil activo local.
+    // RF-02/RF-01: confirma la identidad en Auth0 y la cruza con el perfil activo local.
     if (!accessToken) {
       throw new AuthUnauthorizedError('Token requerido');
     }
 
     const userInfo = await validateTokenWithAuth0(accessToken);
-    const profile = await AuthRepository.findProfileByAuth0UserId(userInfo.sub);
+    const profile = await resolveExistingProfileFromUserInfo(userInfo);
 
     if (!profile) {
       throw new AuthNotFoundError('Perfil no encontrado');
@@ -64,6 +67,118 @@ export const AuthService = {
     await AuthRepository.updateLastLoginAt(profile.id);
 
     return profile;
+  },
+
+  async socialLogin(input: Partial<SocialLoginDTO> = {}): Promise<SocialLoginResult> {
+    // RF-01: resuelve login social sin duplicar perfiles locales por email verificado.
+    const accessToken = (input.access_token ?? '').trim();
+
+    if (!accessToken) {
+      throw new AuthValidationError('access_token es requerido');
+    }
+
+    const userInfo = await validateTokenWithAuth0(accessToken);
+    const email = normalizeEmail(userInfo.email);
+
+    if (!email) {
+      throw new AuthValidationError('Auth0 no devolvio email para esta identidad');
+    }
+
+    const provider = extractProvider(userInfo.sub);
+    let profile = await AuthRepository.findProfileByAuth0UserId(userInfo.sub);
+
+    if (!profile) {
+      profile = await AuthRepository.findProfileByIdentity(provider, userInfo.sub);
+    }
+
+    if (!profile) {
+      profile = await AuthRepository.findProfileByEmail(email);
+
+      if (profile && !userInfo.email_verified) {
+        throw new AuthValidationError('El email de Google debe estar verificado para vincular cuentas');
+      }
+    }
+
+    if (!profile) {
+      const username = await generateAvailableUsername(email);
+      profile = await AuthRepository.createProfile({
+        auth_user_id: userInfo.sub,
+        email,
+        username,
+      });
+    }
+
+    await AuthRepository.createAuthIdentity({
+      profileId: profile.id,
+      provider,
+      providerUserId: userInfo.sub,
+      email,
+      emailVerified: Boolean(userInfo.email_verified),
+    });
+
+    await AuthRepository.updateLastLoginAt(profile.id);
+
+    return {
+      auth_user_id: userInfo.sub,
+      email,
+      profile,
+    };
+  },
+
+  async linkGoogleAccount(currentAccessToken: string, googleAccessToken: string): Promise<LinkGoogleResult> {
+    // RF-01: vincula Google a la cuenta autenticada sin cambiar de perfil.
+    if (!currentAccessToken) {
+      throw new AuthUnauthorizedError('Token de sesion requerido');
+    }
+
+    if (!googleAccessToken) {
+      throw new AuthValidationError('access_token de Google es requerido');
+    }
+
+    const currentProfile = await this.getProfileFromAccessToken(currentAccessToken);
+    const profile = await AuthRepository.findProfileById(currentProfile.id);
+
+    if (!profile) {
+      throw new AuthNotFoundError('Perfil no encontrado');
+    }
+
+    const googleUserInfo = await validateTokenWithAuth0(googleAccessToken);
+    const provider = extractProvider(googleUserInfo.sub);
+    const googleEmail = normalizeEmail(googleUserInfo.email);
+
+    if (provider !== 'google-oauth2') {
+      throw new AuthValidationError('La identidad seleccionada no corresponde a Google');
+    }
+
+    if (!googleEmail) {
+      throw new AuthValidationError('Google no devolvio email para esta identidad');
+    }
+
+    if (!googleUserInfo.email_verified) {
+      throw new AuthValidationError('El email de Google debe estar verificado para vincular cuentas');
+    }
+
+    if (googleEmail !== normalizeEmail(profile.email)) {
+      throw new AuthConflictError('La cuenta de Google debe usar el mismo email que tu perfil actual');
+    }
+
+    const existingIdentity = await AuthRepository.findIdentity(provider, googleUserInfo.sub);
+
+    if (existingIdentity && existingIdentity.profile_id !== profile.id) {
+      throw new AuthConflictError('Esta cuenta de Google ya esta vinculada a otro perfil');
+    }
+
+    await AuthRepository.createAuthIdentity({
+      profileId: profile.id,
+      provider,
+      providerUserId: googleUserInfo.sub,
+      email: googleEmail,
+      emailVerified: true,
+    });
+
+    return {
+      auth_providers: await AuthRepository.getAuthProviders(profile.id),
+    };
   },
 };
 
@@ -86,7 +201,64 @@ async function validateTokenWithAuth0(accessToken: string): Promise<Auth0UserInf
   return {
     sub: data.sub,
     email: data.email,
+    email_verified: Boolean(data.email_verified),
+    name: data.name,
+    nickname: data.nickname,
+    picture: data.picture,
   };
+}
+
+async function resolveExistingProfileFromUserInfo(userInfo: Auth0UserInfo): Promise<RegisteredProfile | null> {
+  const provider = extractProvider(userInfo.sub);
+  const byAuth0Id = await AuthRepository.findProfileByAuth0UserId(userInfo.sub);
+
+  if (byAuth0Id) {
+    return byAuth0Id;
+  }
+
+  return AuthRepository.findProfileByIdentity(provider, userInfo.sub);
+}
+
+async function generateAvailableUsername(email: string): Promise<string> {
+  const [localPart] = email.split('@');
+  const base = sanitizeUsername(localPart || 'usuario');
+
+  if (!(await AuthRepository.usernameExists(base))) {
+    return base;
+  }
+
+  for (let suffix = 2; suffix <= 9999; suffix += 1) {
+    const candidate = `${base}_${suffix}`;
+
+    if (!(await AuthRepository.usernameExists(candidate))) {
+      return candidate;
+    }
+  }
+
+  throw new AuthConflictError('No se pudo generar un username disponible');
+}
+
+function sanitizeUsername(value: string): string {
+  const clean = value
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 24);
+
+  if (clean.length >= 3) {
+    return clean;
+  }
+
+  return `user_${clean || 'mg'}`;
+}
+
+function normalizeEmail(email?: string): string {
+  return (email ?? '').trim().toLowerCase();
+}
+
+function extractProvider(authUserId: string): string {
+  return authUserId.includes('|') ? authUserId.split('|')[0] : 'auth0';
 }
 
 function normalizeRegisterInput(input: Partial<RegisterProfileDTO>): RegisterProfileDTO {

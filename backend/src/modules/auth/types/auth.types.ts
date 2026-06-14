@@ -13,6 +13,33 @@ export interface RegisteredProfile {
 export interface Auth0UserInfo {
   sub: string;
   email?: string;
+  email_verified?: boolean;
+  name?: string;
+  nickname?: string;
+  picture?: string;
+}
+
+export interface SocialLoginDTO {
+  access_token: string;
+}
+
+export interface AuthIdentity {
+  id: string;
+  profile_id: string;
+  provider: string;
+  provider_user_id: string;
+  email: string | null;
+  email_verified: boolean;
+}
+
+export interface SocialLoginResult {
+  auth_user_id: string;
+  email: string;
+  profile: RegisteredProfile;
+}
+
+export interface LinkGoogleResult {
+  auth_providers: string[];
 }
 
 export class AuthConflictError extends Error {

@@ -62,6 +62,78 @@ export const AuthController = {
       return res.status(500).json({ error: 'Error interno al obtener perfil' });
     }
   },
+
+  async socialLogin(req: Request, res: Response) {
+    // RF-01: resuelve login social y vincula Google al perfil local cuando corresponde.
+    try {
+      const result = await AuthService.socialLogin(req.body);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      if (error instanceof AuthValidationError) {
+        return res.status(400).json({ error: error.message });
+      }
+
+      if (error instanceof AuthUnauthorizedError) {
+        return res.status(401).json({ error: error.message });
+      }
+
+      if (error instanceof AuthConflictError) {
+        return res.status(409).json({ error: error.message });
+      }
+
+      console.error('Error interno en social login:', {
+        message: error?.message,
+        code: error?.code,
+        detail: error?.detail,
+        constraint: error?.constraint,
+      });
+
+      return res.status(500).json({
+        error: 'Error interno al iniciar sesion con proveedor social',
+        detail: process.env.NODE_ENV === 'production' ? undefined : error?.message,
+        code: process.env.NODE_ENV === 'production' ? undefined : error?.code,
+      });
+    }
+  },
+
+  async linkGoogle(req: Request, res: Response) {
+    // RF-01: vincula una identidad Google al perfil actualmente autenticado.
+    try {
+      const currentAccessToken = extractBearerToken(req);
+      const googleAccessToken = String(req.body?.access_token ?? '').trim();
+      const result = await AuthService.linkGoogleAccount(currentAccessToken, googleAccessToken);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      if (error instanceof AuthValidationError) {
+        return res.status(400).json({ error: error.message });
+      }
+
+      if (error instanceof AuthUnauthorizedError) {
+        return res.status(401).json({ error: error.message });
+      }
+
+      if (error instanceof AuthConflictError) {
+        return res.status(409).json({ error: error.message });
+      }
+
+      if (error instanceof AuthNotFoundError) {
+        return res.status(404).json({ error: error.message });
+      }
+
+      console.error('Error interno al vincular Google:', {
+        message: error?.message,
+        code: error?.code,
+        detail: error?.detail,
+        constraint: error?.constraint,
+      });
+
+      return res.status(500).json({
+        error: 'Error interno al vincular Google',
+        detail: process.env.NODE_ENV === 'production' ? undefined : error?.message,
+        code: process.env.NODE_ENV === 'production' ? undefined : error?.code,
+      });
+    }
+  },
 };
 
 function extractBearerToken(req: Request): string {
