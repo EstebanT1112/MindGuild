@@ -4,10 +4,13 @@ import { RoomsController } from '../modules/rooms/controller/rooms.controller.js
 import { UsersController } from '../modules/users/controller/users.controller.js';
 import { rankingsController } from '../modules/rankings/controller/ranking.controller.js';
 import { missionsController } from '../modules/missions/controller/missions.controller.js'; 
-import { checkAuth } from './middleware/auth.middleware.js'; // ⚡ IMPORTAMOS EL MIDDLEWARE
+import { checkAuth } from './middleware/auth.middleware.js'; 
 import studyRoutes from '../modules/study/study.routes.js';
 import achievementRoutes from '../modules/achievements/achievements.routes.js';
 import sessionRoutes from '../modules/sessions/session.routes.js';
+
+// --- INVITACIONES A SALAS ---
+import RoomInvitationsController from '../modules/room-invitations/controller/room-invitations.controller.js';
 
 const router = Router();
 
@@ -29,7 +32,7 @@ router.post('/rooms/leave', RoomsController.handleLeaveRoom);
 router.get('/rooms/:roomId/rankings/time', rankingsController.getRoomTimeRanking);
 router.get('/rooms/:roomId', RoomsController.getRoomDetails);
 
-// --- STUDY (Módulos externos) ---
+// --- STUDY (Modulos externos) ---
 router.use('/study', studyRoutes);
 
 // --- SESSIONS ---
@@ -42,8 +45,13 @@ router.get('/ranking', rankingsController.getRanking);
 router.use('/achievements', achievementRoutes);
 
 // --- MISIONES (RF-12) PROTEGIDAS ---
-// ⚡ Inyectamos 'checkAuth' antes de los controladores para que lean el ID dinámico
 router.get('/missions', checkAuth, missionsController.getUserMissions);
 router.post('/missions/progress', checkAuth, missionsController.updateUserMissionProgress);
+
+// --- INVITACIONES A SALAS (RF-05) PROTEGIDAS ---
+router.get('/room-invitations', checkAuth, RoomInvitationsController.getReceivedInvitations);
+router.post('/room-invitations', checkAuth, RoomInvitationsController.createInvitation);
+router.post('/room-invitations/:invitationId/accept', checkAuth, RoomInvitationsController.acceptInvitation);
+router.post('/room-invitations/:invitationId/reject', checkAuth, RoomInvitationsController.rejectInvitation);
 
 export default router;
