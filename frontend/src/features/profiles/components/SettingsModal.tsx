@@ -2,13 +2,34 @@ import React, { useState } from 'react';
 import { Modal, View, Text, StyleSheet, Pressable, Switch, ScrollView, Alert } from 'react-native';
 import { X, ChevronRight, LogOut, Lock, Globe } from 'lucide-react-native';
 import { useAuthStore } from '../../../store/authStore';
+import { linkGoogleAccount, requestPasswordReset } from '../../auth/services/authService';
 
-export default function SettingsModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+interface SettingsModalProps {
+  visible: boolean;
+  onClose: () => void;
+  email?: string;
+  authProviders?: string[];
+  onAuthProvidersChanged?: (authProviders: string[]) => void;
+}
+
+export default function SettingsModal({
+  visible,
+  onClose,
+  email,
+  authProviders = [],
+  onAuthProvidersChanged,
+}: SettingsModalProps) {
   const clearSession = useAuthStore(state => state.clearSession);
+  const accessToken = useAuthStore(state => state.access_token);
 
   const [notifications, setNotifications] = useState(true);
   const [sounds, setSounds] = useState(true);
   const [publicProfile, setPublicProfile] = useState(true);
+  const [passwordResetLoading, setPasswordResetLoading] = useState(false);
+  const [linkGoogleLoading, setLinkGoogleLoading] = useState(false);
+  const canResetPassword = authProviders.includes('auth0');
+  const hasGoogleLinked = authProviders.includes('google-oauth2');
+  const canLinkGoogle = canResetPassword && !hasGoogleLinked;
 
   // RF-02: confirma el cierre y borra la sesion local de Zustand.
   const handleLogout = () => {
@@ -27,6 +48,46 @@ export default function SettingsModal({ visible, onClose }: { visible: boolean; 
         },
       ]
     );
+  };
+
+  const handlePasswordReset = async () => {
+    if (!email) {
+      Alert.alert('Email no disponible', 'No pudimos identificar el email de tu cuenta.');
+      return;
+    }
+
+    setPasswordResetLoading(true);
+    try {
+      await requestPasswordReset(email);
+      Alert.alert(
+        'Revisá tu correo',
+        'Si tu cuenta usa contraseña, recibirás instrucciones para cambiarla.'
+      );
+    } catch (error: any) {
+      Alert.alert('No se pudo enviar el correo', error.message ?? 'Intentá nuevamente en unos minutos.');
+    } finally {
+      setPasswordResetLoading(false);
+    }
+  };
+
+  const handleLinkGoogle = async () => {
+    if (!accessToken) {
+      Alert.alert('Sesion no disponible', 'Inicia sesion nuevamente para vincular Google.');
+      return;
+    }
+
+    setLinkGoogleLoading(true);
+    try {
+      const result = await linkGoogleAccount(accessToken);
+      Alert.alert('Google vinculado', 'Ahora tambien podes iniciar sesion con Google.');
+      onAuthProvidersChanged?.(result.auth_providers);
+    } catch (error: any) {
+      if (error.code !== 'auth_cancelled') {
+        Alert.alert('No se pudo vincular Google', error.message ?? 'Intentá nuevamente en unos minutos.');
+      }
+    } finally {
+      setLinkGoogleLoading(false);
+    }
   };
 
   const SettingSwitch = ({ title, sub, value, onValueChange }: any) => (
@@ -90,11 +151,30 @@ export default function SettingsModal({ visible, onClose }: { visible: boolean; 
             {/* CUENTA */}
             <Text style={styles.sectionLabel}>CUENTA</Text>
             
-            <AccountOption 
-              title="Cambiar Contraseña" 
-              sub="Actualiza tu contraseña de acceso" 
-              icon={Lock} 
-            />
+            {canResetPassword ? (
+              <AccountOption
+                title={passwordResetLoading ? 'Enviando correo...' : 'Cambiar Contraseña'}
+                sub="Recibiras un correo para actualizar tu acceso"
+                icon={Lock}
+                onPress={passwordResetLoading ? undefined : handlePasswordReset}
+              />
+            ) : (
+              <View style={styles.settingCard}>
+                <View style={styles.settingInfo}>
+                  <Text style={styles.settingTitle}>Acceso con Google</Text>
+                  <Text style={styles.settingSub}>Tu contraseña se gestiona desde Google</Text>
+                </View>
+                <Lock color="#64748b" size={20} />
+              </View>
+            )}
+            {canLinkGoogle && (
+              <AccountOption
+                title={linkGoogleLoading ? 'Vinculando Google...' : 'Vincular Google'}
+                sub="Usa el mismo email para iniciar sesion con Google"
+                icon={Globe}
+                onPress={linkGoogleLoading ? undefined : handleLinkGoogle}
+              />
+            )}
             <AccountOption 
               title="Idioma" 
               sub="Español" 

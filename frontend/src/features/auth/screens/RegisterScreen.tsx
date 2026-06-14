@@ -15,16 +15,19 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { User, Mail, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react-native';
-import { register } from '../services/authService';
+import { loginWithGoogle, register } from '../services/authService';
+import { useAuthStore } from '../../../store/authStore';
 
 export default function RegisterScreen() {
     const navigation = useNavigation<any>();
+    const setSession = useAuthStore(state => state.setSession);
 
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [googleLoading, setGoogleLoading] = useState(false);
 
     // Ejecuta el flujo RF-01: valida la UI, registra en Auth0 y crea el perfil local.
     const handleRegister = async () => {
@@ -49,6 +52,20 @@ export default function RegisterScreen() {
             Alert.alert('Error al registrarse', error.message ?? 'Ocurrió un error inesperado.');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleGoogleRegister = async () => {
+        setGoogleLoading(true);
+        try {
+            const result = await loginWithGoogle();
+            setSession(result.auth_user_id, result.email, result.access_token, result.profile);
+        } catch (error: any) {
+            if (error.code !== 'auth_cancelled') {
+                Alert.alert('Error con Google', error.message ?? 'Ocurrió un error inesperado.');
+            }
+        } finally {
+            setGoogleLoading(false);
         }
     };
 
@@ -135,7 +152,7 @@ export default function RegisterScreen() {
                         <Pressable
                             style={[styles.btnPrimary, loading && { opacity: 0.7 }]}
                             onPress={handleRegister}
-                            disabled={loading}
+                            disabled={loading || googleLoading}
                         >
                             {loading
                                 ? <ActivityIndicator color="#fff" />
@@ -149,9 +166,20 @@ export default function RegisterScreen() {
                             <View style={styles.dividerLine} />
                         </View>
 
-                        <Pressable style={styles.btnGoogle}>
-                            <Text style={styles.googleIcon}>G</Text>
-                            <Text style={styles.btnGoogleText}>Continuar con Google</Text>
+                        <Pressable
+                            style={[styles.btnGoogle, googleLoading && { opacity: 0.7 }]}
+                            onPress={handleGoogleRegister}
+                            disabled={loading || googleLoading}
+                        >
+                            {googleLoading
+                                ? <ActivityIndicator color="#ffffff" />
+                                : (
+                                    <>
+                                        <Text style={styles.googleIcon}>G</Text>
+                                        <Text style={styles.btnGoogleText}>Continuar con Google</Text>
+                                    </>
+                                )
+                            }
                         </Pressable>
                     </View>
 

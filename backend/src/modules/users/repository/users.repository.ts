@@ -16,7 +16,7 @@ export const UsersRepository = {
             SELECT 1
             FROM study_sessions
             WHERE user_id = $1
-              AND status = 'completed'
+              AND status IN ('completed', 'validated')
               AND valid = true
               AND (ended_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date BETWEEN
                 (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date - INTERVAL '1 day'
@@ -87,13 +87,41 @@ export const UsersRepository = {
     return (rows[0] as VillageState | undefined) ?? null;
   },
 
+  async getAuthProviders(userId: string): Promise<string[]> {
+    // Devuelve proveedores vinculados y contempla usuarios previos sin auth_identities.
+    const { rows } = await pool.query(
+      `
+        SELECT provider
+        FROM auth_identities
+        WHERE profile_id = $1
+
+        UNION
+
+        SELECT
+          CASE
+            WHEN auth0_user_id LIKE '%|%' THEN split_part(auth0_user_id, '|', 1)
+            WHEN auth_provider IS NOT NULL THEN auth_provider
+            ELSE 'auth0'
+          END AS provider
+        FROM profiles
+        WHERE id = $1
+          AND is_active = true;
+      `,
+      [userId]
+    );
+
+    return rows
+      .map(row => row.provider)
+      .filter((provider): provider is string => Boolean(provider));
+  },
+
   async hasValidSessionToday(userId: string): Promise<boolean> {
     const { rows } = await pool.query(
       `
         SELECT 1
         FROM study_sessions
         WHERE user_id = $1
-          AND status = 'completed'
+          AND status IN ('completed', 'validated')
           AND valid = true
           AND (ended_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date =
             (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date

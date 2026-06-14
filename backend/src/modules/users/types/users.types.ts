@@ -25,6 +25,7 @@ export interface FullProfile extends BasicProfile {
   weekly_stats: WeeklyStats;
   village: VillageState;
   streak_completed_today: boolean;
+  auth_providers: string[];
 }
 
 export interface UpdateProfileDTO {

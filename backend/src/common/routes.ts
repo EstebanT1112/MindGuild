@@ -13,6 +13,8 @@ const router = Router();
 
 // --- AUTH ---
 router.post('/auth/register', AuthController.register);
+router.post('/auth/social-login', AuthController.socialLogin);
+router.post('/auth/link-google', AuthController.linkGoogle);
 router.get('/auth/me', AuthController.me);
 
 // --- USERS ---

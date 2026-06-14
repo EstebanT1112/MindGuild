@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
-import { login } from '../services/authService';
+import { login, loginWithGoogle, requestPasswordReset } from '../services/authService';
 import { useAuthStore } from '../../../store/authStore';
 
 export default function LoginScreen() {
@@ -26,6 +26,8 @@ export default function LoginScreen() {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [googleLoading, setGoogleLoading] = useState(false);
+    const [resetLoading, setResetLoading] = useState(false);
 
     // RF-02: autentica en Auth0, carga el perfil local y activa la sesion global.
     const handleLogin = async () => {
@@ -42,6 +44,42 @@ export default function LoginScreen() {
             Alert.alert('Error al iniciar sesión', error.message ?? 'Ocurrió un error inesperado.');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleGoogleLogin = async () => {
+        setGoogleLoading(true);
+        try {
+            const result = await loginWithGoogle();
+            setSession(result.auth_user_id, result.email, result.access_token, result.profile);
+        } catch (error: any) {
+            if (error.code !== 'auth_cancelled') {
+                Alert.alert('Error con Google', error.message ?? 'Ocurrió un error inesperado.');
+            }
+        } finally {
+            setGoogleLoading(false);
+        }
+    };
+
+    const handlePasswordReset = async () => {
+        const normalizedEmail = email.trim();
+
+        if (!normalizedEmail) {
+            Alert.alert('Ingresá tu email', 'Escribí tu correo electrónico y luego tocá recuperar contraseña.');
+            return;
+        }
+
+        setResetLoading(true);
+        try {
+            await requestPasswordReset(normalizedEmail);
+            Alert.alert(
+                'Revisá tu correo',
+                'Si el email está registrado, recibirás instrucciones para recuperar tu contraseña.'
+            );
+        } catch (error: any) {
+            Alert.alert('No se pudo enviar el correo', error.message ?? 'Intentá nuevamente en unos minutos.');
+        } finally {
+            setResetLoading(false);
         }
     };
 
@@ -103,15 +141,46 @@ export default function LoginScreen() {
                             </Pressable>
                         </View>
 
+                        <Pressable
+                            style={styles.forgotRow}
+                            onPress={handlePasswordReset}
+                            disabled={resetLoading || loading || googleLoading}
+                        >
+                            <Text style={styles.forgotText}>
+                                {resetLoading ? 'Enviando...' : 'Olvidé mi contraseña'}
+                            </Text>
+                        </Pressable>
 
                         <Pressable
                             style={[styles.btnPrimary, loading && { opacity: 0.7 }]}
                             onPress={handleLogin}
-                            disabled={loading}
+                            disabled={loading || googleLoading}
                         >
                             {loading
                                 ? <ActivityIndicator color="#fff" />
                                 : <Text style={styles.btnPrimaryText}>Ingresar</Text>
+                            }
+                        </Pressable>
+
+                        <View style={styles.divider}>
+                            <View style={styles.dividerLine} />
+                            <Text style={styles.dividerText}>o</Text>
+                            <View style={styles.dividerLine} />
+                        </View>
+
+                        <Pressable
+                            style={[styles.btnGoogle, googleLoading && { opacity: 0.7 }]}
+                            onPress={handleGoogleLogin}
+                            disabled={loading || googleLoading}
+                        >
+                            {googleLoading
+                                ? <ActivityIndicator color="#ffffff" />
+                                : (
+                                    <>
+                                        <Text style={styles.googleIcon}>G</Text>
+                                        <Text style={styles.btnGoogleText}>Continuar con Google</Text>
+                                    </>
+                                )
                             }
                         </Pressable>
 
@@ -242,6 +311,27 @@ const styles = StyleSheet.create({
     dividerText: {
         color: '#64748b',
         fontSize: 14,
+    },
+    btnGoogle: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#0f172a',
+        borderWidth: 1,
+        borderColor: '#334155',
+        height: 56,
+        borderRadius: 18,
+        gap: 12,
+    },
+    googleIcon: {
+        color: '#ffffff',
+        fontSize: 18,
+        fontWeight: '900',
+    },
+    btnGoogleText: {
+        color: '#ffffff',
+        fontSize: 15,
+        fontWeight: 'bold',
     },
     footer: {
         flexDirection: 'row',

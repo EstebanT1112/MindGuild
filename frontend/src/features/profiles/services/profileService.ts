@@ -9,6 +9,7 @@ export interface FullProfile {
   streak_days: number;
   total_study_minutes: number;
   streak_completed_today: boolean;
+  auth_providers: string[];
   weekly_stats: {
     total_minutes: number;
     consistency_score: number;
