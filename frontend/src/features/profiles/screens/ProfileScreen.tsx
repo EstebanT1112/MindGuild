@@ -279,6 +279,11 @@ export default function ProfileScreen() {
             <SettingsModal
                 visible={isSettingsVisible}
                 onClose={() => setSettingsVisible(false)}
+                email={profile?.email}
+                authProviders={profile?.auth_providers ?? []}
+                onAuthProvidersChanged={(authProviders) => {
+                    setProfile(current => current ? { ...current, auth_providers: authProviders } : current);
+                }}
             />
         </ScreenLayout>
     );
