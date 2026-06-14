@@ -4,10 +4,12 @@ import { RoomsController } from '../modules/rooms/controller/rooms.controller.js
 import { UsersController } from '../modules/users/controller/users.controller.js';
 import { rankingsController } from '../modules/rankings/controller/ranking.controller.js';
 import { missionsController } from '../modules/missions/controller/missions.controller.js'; 
-import { checkAuth } from './middleware/auth.middleware.js'; // ⚡ IMPORTAMOS EL MIDDLEWARE
+import { checkAuth } from './middleware/auth.middleware.js'; 
 import studyRoutes from '../modules/study/study.routes.js';
 import achievementRoutes from '../modules/achievements/achievements.routes.js';
 import sessionRoutes from '../modules/sessions/session.routes.js';
+
+import { FriendsController } from '../modules/friends/controller/friends.controller.js';
 
 const router = Router();
 
@@ -42,8 +44,14 @@ router.get('/ranking', rankingsController.getRanking);
 router.use('/achievements', achievementRoutes);
 
 // --- MISIONES (RF-12) PROTEGIDAS ---
-// ⚡ Inyectamos 'checkAuth' antes de los controladores para que lean el ID dinámico
 router.get('/missions', checkAuth, missionsController.getUserMissions);
 router.post('/missions/progress', checkAuth, missionsController.updateUserMissionProgress);
+
+// --- SISTEMA DE AMIGOS (RF-04) PROTEGIDO ---
+router.get('/friends', checkAuth, FriendsController.getFriends);
+router.get('/friends/requests', checkAuth, FriendsController.getRequests);
+router.post('/friends/requests', checkAuth, FriendsController.sendRequest);
+router.post('/friends/requests/:requestId/accept', checkAuth, FriendsController.acceptRequest);
+router.post('/friends/requests/:requestId/reject', checkAuth, FriendsController.rejectRequest);
 
 export default router;
