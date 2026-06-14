@@ -1,36 +1,55 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Inbox, LogIn, Plus, Users } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
+import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
 import RoomCard, { type RoomCardData } from '../components/RoomCard';
 import CreateRoomModal from '../components/CreateRoomModal';
 import JoinRoomModal from '../components/JoinRoomModal';
-import { createRoom, fetchMyRooms, joinRoom, type CreatedRoom, type RoomMode, type UserRoom } from '../services/roomsService';
+import { createRoom, joinRoom, type CreatedRoom, type RoomMode, type UserRoom } from '../services/roomsService';
 
 export default function RoomsScreen() {
     const navigation = useNavigation<any>();
     const accessToken = useAuthStore(state => state.access_token);
+    const rooms = useAppDataStore(state => state.rooms.data ?? []);
+    const loadRoomsFromStore = useAppDataStore(state => state.loadRooms);
+    const addOrReplaceRoom = useAppDataStore(state => state.addOrReplaceRoom);
+    const invalidateAfterRoomParticipation = useAppDataStore(state => state.invalidateAfterRoomParticipation);
 
     const [createVisible, setCreateVisible] = useState(false);
     const [joinVisible, setJoinVisible] = useState(false);
     const [creating, setCreating] = useState(false);
     const [joining, setJoining] = useState(false);
-    const [myRooms, setMyRooms] = useState<RoomCardData[]>([]);
+    const [refreshing, setRefreshing] = useState(false);
+
+    const myRooms = rooms.map(mapUserRoomToCard);
 
     useEffect(() => {
-        loadRooms();
+        loadInitialRooms();
     }, [accessToken]);
 
-    const loadRooms = async () => {
+    const loadInitialRooms = async () => {
         if (!accessToken) return;
 
         try {
-            const rooms = await fetchMyRooms(accessToken);
-            setMyRooms(rooms.map(mapUserRoomToCard));
+            await loadRoomsFromStore(accessToken);
         } catch (error: any) {
             Alert.alert('Error al cargar salas', error.message ?? 'No se pudieron cargar tus salas.');
+        }
+    };
+
+    const handleRefresh = async () => {
+        if (!accessToken) return;
+
+        setRefreshing(true);
+        try {
+            await loadRoomsFromStore(accessToken, { force: true });
+        } catch (error: any) {
+            Alert.alert('Error al cargar salas', error.message ?? 'No se pudieron cargar tus salas.');
+        } finally {
+            setRefreshing(false);
         }
     };
 
@@ -41,7 +60,8 @@ export default function RoomsScreen() {
         setCreating(true);
         try {
             const room = await createRoom(accessToken, input);
-            setMyRooms(currentRooms => [mapCreatedRoomToCard(room), ...currentRooms]);
+            addOrReplaceRoom(room);
+            invalidateAfterRoomParticipation();
             setCreateVisible(false);
             Alert.alert('Sala creada', `Codigo de invitacion: ${room.invite_code}`);
         } catch (error: any) {
@@ -58,7 +78,8 @@ export default function RoomsScreen() {
         setJoining(true);
         try {
             const room = await joinRoom(accessToken, inviteCode);
-            setMyRooms(currentRooms => [mapCreatedRoomToCard(room), ...currentRooms]);
+            addOrReplaceRoom(room);
+            invalidateAfterRoomParticipation();
             setJoinVisible(false);
             Alert.alert('Te uniste a la sala', room.name);
         } catch (error: any) {
@@ -84,7 +105,18 @@ export default function RoomsScreen() {
                 <Text style={styles.joinBtnText}>Unirse con Codigo</Text>
             </Pressable>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={styles.scroll}>
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                style={styles.scroll}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={handleRefresh}
+                        tintColor="#22c55e"
+                        colors={['#22c55e']}
+                    />
+                }
+            >
                 <Text style={styles.sectionTitle}>MIS SALAS ({myRooms.length})</Text>
 
                 {myRooms.length === 0 ? (

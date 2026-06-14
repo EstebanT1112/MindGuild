@@ -4,18 +4,21 @@ import { useRoute } from '@react-navigation/native';
 import { ChevronRight, Info, Settings, Users } from 'lucide-react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
+import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
 import LeaveRoomButton from '../components/LeaveRoomButton';
 import RoomInfoModal from '../components/RoomInfoModal';
 import RoomRanking from '../components/RoomRanking';
 import SessionConfigModal, { type SessionConfigData } from '../components/SessionConfigModal';
 import TeamsSection from '../components/TeamsSection';
-import { fetchRoomDetails, type RoomDetails } from '../services/roomsService';
+import { type RoomDetails } from '../services/roomsService';
 import { endStudySession, startStudySession } from '../services/sessionsService';
 
 export default function LiveRoomScreen() {
     const route = useRoute<any>();
     const accessToken = useAuthStore(state => state.access_token);
+    const invalidateAfterValidStudySession = useAppDataStore(state => state.invalidateAfterValidStudySession);
+    const loadRoomDetails = useAppDataStore(state => state.loadRoomDetails);
 
     const [configVisible, setConfigVisible] = useState(false);
     const [infoVisible, setInfoVisible] = useState(false);
@@ -49,7 +52,7 @@ export default function LiveRoomScreen() {
 
         setLoading(true);
         try {
-            const data = await fetchRoomDetails(accessToken, String(route.params.roomId));
+            const data = await loadRoomDetails(accessToken, String(route.params.roomId));
             setRoom(data);
         } catch (error: any) {
             Alert.alert('Error de sala', error.message ?? 'No se pudo cargar la sala.');
@@ -100,6 +103,9 @@ export default function LiveRoomScreen() {
 
                 setActiveSessionId(null);
                 setIsStudying(false);
+                if (result.valid || result.duration_minutes >= 30) {
+                    invalidateAfterValidStudySession(room?.id);
+                }
 
                 Alert.alert(
                     'Sesion Finalizada',

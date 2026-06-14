@@ -1,12 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { ChevronRight, Inbox, Users } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
-import { API_BASE_URL } from '../../../services/apiConfig';
+import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
-import { fetchMyProfile, type FullProfile } from '../../profiles/services/profileService';
-import { fetchMyRooms, type UserRoom } from '../../rooms/services/roomsService';
+import { type UserRoom } from '../../rooms/services/roomsService';
 import MissionCard from '../components/MissionCard';
 import MissionsModal from '../components/MissionsModal';
 import StreakCard from '../components/StreakCard';
@@ -14,92 +13,42 @@ import StreakCard from '../components/StreakCard';
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
   const accessToken = useAuthStore(state => state.access_token);
+  const profile = useAppDataStore(state => state.profile.data);
+  const profileLoading = useAppDataStore(state => state.profile.isLoading);
+  const rooms = useAppDataStore(state => state.rooms.data ?? []);
+  const roomsLoading = useAppDataStore(state => state.rooms.isLoading);
+  const activeMissions = useAppDataStore(state => state.missions.data ?? []);
+  const missionsLoading = useAppDataStore(state => state.missions.isLoading);
+  const loadProfile = useAppDataStore(state => state.loadProfile);
+  const loadRooms = useAppDataStore(state => state.loadRooms);
+  const loadMissions = useAppDataStore(state => state.loadMissions);
 
   const [missionsVisible, setMissionsVisible] = useState(false);
-  const [activeMissions, setActiveMissions] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [roomsLoading, setRoomsLoading] = useState(true);
-  const [recentRooms, setRecentRooms] = useState<UserRoom[]>([]);
-  const [profileLoading, setProfileLoading] = useState(true);
-  const [profile, setProfile] = useState<FullProfile | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (!accessToken) return;
+    loadProfile(accessToken).catch(err => console.error('Error cargando perfil del usuario:', err));
+    loadRooms(accessToken).catch(err => console.error('Error cargando salas del usuario:', err));
+    loadMissions(accessToken).catch(err => console.error('Error cargando misiones:', err));
+  }, [accessToken, loadProfile, loadRooms, loadMissions]);
 
-    setLoading(true);
-    fetch(`${API_BASE_URL}/missions`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-      },
-    })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      })
-      .then(data => {
-        if (data.success) {
-          const mappedMissions = data.data.map((m: any) => {
-            const currentProgress = m.progress ?? 0;
-            const goalValue = m.target_value ?? 1;
-            const calculatedPercentage = Math.min(100, Math.floor((currentProgress / goalValue) * 100));
+  const recentRooms = rooms.slice(0, 3);
 
-            return {
-              id: m.id || m.user_mission_id,
-              title: m.title || m.missions?.title || 'Mision Diaria',
-              progress: currentProgress,
-              target: goalValue,
-              percentage: calculatedPercentage,
-              completed: m.completed ?? false,
-            };
-          });
-          setActiveMissions(mappedMissions);
-        }
-      })
-      .catch(err => {
-        console.error('Error conectando con el backend de misiones:', err);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, [accessToken]);
-
-  const loadProfile = useCallback(() => {
+  const handleRefresh = async () => {
     if (!accessToken) return;
 
-    setProfileLoading(true);
-    fetchMyProfile(accessToken)
-      .then(setProfile)
-      .catch(err => {
-        console.error('Error cargando perfil del usuario:', err);
-        setProfile(null);
-      })
-      .finally(() => {
-        setProfileLoading(false);
-      });
-  }, [accessToken]);
-
-  useFocusEffect(loadProfile);
-
-  useEffect(() => {
-    if (!accessToken) return;
-
-    setRoomsLoading(true);
-    fetchMyRooms(accessToken)
-      .then(rooms => {
-        setRecentRooms(rooms.slice(0, 3));
-      })
-      .catch(err => {
-        console.error('Error cargando salas del usuario:', err);
-        setRecentRooms([]);
-      })
-      .finally(() => {
-        setRoomsLoading(false);
-      });
-  }, [accessToken]);
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        loadProfile(accessToken, { force: true }),
+        loadRooms(accessToken, { force: true }),
+        loadMissions(accessToken, { force: true }),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const handleRoomPress = (room: UserRoom) => {
     navigation.navigate('Salas', {
@@ -110,7 +59,18 @@ export default function HomeScreen() {
 
   return (
     <ScreenLayout title="MINDGUILD" type="home">
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor="#22c55e"
+            colors={['#22c55e']}
+          />
+        }
+      >
         <StreakCard
           currentStreak={profile?.streak_days ?? 0}
           active={Boolean(profile?.streak_completed_today)}
@@ -147,7 +107,7 @@ export default function HomeScreen() {
         )}
 
         <Text style={styles.section}>MISIONES ACTIVAS</Text>
-        {loading ? (
+        {missionsLoading ? (
           <ActivityIndicator size="small" color="#22c55e" style={{ marginTop: 10 }} />
         ) : activeMissions.length === 0 ? (
           <View style={styles.emptyState}>

@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View
 import { useRoute } from '@react-navigation/native';
 import { ChevronRight, Info, PlayCircle, Plus, Settings, Swords, Trash2 } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
+import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
 import LeaveRoomButton from '../components/LeaveRoomButton';
 import NewQuestionModal from '../components/NewQuestionModal';
@@ -10,11 +11,12 @@ import RoomInfoModal from '../components/RoomInfoModal';
 import RoomRanking from '../components/RoomRanking';
 import SessionConfigModal from '../components/SessionConfigModal';
 import WeeklyQuizModal from '../components/WeeklyQuizModal';
-import { fetchRoomDetails, type RoomDetails } from '../services/roomsService';
+import { type RoomDetails } from '../services/roomsService';
 
 export default function BattleRoyaleScreen() {
     const route = useRoute<any>();
     const accessToken = useAuthStore(state => state.access_token);
+    const loadRoomDetails = useAppDataStore(state => state.loadRoomDetails);
 
     const [configVisible, setConfigVisible] = useState(false);
     const [infoVisible, setInfoVisible] = useState(false);
@@ -33,7 +35,7 @@ export default function BattleRoyaleScreen() {
 
         setLoading(true);
         try {
-            const data = await fetchRoomDetails(accessToken, String(route.params.roomId));
+            const data = await loadRoomDetails(accessToken, String(route.params.roomId));
             setRoom(data);
         } catch (error: any) {
             Alert.alert('Error de sala', error.message ?? 'No se pudo cargar la sala.');
