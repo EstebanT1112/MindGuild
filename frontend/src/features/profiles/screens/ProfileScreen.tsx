@@ -4,6 +4,7 @@ import {
     Alert,
     Image,
     Pressable,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
@@ -29,20 +30,16 @@ import {
     Zap,
 } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
+import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
 import EditProfileModal from '../components/EditProfileModal';
 import SettingsModal from '../components/SettingsModal';
 import StatCard from '../components/StatCard';
 import WeeklyProgress from '../components/WeeklyProgress';
 
-import {
-    fetchMyProfile,
-    type FullProfile,
-    updateMyProfile
-} from '../services/profileService';
+import { updateMyProfile } from '../services/profileService';
 
 import {
-    fetchAchievements,
     type Achievement
 } from '../services/achievementsService';
 
@@ -89,13 +86,17 @@ const renderAchievementIcon = (achievement: Achievement) => {
 export default function ProfileScreen() {
     const accessToken = useAuthStore(state => state.access_token);
     const setUser = useAuthStore(state => state.setUser);
+    const profile = useAppDataStore(state => state.profile.data);
+    const profileLoading = useAppDataStore(state => state.profile.isLoading);
+    const achievements = useAppDataStore(state => state.achievements.data ?? []);
+    const loadProfileFromStore = useAppDataStore(state => state.loadProfile);
+    const setProfileInStore = useAppDataStore(state => state.setProfile);
+    const loadAchievementsFromStore = useAppDataStore(state => state.loadAchievements);
 
     const [isEditModalVisible, setEditModalVisible] = useState(false);
     const [isSettingsVisible, setSettingsVisible] = useState(false);
-    const [profile, setProfile] = useState<FullProfile | null>(null);
-    const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [achievements, setAchievements] = useState<Achievement[]>([]);
+    const [refreshing, setRefreshing] = useState(false);
     const unlockedAchievementsCount = achievements.filter(achievement => achievement.unlocked).length;
     
     const avatarUri = profile?.avatar_url || fallbackAvatar;
@@ -108,23 +109,36 @@ export default function ProfileScreen() {
     const loadProfile = async () => {
         if (!accessToken) return;
 
-        setLoading(true);
         try {
-            const data = await fetchMyProfile(accessToken);
-            setProfile(data);
-            setUser({ id: data.id, email: data.email, username: data.username });
+            const data = await loadProfileFromStore(accessToken);
+            if (data) {
+                setUser({ id: data.id, email: data.email, username: data.username });
+            }
 
             try {
-                const achievementData = await fetchAchievements(accessToken);
-                setAchievements(achievementData);
+                await loadAchievementsFromStore(accessToken);
             } catch (achievementError) {
                 console.warn('No se pudieron cargar los logros', achievementError);
-                setAchievements([]);
             }
         } catch (error: any) {
             Alert.alert('Error de perfil', error.message ?? 'No se pudo cargar el perfil.');
+        }
+    };
+
+    const handleRefresh = async () => {
+        if (!accessToken) return;
+
+        setRefreshing(true);
+        try {
+            const data = await loadProfileFromStore(accessToken, { force: true });
+            if (data) {
+                setUser({ id: data.id, email: data.email, username: data.username });
+            }
+            await loadAchievementsFromStore(accessToken, { force: true });
+        } catch (error: any) {
+            Alert.alert('Error de perfil', error.message ?? 'No se pudo cargar el perfil.');
         } finally {
-            setLoading(false);
+            setRefreshing(false);
         }
     };
 
@@ -140,7 +154,7 @@ export default function ProfileScreen() {
                 avatar_url: data.avatar_url || null,
             });
 
-            setProfile(updatedProfile);
+            setProfileInStore(updatedProfile);
             setUser({
                 id: updatedProfile.id,
                 email: updatedProfile.email,
@@ -154,7 +168,7 @@ export default function ProfileScreen() {
         }
     };
 
-    if (loading) {
+    if (profileLoading && !profile) {
         return (
             <ScreenLayout title="MI PERFIL" type="profiles">
                 <View style={styles.loadingState}>
@@ -168,7 +182,18 @@ export default function ProfileScreen() {
     return (
         <ScreenLayout title="MI PERFIL" type="profiles">
             {/* El ScrollView envuelve todo, incluidos los botones superiores */}
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 40 }}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={handleRefresh}
+                        tintColor="#22c55e"
+                        colors={['#22c55e']}
+                    />
+                }
+            >
                 
                 {/* Botones de acción contenidos en el flujo del scroll */}
                 <View style={styles.actionButtons}>
@@ -282,7 +307,9 @@ export default function ProfileScreen() {
                 email={profile?.email}
                 authProviders={profile?.auth_providers ?? []}
                 onAuthProvidersChanged={(authProviders) => {
-                    setProfile(current => current ? { ...current, auth_providers: authProviders } : current);
+                    if (profile) {
+                        setProfileInStore({ ...profile, auth_providers: authProviders });
+                    }
                 }}
             />
         </ScreenLayout>

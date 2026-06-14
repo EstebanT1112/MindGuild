@@ -1,0 +1,423 @@
+import { create } from 'zustand';
+import { API_BASE_URL, fetchRanking, type RankingEntry } from '../services/apiConfig';
+import { fetchAchievements, type Achievement } from '../features/profiles/services/achievementsService';
+import { fetchMyProfile, type FullProfile } from '../features/profiles/services/profileService';
+import {
+  fetchMyRooms,
+  fetchRoomDetails,
+  fetchRoomTimeRanking,
+  type CreatedRoom,
+  type JoinedRoom,
+  type RoomDetails,
+  type RoomTimeRankingEntry,
+  type UserRoom,
+} from '../features/rooms/services/roomsService';
+
+const TTL = {
+  profile: 5 * 60 * 1000,
+  missions: 5 * 60 * 1000,
+  rooms: 10 * 60 * 1000,
+  achievements: 10 * 60 * 1000,
+  globalRanking: 30 * 60 * 1000,
+  roomRanking: 25 * 60 * 1000,
+  roomDetails: 2 * 60 * 1000,
+};
+
+interface CacheEntry<T> {
+  data: T | null;
+  lastFetchedAt: number | null;
+  isLoading: boolean;
+  error: string | null;
+  dirty: boolean;
+}
+
+export interface MissionSummary {
+  id: string;
+  title: string;
+  progress: number;
+  target: number;
+  percentage: number;
+  completed: boolean;
+}
+
+type RankingType = 'semanal' | 'racha' | 'academico' | 'jefes';
+
+interface AppDataState {
+  profile: CacheEntry<FullProfile>;
+  rooms: CacheEntry<UserRoom[]>;
+  missions: CacheEntry<MissionSummary[]>;
+  achievements: CacheEntry<Achievement[]>;
+  globalRanking: CacheEntry<RankingEntry[]>;
+  roomRankings: Record<string, CacheEntry<RoomTimeRankingEntry[]>>;
+  roomDetails: Record<string, CacheEntry<RoomDetails>>;
+
+  loadProfile: (accessToken: string, options?: LoadOptions) => Promise<FullProfile | null>;
+  setProfile: (profile: FullProfile) => void;
+  invalidateProfile: () => void;
+
+  loadRooms: (accessToken: string, options?: LoadOptions) => Promise<UserRoom[]>;
+  addOrReplaceRoom: (room: CreatedRoom | JoinedRoom | UserRoom) => void;
+  removeRoom: (roomId: string) => void;
+  invalidateRooms: () => void;
+
+  loadMissions: (accessToken: string, options?: LoadOptions) => Promise<MissionSummary[]>;
+  invalidateMissions: () => void;
+
+  loadAchievements: (accessToken: string, options?: LoadOptions) => Promise<Achievement[]>;
+  invalidateAchievements: () => void;
+
+  loadGlobalRanking: (options?: LoadRankingOptions) => Promise<RankingEntry[]>;
+  invalidateGlobalRanking: () => void;
+
+  loadRoomRanking: (
+    accessToken: string,
+    roomId: string,
+    options?: LoadOptions
+  ) => Promise<RoomTimeRankingEntry[]>;
+  invalidateRoomRanking: (roomId: string) => void;
+  clearRoomRanking: (roomId: string) => void;
+
+  loadRoomDetails: (accessToken: string, roomId: string, options?: LoadOptions) => Promise<RoomDetails | null>;
+  invalidateRoomDetails: (roomId: string) => void;
+  clearRoomDetails: (roomId: string) => void;
+
+  invalidateAfterRoomParticipation: () => void;
+  invalidateAfterValidStudySession: (roomId?: string) => void;
+  clearAll: () => void;
+}
+
+interface LoadOptions {
+  force?: boolean;
+}
+
+interface LoadRankingOptions extends LoadOptions {
+  type?: RankingType;
+}
+
+const createEntry = <T>(data: T | null = null): CacheEntry<T> => ({
+  data,
+  lastFetchedAt: null,
+  isLoading: false,
+  error: null,
+  dirty: true,
+});
+
+const isFresh = <T>(entry: CacheEntry<T>, ttl: number) =>
+  entry.data !== null &&
+  !entry.dirty &&
+  entry.lastFetchedAt !== null &&
+  Date.now() - entry.lastFetchedAt < ttl;
+
+const toUserRoom = (room: CreatedRoom | JoinedRoom | UserRoom): UserRoom => ({
+  ...room,
+  members_count: 'members_count' in room ? room.members_count : 1,
+  role: 'role' in room ? room.role : 'owner',
+});
+
+export const useAppDataStore = create<AppDataState>((set, get) => ({
+  profile: createEntry<FullProfile>(),
+  rooms: createEntry<UserRoom[]>([]),
+  missions: createEntry<MissionSummary[]>([]),
+  achievements: createEntry<Achievement[]>([]),
+  globalRanking: createEntry<RankingEntry[]>([]),
+  roomRankings: {},
+  roomDetails: {},
+
+  loadProfile: async (accessToken, options = {}) => {
+    const entry = get().profile;
+    if (!options.force && isFresh(entry, TTL.profile)) return entry.data;
+    if (entry.isLoading && entry.data) return entry.data;
+
+    set({ profile: { ...entry, isLoading: true, error: null } });
+    try {
+      const data = await fetchMyProfile(accessToken);
+      set({ profile: { data, lastFetchedAt: Date.now(), isLoading: false, error: null, dirty: false } });
+      return data;
+    } catch (error: any) {
+      set({ profile: { ...get().profile, isLoading: false, error: error.message ?? 'No se pudo cargar el perfil' } });
+      throw error;
+    }
+  },
+
+  setProfile: profile =>
+    set({ profile: { data: profile, lastFetchedAt: Date.now(), isLoading: false, error: null, dirty: false } }),
+
+  invalidateProfile: () =>
+    set(state => ({ profile: { ...state.profile, dirty: true } })),
+
+  loadRooms: async (accessToken, options = {}) => {
+    const entry = get().rooms;
+    if (!options.force && isFresh(entry, TTL.rooms)) return entry.data ?? [];
+    if (entry.isLoading && entry.data) return entry.data;
+
+    set({ rooms: { ...entry, isLoading: true, error: null } });
+    try {
+      const data = await fetchMyRooms(accessToken);
+      set({ rooms: { data, lastFetchedAt: Date.now(), isLoading: false, error: null, dirty: false } });
+      return data;
+    } catch (error: any) {
+      set({ rooms: { ...get().rooms, isLoading: false, error: error.message ?? 'No se pudieron cargar las salas' } });
+      throw error;
+    }
+  },
+
+  addOrReplaceRoom: room =>
+    set(state => {
+      const nextRoom = toUserRoom(room);
+      const current = state.rooms.data ?? [];
+      const nextRooms = [nextRoom, ...current.filter(item => item.id !== nextRoom.id)];
+      return {
+        rooms: {
+          data: nextRooms,
+          lastFetchedAt: Date.now(),
+          isLoading: false,
+          error: null,
+          dirty: false,
+        },
+      };
+    }),
+
+  removeRoom: roomId =>
+    set(state => {
+      const current = state.rooms.data ?? [];
+      const { [roomId]: _removed, ...roomRankings } = state.roomRankings;
+      const { [roomId]: _removedDetails, ...roomDetails } = state.roomDetails;
+      return {
+        rooms: {
+          ...state.rooms,
+          data: current.filter(room => room.id !== roomId),
+          lastFetchedAt: Date.now(),
+          dirty: false,
+        },
+        roomRankings,
+        roomDetails,
+      };
+    }),
+
+  invalidateRooms: () =>
+    set(state => ({ rooms: { ...state.rooms, dirty: true } })),
+
+  loadMissions: async (accessToken, options = {}) => {
+    const entry = get().missions;
+    if (!options.force && isFresh(entry, TTL.missions)) return entry.data ?? [];
+    if (entry.isLoading && entry.data) return entry.data;
+
+    set({ missions: { ...entry, isLoading: true, error: null } });
+    try {
+      const response = await fetch(`${API_BASE_URL}/missions`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      const raw = await response.json();
+      if (!response.ok) throw new Error(raw.error ?? 'No se pudieron cargar las misiones');
+      const data = mapMissions(raw.data ?? []);
+      set({ missions: { data, lastFetchedAt: Date.now(), isLoading: false, error: null, dirty: false } });
+      return data;
+    } catch (error: any) {
+      set({ missions: { ...get().missions, isLoading: false, error: error.message ?? 'No se pudieron cargar las misiones' } });
+      throw error;
+    }
+  },
+
+  invalidateMissions: () =>
+    set(state => ({ missions: { ...state.missions, dirty: true } })),
+
+  loadAchievements: async (accessToken, options = {}) => {
+    const entry = get().achievements;
+    if (!options.force && isFresh(entry, TTL.achievements)) return entry.data ?? [];
+    if (entry.isLoading && entry.data) return entry.data;
+
+    set({ achievements: { ...entry, isLoading: true, error: null } });
+    try {
+      const data = await fetchAchievements(accessToken);
+      set({ achievements: { data, lastFetchedAt: Date.now(), isLoading: false, error: null, dirty: false } });
+      return data;
+    } catch (error: any) {
+      set({ achievements: { ...get().achievements, isLoading: false, error: error.message ?? 'No se pudieron cargar los logros' } });
+      throw error;
+    }
+  },
+
+  invalidateAchievements: () =>
+    set(state => ({ achievements: { ...state.achievements, dirty: true } })),
+
+  loadGlobalRanking: async (options = {}) => {
+    const entry = get().globalRanking;
+    if (!options.force && isFresh(entry, TTL.globalRanking)) return entry.data ?? [];
+    if (entry.isLoading && entry.data) return entry.data;
+
+    set({ globalRanking: { ...entry, isLoading: true, error: null } });
+    try {
+      const response = await fetchRanking(options.type ?? 'semanal');
+      const data = Array.isArray(response?.data?.data) ? response.data.data : [];
+      set({ globalRanking: { data, lastFetchedAt: Date.now(), isLoading: false, error: null, dirty: false } });
+      return data;
+    } catch (error: any) {
+      set({ globalRanking: { ...get().globalRanking, isLoading: false, error: error.message ?? 'No se pudo cargar el ranking' } });
+      throw error;
+    }
+  },
+
+  invalidateGlobalRanking: () =>
+    set(state => ({ globalRanking: { ...state.globalRanking, dirty: true } })),
+
+  loadRoomRanking: async (accessToken, roomId, options = {}) => {
+    const entry = get().roomRankings[roomId] ?? createEntry<RoomTimeRankingEntry[]>([]);
+    if (!options.force && isFresh(entry, TTL.roomRanking)) return entry.data ?? [];
+    if (entry.isLoading && entry.data) return entry.data;
+
+    set(state => ({
+      roomRankings: {
+        ...state.roomRankings,
+        [roomId]: { ...entry, isLoading: true, error: null },
+      },
+    }));
+
+    try {
+      const data = await fetchRoomTimeRanking(accessToken, roomId);
+      set(state => ({
+        roomRankings: {
+          ...state.roomRankings,
+          [roomId]: { data, lastFetchedAt: Date.now(), isLoading: false, error: null, dirty: false },
+        },
+      }));
+      return data;
+    } catch (error: any) {
+      set(state => ({
+        roomRankings: {
+          ...state.roomRankings,
+          [roomId]: {
+            ...state.roomRankings[roomId],
+            isLoading: false,
+            error: error.message ?? 'No se pudo cargar el ranking de sala',
+          },
+        },
+      }));
+      throw error;
+    }
+  },
+
+  invalidateRoomRanking: roomId =>
+    set(state => ({
+      roomRankings: {
+        ...state.roomRankings,
+        [roomId]: {
+          ...(state.roomRankings[roomId] ?? createEntry<RoomTimeRankingEntry[]>([])),
+          dirty: true,
+        },
+      },
+    })),
+
+  clearRoomRanking: roomId =>
+    set(state => {
+      const { [roomId]: _removed, ...roomRankings } = state.roomRankings;
+      return { roomRankings };
+    }),
+
+  loadRoomDetails: async (accessToken, roomId, options = {}) => {
+    const entry = get().roomDetails[roomId] ?? createEntry<RoomDetails>();
+    if (!options.force && isFresh(entry, TTL.roomDetails)) return entry.data;
+    if (entry.isLoading && entry.data) return entry.data;
+
+    set(state => ({
+      roomDetails: {
+        ...state.roomDetails,
+        [roomId]: { ...entry, isLoading: true, error: null },
+      },
+    }));
+
+    try {
+      const data = await fetchRoomDetails(accessToken, roomId);
+      set(state => ({
+        roomDetails: {
+          ...state.roomDetails,
+          [roomId]: { data, lastFetchedAt: Date.now(), isLoading: false, error: null, dirty: false },
+        },
+      }));
+      return data;
+    } catch (error: any) {
+      set(state => ({
+        roomDetails: {
+          ...state.roomDetails,
+          [roomId]: {
+            ...state.roomDetails[roomId],
+            isLoading: false,
+            error: error.message ?? 'No se pudo cargar la sala',
+          },
+        },
+      }));
+      throw error;
+    }
+  },
+
+  invalidateRoomDetails: roomId =>
+    set(state => ({
+      roomDetails: {
+        ...state.roomDetails,
+        [roomId]: {
+          ...(state.roomDetails[roomId] ?? createEntry<RoomDetails>()),
+          dirty: true,
+        },
+      },
+    })),
+
+  clearRoomDetails: roomId =>
+    set(state => {
+      const { [roomId]: _removed, ...roomDetails } = state.roomDetails;
+      return { roomDetails };
+    }),
+
+  invalidateAfterRoomParticipation: () =>
+    set(state => ({
+      achievements: { ...state.achievements, dirty: true },
+      missions: { ...state.missions, dirty: true },
+    })),
+
+  invalidateAfterValidStudySession: roomId =>
+    set(state => ({
+      profile: { ...state.profile, dirty: true },
+      missions: { ...state.missions, dirty: true },
+      achievements: { ...state.achievements, dirty: true },
+      globalRanking: { ...state.globalRanking, dirty: true },
+      roomRankings: roomId
+        ? {
+            ...state.roomRankings,
+            [roomId]: {
+              ...(state.roomRankings[roomId] ?? createEntry<RoomTimeRankingEntry[]>([])),
+              dirty: true,
+            },
+          }
+        : state.roomRankings,
+    })),
+
+  clearAll: () =>
+    set({
+      profile: createEntry<FullProfile>(),
+      rooms: createEntry<UserRoom[]>([]),
+      missions: createEntry<MissionSummary[]>([]),
+      achievements: createEntry<Achievement[]>([]),
+      globalRanking: createEntry<RankingEntry[]>([]),
+      roomRankings: {},
+      roomDetails: {},
+    }),
+}));
+
+function mapMissions(missions: any[]): MissionSummary[] {
+  return missions.map((mission: any) => {
+    const currentProgress = mission.progress ?? 0;
+    const goalValue = mission.target_value ?? 1;
+    const calculatedPercentage = Math.min(100, Math.floor((currentProgress / goalValue) * 100));
+
+    return {
+      id: mission.id || mission.user_mission_id,
+      title: mission.title || mission.missions?.title || 'Mision Diaria',
+      progress: currentProgress,
+      target: goalValue,
+      percentage: calculatedPercentage,
+      completed: mission.completed ?? false,
+    };
+  });
+}

@@ -2,6 +2,7 @@ import { Alert, Pressable, StyleSheet, Text } from 'react-native';
 import { LogOut } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useState } from 'react';
+import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
 import { leaveRoom } from '../services/roomsService';
 
@@ -12,6 +13,7 @@ interface Props {
 export default function LeaveRoomButton({ roomId }: Props) {
   const navigation = useNavigation<any>();
   const accessToken = useAuthStore(state => state.access_token);
+  const removeRoom = useAppDataStore(state => state.removeRoom);
   const [submitting, setSubmitting] = useState(false);
 
   // RF-07: pide confirmacion antes de ejecutar la baja logica de membresia.
@@ -34,6 +36,7 @@ export default function LeaveRoomButton({ roomId }: Props) {
 
     try {
       await leaveRoom(accessToken, roomId);
+      removeRoom(roomId);
       if (navigation.canGoBack()) {
         navigation.goBack();
       } else {

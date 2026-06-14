@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Modal, View, Text, StyleSheet, Pressable, Switch, ScrollView, Alert } from 'react-native';
 import { X, ChevronRight, LogOut, Lock, Globe } from 'lucide-react-native';
 import { useAuthStore } from '../../../store/authStore';
+import { useAppDataStore } from '../../../store/appDataStore';
 import { linkGoogleAccount, requestPasswordReset } from '../../auth/services/authService';
 
 interface SettingsModalProps {
@@ -21,6 +22,7 @@ export default function SettingsModal({
 }: SettingsModalProps) {
   const clearSession = useAuthStore(state => state.clearSession);
   const accessToken = useAuthStore(state => state.access_token);
+  const clearAppData = useAppDataStore(state => state.clearAll);
 
   const [notifications, setNotifications] = useState(true);
   const [sounds, setSounds] = useState(true);
@@ -43,6 +45,7 @@ export default function SettingsModal({
           style: 'destructive',
           onPress: () => {
             onClose();
+            clearAppData();
             clearSession();
           },
         },
