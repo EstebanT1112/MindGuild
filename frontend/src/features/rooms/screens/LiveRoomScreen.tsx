@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRoute } from '@react-navigation/native';
-import { ChevronRight, Info, Settings, Users } from 'lucide-react-native';
+import { ChevronRight, Info, Settings, Users, UserPlus } from 'lucide-react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { useAppDataStore } from '../../../store/appDataStore';
@@ -14,6 +14,9 @@ import TeamsSection from '../components/TeamsSection';
 import { type RoomDetails } from '../services/roomsService';
 import { endStudySession, startStudySession } from '../services/sessionsService';
 
+// --- IMPORTACIÓN DEL MODAL COMPONENTE DEL RF-05 ---
+import InviteFriendsModal from '../components/InviteFriendsModal';
+
 export default function LiveRoomScreen() {
     const route = useRoute<any>();
     const accessToken = useAuthStore(state => state.access_token);
@@ -22,14 +25,16 @@ export default function LiveRoomScreen() {
 
     const [configVisible, setConfigVisible] = useState(false);
     const [infoVisible, setInfoVisible] = useState(false);
+    
+    // --- ESTADO PARA CONTROLAR EL MODAL DE INVITACIONES ---
+    const [inviteFriendsVisible, setInviteFriendsVisible] = useState(false);
+    
     const [room, setRoom] = useState<RoomDetails | null>(null);
     const [loading, setLoading] = useState(true);
 
-    // ⚡ CONFIGURACIÓN DE LA SESIÓN DINÁMICA
     const [sessionType, setSessionType] = useState<'pomodoro' | 'libre'>('pomodoro');
     const [durationMinutes, setDurationMinutes] = useState(25);
 
-    // ⚡ ESTADOS PARA EL TIMER
     const [isStudying, setIsStudying] = useState(false);
     const [secondsElapsed, setSecondsElapsed] = useState(0); 
     const [secondsLeft, setSecondsLeft] = useState(25 * 60);  
@@ -46,7 +51,6 @@ export default function LiveRoomScreen() {
         };
     }, []);
 
-    // RF-06: carga datos de sala e integrantes activos para la visualizacion.
     const loadRoom = async () => {
         if (!accessToken || !route.params?.roomId) return;
 
@@ -61,7 +65,6 @@ export default function LiveRoomScreen() {
         }
     };
 
-    // Captura y guarda las opciones elegidas del modal
     const handleSaveConfig = (newConfig: SessionConfigData) => {
         if (isStudying) {
             Alert.alert("Acción bloqueada", "No podés cambiar la configuración en medio de una sesión activa.");
@@ -187,6 +190,12 @@ export default function LiveRoomScreen() {
         >
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
+                {/* --- BOTÓN DE INVITAR AMIGOS (RF-05 COMPONENTE VISUAL INTERACTIVO) --- */}
+                <Pressable style={styles.inviteFriendsMainBtn} onPress={() => setInviteFriendsVisible(true)}>
+                    <UserPlus color="white" size={22} />
+                    <Text style={styles.inviteFriendsBtnText}>Invitar Amigos a la Sala</Text>
+                </Pressable>
+
                 {/* Config Card */}
                 <Pressable style={styles.configCard} onPress={() => setConfigVisible(true)}>
                     <View style={styles.configIconBox}>
@@ -240,6 +249,16 @@ export default function LiveRoomScreen() {
                     visible={infoVisible}
                     room={room}
                     onClose={() => setInfoVisible(false)}
+                />
+            )}
+
+            {/* --- RENDEREADO DEL MODAL CONECTADO CON EL IDENTIFICADOR DE SALA --- */}
+            {room && accessToken && (
+                <InviteFriendsModal
+                    visible={inviteFriendsVisible}
+                    onClose={() => setInviteFriendsVisible(false)}
+                    roomId={room.id}
+                    accessToken={accessToken}
                 />
             )}
         </ScreenLayout>
@@ -307,11 +326,27 @@ function TimerTick({
 
     return <Animated.View style={[styles.timerTick, animatedStyle]} />;
 }
+
 const styles = StyleSheet.create({
     loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
     loadingText: { color: '#94a3b8', fontWeight: 'bold' },
     scrollContent: { paddingBottom: 100, paddingVertical: 10 },
     infoBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#1e293b', borderWidth: 1, borderColor: '#334155', alignItems: 'center', justifyContent: 'center' },
+    
+    // Estilos del botón de invitar amigos RF-05
+    inviteFriendsMainBtn: {
+        backgroundColor: '#3b82f6',
+        height: 52,
+        borderRadius: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
+        marginBottom: 14,
+        marginTop: 5,
+    },
+    inviteFriendsBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+
     configCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1e293b', padding: 15, borderRadius: 20, borderWidth: 1, borderColor: '#334155' },
     configIconBox: { width: 48, height: 48, borderRadius: 12, backgroundColor: '#0f172a', alignItems: 'center', justifyContent: 'center' },
     configInfo: { flex: 1, marginLeft: 15 },
