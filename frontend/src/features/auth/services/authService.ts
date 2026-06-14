@@ -1,8 +1,17 @@
 import { API_BASE_URL } from '../../../services/apiConfig';
+import * as AuthSession from 'expo-auth-session';
+import * as WebBrowser from 'expo-web-browser';
+import {
+    AUTH0_CLIENT_ID,
+    AUTH0_CONNECTION,
+    AUTH0_DISCOVERY,
+    AUTH0_DOMAIN,
+    AUTH0_GOOGLE_CONNECTION,
+    AUTH0_SCOPES,
+    getAuth0RedirectUri,
+} from '../config/auth0Config';
 
-const AUTH0_DOMAIN = 'mindguildestebanapp.au.auth0.com';
-const AUTH0_CLIENT_ID = 'Roe6rfTONBQJg3PwSZqObN2XCPwBR1b9';
-const AUTH0_CONNECTION = 'Username-Password-Authentication';
+WebBrowser.maybeCompleteAuthSession();
 
 export interface ProfileResult {
     id: string;
@@ -27,6 +36,10 @@ export interface LoginResult extends Auth0Result {
 export interface AuthError {
     code: string;
     message: string;
+}
+
+export interface LinkGoogleResult {
+    auth_providers: string[];
 }
 
 export async function register(
@@ -64,6 +77,76 @@ export async function login(
         ...authResult,
         profile,
     };
+}
+
+export async function loginWithGoogle(): Promise<LoginResult> {
+    // RF-01: usa Authorization Code + PKCE con Universal Login de Auth0 para Google.
+    const accessToken = await getGoogleAccessToken();
+
+    const response = await safeFetch(`${API_BASE_URL}/auth/social-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_token: accessToken }),
+    }, 'No se pudo conectar con el backend para iniciar sesion con Google.');
+
+    const data = await parseJson(response);
+
+    if (!response.ok) {
+        throw {
+            code: `backend_${response.status}`,
+            message: data.error ?? 'No se pudo iniciar sesion con Google.',
+        };
+    }
+
+    return {
+        auth_user_id: data.auth_user_id,
+        email: data.email,
+        access_token: accessToken,
+        profile: data.profile,
+    };
+}
+
+export async function linkGoogleAccount(currentAccessToken: string): Promise<LinkGoogleResult> {
+    // RF-01: vincula Google al perfil autenticado sin cambiar la sesion actual.
+    const googleAccessToken = await getGoogleAccessToken();
+
+    const response = await safeFetch(`${API_BASE_URL}/auth/link-google`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${currentAccessToken}`,
+        },
+        body: JSON.stringify({ access_token: googleAccessToken }),
+    }, 'No se pudo conectar con el backend para vincular Google.');
+
+    const data = await parseJson(response);
+
+    if (!response.ok) {
+        throw {
+            code: `backend_${response.status}`,
+            message: data.error ?? 'No se pudo vincular Google.',
+        };
+    }
+
+    return data;
+}
+
+export async function requestPasswordReset(email: string): Promise<void> {
+    // RF-01: solicita a Auth0 el envio de email de recuperacion sin revelar existencia.
+    const response = await safeFetch(`https://${AUTH0_DOMAIN}/dbconnections/change_password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            client_id: AUTH0_CLIENT_ID,
+            connection: AUTH0_CONNECTION,
+            email,
+        }),
+    });
+
+    if (!response.ok) {
+        const data = await parseJson(response);
+        throw buildError(data);
+    }
 }
 
 export async function registerWithAuth0(
@@ -209,6 +292,52 @@ async function fetchAuth0UserInfo(accessToken: string) {
     return userData;
 }
 
+async function getGoogleAccessToken(): Promise<string> {
+    const redirectUri = getAuth0RedirectUri();
+    console.log('AUTH0_REDIRECT_URI', redirectUri);
+
+    const request = new AuthSession.AuthRequest({
+        clientId: AUTH0_CLIENT_ID,
+        responseType: AuthSession.ResponseType.Code,
+        scopes: AUTH0_SCOPES,
+        redirectUri,
+        usePKCE: true,
+        extraParams: {
+            connection: AUTH0_GOOGLE_CONNECTION,
+        },
+    });
+
+    const result = await request.promptAsync(AUTH0_DISCOVERY);
+
+    if (result.type !== 'success' || !result.params.code) {
+        throw {
+            code: 'auth_cancelled',
+            message: 'Inicio de sesion con Google cancelado.',
+        };
+    }
+
+    const tokenResponse = await AuthSession.exchangeCodeAsync(
+        {
+            clientId: AUTH0_CLIENT_ID,
+            code: result.params.code,
+            redirectUri,
+            extraParams: {
+                code_verifier: request.codeVerifier ?? '',
+            },
+        },
+        AUTH0_DISCOVERY
+    );
+
+    if (!tokenResponse.accessToken) {
+        throw {
+            code: 'missing_access_token',
+            message: 'Auth0 no devolvio un token valido.',
+        };
+    }
+
+    return tokenResponse.accessToken;
+}
+
 async function safeFetch(url: string, options: RequestInit, networkMessage?: string) {
     // Normaliza errores de red para que la UI muestre mensajes consistentes.
     try {
@@ -250,6 +379,8 @@ function resolveErrorMessage(code: string, fallback?: string): string {
         access_denied: 'Acceso denegado. Verifica tus credenciales.',
         network_error: 'No se pudo conectar con el servidor. Revisa tu conexion e intenta de nuevo.',
         invalid_response: 'El servidor respondio con un formato invalido.',
+        auth_cancelled: 'Inicio de sesion cancelado.',
+        missing_access_token: 'Auth0 no devolvio un token valido.',
         backend_400: 'Los datos del perfil no son validos.',
         backend_401: 'La sesion no es valida. Inicia sesion nuevamente.',
         backend_404: 'No existe un perfil asociado a esta cuenta.',
