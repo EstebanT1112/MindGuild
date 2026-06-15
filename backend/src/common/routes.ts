@@ -11,6 +11,7 @@ import sessionRoutes from '../modules/sessions/session.routes.js';
 
 // --- INVITACIONES A SALAS ---
 import RoomInvitationsController from '../modules/room-invitations/controller/room-invitations.controller.js';
+import { FriendsController } from '../modules/friends/controller/friends.controller.js';
 
 const router = Router();
 
@@ -53,5 +54,11 @@ router.get('/room-invitations', checkAuth, RoomInvitationsController.getReceived
 router.post('/room-invitations', checkAuth, RoomInvitationsController.createInvitation);
 router.post('/room-invitations/:invitationId/accept', checkAuth, RoomInvitationsController.acceptInvitation);
 router.post('/room-invitations/:invitationId/reject', checkAuth, RoomInvitationsController.rejectInvitation);
+// --- SISTEMA DE AMIGOS (RF-04) PROTEGIDO ---
+router.get('/friends', checkAuth, FriendsController.getFriends);
+router.get('/friends/requests', checkAuth, FriendsController.getRequests);
+router.post('/friends/requests', checkAuth, FriendsController.sendRequest);
+router.post('/friends/requests/:requestId/accept', checkAuth, FriendsController.acceptRequest);
+router.post('/friends/requests/:requestId/reject', checkAuth, FriendsController.rejectRequest);
 
 export default router;
