@@ -9,6 +9,8 @@ import studyRoutes from '../modules/study/study.routes.js';
 import achievementRoutes from '../modules/achievements/achievements.routes.js';
 import sessionRoutes from '../modules/sessions/session.routes.js';
 
+// --- INVITACIONES A SALAS ---
+import RoomInvitationsController from '../modules/room-invitations/controller/room-invitations.controller.js';
 import { FriendsController } from '../modules/friends/controller/friends.controller.js';
 
 const router = Router();
@@ -31,7 +33,7 @@ router.post('/rooms/leave', RoomsController.handleLeaveRoom);
 router.get('/rooms/:roomId/rankings/time', rankingsController.getRoomTimeRanking);
 router.get('/rooms/:roomId', RoomsController.getRoomDetails);
 
-// --- STUDY (Módulos externos) ---
+// --- STUDY (Modulos externos) ---
 router.use('/study', studyRoutes);
 
 // --- SESSIONS ---
@@ -47,6 +49,11 @@ router.use('/achievements', achievementRoutes);
 router.get('/missions', checkAuth, missionsController.getUserMissions);
 router.post('/missions/progress', checkAuth, missionsController.updateUserMissionProgress);
 
+// --- INVITACIONES A SALAS (RF-05) PROTEGIDAS ---
+router.get('/room-invitations', checkAuth, RoomInvitationsController.getReceivedInvitations);
+router.post('/room-invitations', checkAuth, RoomInvitationsController.createInvitation);
+router.post('/room-invitations/:invitationId/accept', checkAuth, RoomInvitationsController.acceptInvitation);
+router.post('/room-invitations/:invitationId/reject', checkAuth, RoomInvitationsController.rejectInvitation);
 // --- SISTEMA DE AMIGOS (RF-04) PROTEGIDO ---
 router.get('/friends', checkAuth, FriendsController.getFriends);
 router.get('/friends/requests', checkAuth, FriendsController.getRequests);
