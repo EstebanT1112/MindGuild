@@ -59,6 +59,40 @@ export const RoomsController = {
     }
   },
 
+  async getAdminRoomDetails(req: Request, res: Response) {
+    try {
+      const user = await getAuthenticatedProfile(req);
+      const roomId = Array.isArray(req.params.roomId) ? req.params.roomId[0] : req.params.roomId;
+      const room = await RoomsService.getAdminRoomDetails(user.id, roomId);
+      return res.status(200).json(room);
+    } catch (error: any) {
+      return handleRoomError(error, res, 'Error interno al obtener administracion de sala');
+    }
+  },
+
+  async updateRoom(req: Request, res: Response) {
+    try {
+      const user = await getAuthenticatedProfile(req);
+      const roomId = Array.isArray(req.params.roomId) ? req.params.roomId[0] : req.params.roomId;
+      const room = await RoomsService.updateRoom(user.id, roomId, req.body);
+      return res.status(200).json(room);
+    } catch (error: any) {
+      return handleRoomError(error, res, 'Error interno al actualizar sala');
+    }
+  },
+
+  async removeMember(req: Request, res: Response) {
+    try {
+      const user = await getAuthenticatedProfile(req);
+      const roomId = Array.isArray(req.params.roomId) ? req.params.roomId[0] : req.params.roomId;
+      const memberId = Array.isArray(req.params.memberId) ? req.params.memberId[0] : req.params.memberId;
+      const result = await RoomsService.removeMember(user.id, roomId, memberId);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      return handleRoomError(error, res, 'Error interno al expulsar integrante');
+    }
+  },
+
   async createRoom(req: Request, res: Response) {
     // RF-04: crea una sala privada para el usuario autenticado como owner.
     try {
@@ -172,4 +206,30 @@ async function getAuthenticatedProfile(req: Request) {
   return AuthService.getProfileFromAccessToken(
     authorization.replace('Bearer ', '').trim()
   );
+}
+
+function handleRoomError(error: any, res: Response, fallbackMessage: string) {
+  if (error instanceof AuthUnauthorizedError) {
+    return res.status(401).json({ error: error.message });
+  }
+
+  if (error instanceof RoomValidationError) {
+    return res.status(400).json({ error: error.message });
+  }
+
+  if (error instanceof RoomNotFoundError) {
+    return res.status(404).json({ error: error.message });
+  }
+
+  if (error instanceof RoomConflictError) {
+    return res.status(409).json({ error: error.message });
+  }
+
+  console.error(fallbackMessage, {
+    message: error?.message,
+    code: error?.code,
+    detail: error?.detail,
+  });
+
+  return res.status(500).json({ error: fallbackMessage });
 }
