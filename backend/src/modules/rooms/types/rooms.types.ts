@@ -14,6 +14,7 @@ export interface CreateRoomDTO {
 export interface CreatedRoom {
   id: string;
   name: string;
+  description?: string | null;
   mode: RoomMode;
   invite_code: string;
   owner_id: string;
@@ -39,6 +40,13 @@ export interface RoomMember {
 export interface RoomDetails extends CreatedRoom {
   members: RoomMember[];
 }
+
+export interface UpdateRoomDTO {
+  name?: string;
+  description?: string | null;
+}
+
+export interface RoomAdminDetails extends RoomDetails {}
 
 export interface JoinableRoom {
   id: string;

@@ -7,6 +7,7 @@ import type {
   MembershipJoinStatus,
   RoomDetails,
   RoomMember,
+  UpdateRoomDTO,
   UserRoom,
 } from '../types/rooms.types.js';
 
@@ -48,7 +49,7 @@ export const RoomsRepository = {
           `
             INSERT INTO rooms (name, invite_code, mode, owner_id, is_active, teams_enabled)
             VALUES ($1, $2, $3, $4, true, $5)
-            RETURNING id, name, mode, invite_code, owner_id, max_members, is_active, teams_enabled;
+            RETURNING id, name, description, mode, invite_code, owner_id, max_members, is_active, teams_enabled;
           `,
           [data.name, inviteCode, data.mode, ownerId, data.teams_enabled]
         );
@@ -87,6 +88,7 @@ export const RoomsRepository = {
         SELECT
           r.id,
           r.name,
+          r.description,
           r.mode,
           r.invite_code,
           r.owner_id,
@@ -121,7 +123,7 @@ export const RoomsRepository = {
     // RF-06: obtiene los datos base de la sala antes de sumar integrantes.
     const { rows } = await pool.query(
       `
-        SELECT id, name, mode, invite_code, owner_id, max_members, is_active, teams_enabled
+        SELECT id, name, description, mode, invite_code, owner_id, max_members, is_active, teams_enabled
         FROM rooms
         WHERE id = $1
         LIMIT 1;
@@ -443,6 +445,44 @@ export const RoomsRepository = {
     `;
     const { rows } = await pool.query(query, [userId, roomId]);
     return rows.length > 0;
+  },
+
+  async updateRoom(roomId: string, data: UpdateRoomDTO): Promise<Omit<RoomDetails, 'members'> | null> {
+    const { rows } = await pool.query(
+      `
+        UPDATE rooms
+        SET
+          name = COALESCE($2, name),
+          description = CASE WHEN $3 THEN $4 ELSE description END,
+          updated_at = NOW()
+        WHERE id = $1
+          AND is_active = true
+        RETURNING id, name, description, mode, invite_code, owner_id, max_members, is_active, teams_enabled;
+      `,
+      [roomId, data.name ?? null, Object.prototype.hasOwnProperty.call(data, 'description'), data.description ?? null]
+    );
+
+    return (rows[0] as Omit<RoomDetails, 'members'> | undefined) ?? null;
+  },
+
+  async removeMember(roomId: string, targetUserId: string, ownerId: string) {
+    const { rows } = await pool.query(
+      `
+        UPDATE room_members
+        SET
+          is_active = false,
+          left_at = NOW(),
+          removed_at = NOW(),
+          removed_by = $3
+        WHERE room_id = $1
+          AND user_id = $2
+          AND is_active = true
+        RETURNING id, user_id, role;
+      `,
+      [roomId, targetUserId, ownerId]
+    );
+
+    return rows[0];
   },
 };
 

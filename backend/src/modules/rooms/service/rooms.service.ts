@@ -11,6 +11,7 @@ import {
   type MembershipJoinStatus,
   type RoomDetails,
   type RoomMode,
+  type UpdateRoomDTO,
   type UserRoom,
 } from '../types/rooms.types.js';
 
@@ -144,6 +145,65 @@ export const RoomsService = {
     };
   },
 
+  async getAdminRoomDetails(userId: string, roomId: string): Promise<RoomDetails> {
+    await validateOwnerAccess(userId, roomId);
+    return this.getRoomDetails(userId, roomId);
+  },
+
+  async updateRoom(userId: string, roomId: string, input: Partial<UpdateRoomDTO>): Promise<RoomDetails> {
+    await validateOwnerAccess(userId, roomId);
+
+    const data = normalizeUpdateRoomInput(input);
+    validateUpdateRoomInput(data);
+
+    const updatedRoom = await RoomsRepository.updateRoom(roomId, data);
+
+    if (!updatedRoom) {
+      throw new RoomNotFoundError('Sala no encontrada o inactiva');
+    }
+
+    const members = await RoomsRepository.getActiveMembers(roomId);
+
+    return {
+      ...updatedRoom,
+      members,
+    };
+  },
+
+  async removeMember(ownerId: string, roomId: string, targetUserId: string): Promise<{ success: boolean; message: string }> {
+    await validateOwnerAccess(ownerId, roomId);
+
+    if (!targetUserId) {
+      throw new RoomValidationError('memberId es requerido');
+    }
+
+    if (targetUserId === ownerId) {
+      throw new RoomConflictError('No podes expulsarte a vos mismo');
+    }
+
+    const targetMembership = await RoomsRepository.findMembership(roomId, targetUserId);
+
+    if (!targetMembership?.is_active) {
+      throw new RoomNotFoundError('El integrante no pertenece activamente a la sala');
+    }
+
+    if (targetMembership.role === 'owner') {
+      throw new RoomConflictError('No se puede expulsar al owner de la sala');
+    }
+
+    const activeSession = await sessionsRepository.findActiveSessionByUserAndRoom(targetUserId, roomId);
+
+    if (activeSession) {
+      await sessionsRepository.cancelSession(activeSession.id);
+    }
+
+    const result = await RoomsRepository.removeMember(roomId, targetUserId, ownerId);
+
+    if (!result) {
+      throw new RoomConflictError('No se pudo expulsar al integrante');
+    }
+
+    return { success: true, message: 'Integrante expulsado con exito' };
   async markFavorite(userId: string, roomId: string): Promise<UserRoom> {
     if (!roomId) {
       throw new RoomValidationError('roomId es requerido');
@@ -222,6 +282,56 @@ function validateCreateRoomInput(input: CreateRoomDTO) {
 
   if (!VALID_ROOM_MODES.includes(input.mode)) {
     throw new RoomValidationError('El modo de sala no es valido');
+  }
+}
+
+function normalizeUpdateRoomInput(input: Partial<UpdateRoomDTO>): UpdateRoomDTO {
+  const data: UpdateRoomDTO = {};
+
+  if (Object.prototype.hasOwnProperty.call(input, 'name')) {
+    data.name = typeof input.name === 'string' ? input.name.trim() : undefined;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(input, 'description')) {
+    data.description = typeof input.description === 'string' ? input.description.trim() : input.description ?? null;
+  }
+
+  return data;
+}
+
+function validateUpdateRoomInput(input: UpdateRoomDTO) {
+  if (input.name !== undefined && !input.name) {
+    throw new RoomValidationError('El nombre de la sala es requerido');
+  }
+
+  if (input.name && input.name.length > 60) {
+    throw new RoomValidationError('El nombre de la sala no puede superar los 60 caracteres');
+  }
+
+  if (input.description && input.description.length > 240) {
+    throw new RoomValidationError('La descripcion no puede superar los 240 caracteres');
+  }
+}
+
+async function validateOwnerAccess(userId: string, roomId: string) {
+  if (!roomId) {
+    throw new RoomValidationError('roomId es requerido');
+  }
+
+  const membership = await RoomsRepository.findMembership(roomId, userId);
+
+  if (!membership?.is_active) {
+    throw new RoomConflictError('No tenes acceso activo a esta sala');
+  }
+
+  if (membership.role !== 'owner') {
+    throw new RoomConflictError('Solo el owner puede administrar la sala');
+  }
+
+  const room = await RoomsRepository.findActiveRoomById(roomId);
+
+  if (!room || !room.is_active) {
+    throw new RoomNotFoundError('Sala no encontrada o inactiva');
   }
 }
 

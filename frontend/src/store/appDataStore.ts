@@ -84,6 +84,7 @@ interface AppDataState {
   clearRoomRanking: (roomId: string) => void;
 
   loadRoomDetails: (accessToken: string, roomId: string, options?: LoadOptions) => Promise<RoomDetails | null>;
+  setRoomDetails: (room: RoomDetails) => void;
   invalidateRoomDetails: (roomId: string) => void;
   clearRoomDetails: (roomId: string) => void;
 
@@ -395,6 +396,23 @@ export const useAppDataStore = create<AppDataState>((set, get) => ({
       throw error;
     }
   },
+
+  setRoomDetails: room =>
+    set(state => ({
+      roomDetails: {
+        ...state.roomDetails,
+        [room.id]: { data: room, lastFetchedAt: Date.now(), isLoading: false, error: null, dirty: false },
+      },
+      rooms: {
+        ...state.rooms,
+        data: (state.rooms.data ?? []).map(item =>
+          item.id === room.id
+            ? { ...item, name: room.name, description: room.description ?? null }
+            : item
+        ),
+        lastFetchedAt: Date.now(),
+      },
+    })),
 
   invalidateRoomDetails: roomId =>
     set(state => ({
