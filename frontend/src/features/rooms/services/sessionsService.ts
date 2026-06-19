@@ -8,7 +8,6 @@ export interface StartedSession {
   started_at: string;
 }
 
-// ⚡ NUEVO: Sincronizado con el modelo de estados atómicos del backend
 export interface EndedSession {
   session_id: string;
   status: 'invalid' | 'pending';
@@ -169,7 +168,6 @@ export async function cancelStudySession(accessToken: string, sessionId: string)
   return JSON.parse(text);
 }
 
-// ⚡ NUEVO: Obtener mis sesiones de estudio (Historial Propio)
 export async function fetchMyStudySessions(accessToken: string, statusFilter?: string): Promise<any[]> {
   const url = statusFilter ? `${API_BASE_URL}/sessions/me?status=${statusFilter}` : `${API_BASE_URL}/sessions/me`;
   const response = await fetch(url, {
@@ -180,9 +178,9 @@ export async function fetchMyStudySessions(accessToken: string, statusFilter?: s
   return response.json();
 }
 
-// ⚡ NUEVO: Obtener sesiones pendientes de votar de los compañeros de sala
+// ⚡ CORRECCIÓN: Sincronizado con el endpoint router.get('/room/:roomId/pending-reviews') del backend unificado
 export async function fetchPendingSessionReviews(accessToken: string, roomId: string): Promise<PendingReviewSession[]> {
-  const response = await fetch(`${API_BASE_URL}/sessions/rooms/${String(roomId)}/pending-reviews`, {
+  const response = await fetch(`${API_BASE_URL}/sessions/room/${String(roomId)}/pending-reviews`, {
     method: 'GET',
     headers: { Authorization: `Bearer ${accessToken}` },
   });
@@ -190,7 +188,6 @@ export async function fetchPendingSessionReviews(accessToken: string, roomId: st
   return response.json();
 }
 
-// ⚡ NUEVO: Enviar voto cruzado (Aceptar / Rechazar)
 export async function reviewStudySession(
   accessToken: string,
   sessionId: string,
