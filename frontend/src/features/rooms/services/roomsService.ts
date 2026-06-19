@@ -5,6 +5,7 @@ export type RoomMode = 'survival' | 'battle_royale';
 export interface CreatedRoom {
   id: string;
   name: string;
+  description?: string | null;
   mode: RoomMode;
   invite_code: string;
   owner_id: string;
@@ -114,6 +115,69 @@ export async function fetchRoomDetails(
 
   if (!response.ok) {
     throw new Error(data.error ?? 'No se pudo cargar la sala');
+  }
+
+  return data;
+}
+
+export async function fetchRoomAdminDetails(
+  accessToken: string,
+  roomId: string
+): Promise<RoomDetails> {
+  const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/admin`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo cargar la administracion de sala');
+  }
+
+  return data;
+}
+
+export async function updateRoom(
+  accessToken: string,
+  roomId: string,
+  input: { name?: string; description?: string | null }
+): Promise<RoomDetails> {
+  const response = await fetch(`${API_BASE_URL}/rooms/${roomId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(input),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo actualizar la sala');
+  }
+
+  return data;
+}
+
+export async function removeRoomMember(
+  accessToken: string,
+  roomId: string,
+  memberId: string
+): Promise<{ success: boolean; message: string }> {
+  const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/members/${memberId}/remove`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo expulsar al integrante');
   }
 
   return data;
