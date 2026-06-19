@@ -33,7 +33,7 @@ export default function HomeScreen() {
     loadMissions(accessToken).catch(err => console.error('Error cargando misiones:', err));
   }, [accessToken, loadProfile, loadRooms, loadMissions]));
 
-  const recentRooms = rooms.slice(0, 3);
+  const favoriteRooms = rooms.filter(room => room.is_favorite).slice(0, 3);
 
   const handleRefresh = async () => {
     if (!accessToken) return;
@@ -80,13 +80,13 @@ export default function HomeScreen() {
         <Text style={styles.section}>SALAS FRECUENTES</Text>
         {roomsLoading ? (
           <ActivityIndicator size="small" color="#22c55e" style={{ marginTop: 10 }} />
-        ) : recentRooms.length === 0 ? (
+        ) : favoriteRooms.length === 0 ? (
           <View style={styles.emptyState}>
             <Inbox color="#64748b" size={24} />
-            <Text style={styles.emptyText}>Todavia no tenes salas activas.</Text>
+            <Text style={styles.emptyText}>Marca hasta 3 salas favoritas para verlas aca.</Text>
           </View>
         ) : (
-          recentRooms.map(room => (
+          favoriteRooms.map(room => (
             <Pressable key={room.id} style={styles.roomCard} onPress={() => handleRoomPress(room)}>
               <View style={styles.roomLeft}>
                 <Text style={styles.roomName}>{room.name}</Text>
