@@ -22,8 +22,8 @@ export const RoomsRepository = {
 
       await client.query(
         `
-          INSERT INTO room_members (room_id, user_id, role, is_active)
-          VALUES ($1, $2, 'owner', true);
+          INSERT INTO room_members (room_id, user_id, role, is_active, is_favorite)
+          VALUES ($1, $2, 'owner', true, false);
         `,
         [room.id, ownerId]
       );
@@ -94,6 +94,8 @@ export const RoomsRepository = {
           r.is_active,
           r.teams_enabled,
           rm.role,
+          COALESCE(rm.is_favorite, false) AS is_favorite,
+          rm.last_activity_at,
           COUNT(active_members.id)::int AS members_count
         FROM room_members rm
         JOIN rooms r ON r.id = rm.room_id
@@ -103,8 +105,11 @@ export const RoomsRepository = {
         WHERE rm.user_id = $1
           AND rm.is_active = true
           AND r.is_active = true
-        GROUP BY r.id, rm.role
-        ORDER BY r.created_at DESC;
+        GROUP BY r.id, rm.role, rm.is_favorite, rm.last_activity_at
+        ORDER BY
+          COALESCE(rm.is_favorite, false) DESC,
+          rm.last_activity_at DESC NULLS LAST,
+          r.created_at DESC;
       `,
       [userId]
     );
@@ -155,7 +160,7 @@ export const RoomsRepository = {
     // RF-05: resuelve la sala asociada al codigo ingresado por el usuario.
     const { rows } = await pool.query(
       `
-        SELECT id, name, mode, invite_code, max_members, is_active, teams_enabled
+        SELECT id, name, mode, invite_code, owner_id, max_members, is_active, teams_enabled
         FROM rooms
         WHERE invite_code = $1
         LIMIT 1;
@@ -180,11 +185,11 @@ export const RoomsRepository = {
     return rows[0]?.count ?? 0;
   },
 
-  async findMembership(roomId: string, userId: string): Promise<{ id: string; is_active: boolean } | null> {
+  async findMembership(roomId: string, userId: string): Promise<{ id: string; is_active: boolean; role: string } | null> {
     // Busca si el usuario ya tiene una membresia previa en la sala.
     const { rows } = await pool.query(
       `
-        SELECT id, is_active
+        SELECT id, is_active, role
         FROM room_members
         WHERE room_id = $1 AND user_id = $2
         LIMIT 1;
@@ -192,7 +197,7 @@ export const RoomsRepository = {
       [roomId, userId]
     );
 
-    return (rows[0] as { id: string; is_active: boolean } | undefined) ?? null;
+    return (rows[0] as { id: string; is_active: boolean; role: string } | undefined) ?? null;
   },
 
   async joinRoom(room: JoinableRoom, userId: string, status: MembershipJoinStatus): Promise<JoinedRoom> {
@@ -200,8 +205,8 @@ export const RoomsRepository = {
     if (status === 'new') {
       await pool.query(
         `
-          INSERT INTO room_members (room_id, user_id, role, is_active)
-          VALUES ($1, $2, 'member', true);
+          INSERT INTO room_members (room_id, user_id, role, is_active, is_favorite)
+          VALUES ($1, $2, 'member', true, false);
         `,
         [room.id, userId]
       );
@@ -209,7 +214,7 @@ export const RoomsRepository = {
       await pool.query(
         `
           UPDATE room_members
-          SET is_active = true, left_at = NULL, joined_at = NOW()
+          SET is_active = true, is_favorite = false, left_at = NULL, joined_at = NOW()
           WHERE room_id = $1 AND user_id = $2;
         `,
         [room.id, userId]
@@ -226,12 +231,186 @@ export const RoomsRepository = {
     // RF-07: baja logica; conserva historial y permite reactivacion futura.
     const query = `
       UPDATE room_members
-      SET is_active = false, left_at = NOW()
+      SET is_active = false, is_favorite = false, left_at = NOW()
       WHERE user_id = $1 AND room_id = $2 AND is_active = true
-      RETURNING id;
+      RETURNING id, role;
     `;
     const { rows } = await pool.query(query, [userId, roomId]);
     return rows[0];
+  },
+
+  async countActiveRoomsByUserId(userId: string): Promise<number> {
+    const { rows } = await pool.query(
+      `
+        SELECT COUNT(*)::int AS count
+        FROM room_members rm
+        JOIN rooms r ON r.id = rm.room_id
+        WHERE rm.user_id = $1
+          AND rm.is_active = true
+          AND r.is_active = true;
+      `,
+      [userId]
+    );
+
+    return rows[0]?.count ?? 0;
+  },
+
+  async countRoomsCreatedToday(ownerId: string): Promise<number> {
+    const { rows } = await pool.query(
+      `
+        SELECT COUNT(*)::int AS count
+        FROM rooms
+        WHERE owner_id = $1
+          AND (created_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date =
+            (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date;
+      `,
+      [ownerId]
+    );
+
+    return rows[0]?.count ?? 0;
+  },
+
+  async countFavoriteRoomsByUserId(userId: string): Promise<number> {
+    const { rows } = await pool.query(
+      `
+        SELECT COUNT(*)::int AS count
+        FROM room_members rm
+        JOIN rooms r ON r.id = rm.room_id
+        WHERE rm.user_id = $1
+          AND rm.is_active = true
+          AND COALESCE(rm.is_favorite, false) = true
+          AND r.is_active = true;
+      `,
+      [userId]
+    );
+
+    return rows[0]?.count ?? 0;
+  },
+
+  async setFavorite(userId: string, roomId: string, isFavorite: boolean): Promise<UserRoom | null> {
+    await pool.query(
+      `
+        UPDATE room_members
+        SET is_favorite = $3
+        WHERE user_id = $1
+          AND room_id = $2
+          AND is_active = true;
+      `,
+      [userId, roomId, isFavorite]
+    );
+
+    return this.findActiveUserRoom(userId, roomId);
+  },
+
+  async findActiveUserRoom(userId: string, roomId: string): Promise<UserRoom | null> {
+    const { rows } = await pool.query(
+      `
+        SELECT
+          r.id,
+          r.name,
+          r.mode,
+          r.invite_code,
+          r.owner_id,
+          r.max_members,
+          r.is_active,
+          r.teams_enabled,
+          rm.role,
+          COALESCE(rm.is_favorite, false) AS is_favorite,
+          rm.last_activity_at,
+          COUNT(active_members.id)::int AS members_count
+        FROM room_members rm
+        JOIN rooms r ON r.id = rm.room_id
+        LEFT JOIN room_members active_members
+          ON active_members.room_id = r.id
+          AND active_members.is_active = true
+        WHERE rm.user_id = $1
+          AND rm.room_id = $2
+          AND rm.is_active = true
+          AND r.is_active = true
+        GROUP BY r.id, rm.role, rm.is_favorite, rm.last_activity_at
+        LIMIT 1;
+      `,
+      [userId, roomId]
+    );
+
+    return (rows[0] as UserRoom | undefined) ?? null;
+  },
+
+  async updateLastActivity(userId: string, roomId: string): Promise<void> {
+    await pool.query(
+      `
+        UPDATE room_members
+        SET last_activity_at = NOW()
+        WHERE user_id = $1
+          AND room_id = $2
+          AND is_active = true;
+      `,
+      [userId, roomId]
+    );
+  },
+
+  async deactivateRoomIfEmpty(roomId: string): Promise<void> {
+    await pool.query(
+      `
+        UPDATE rooms
+        SET is_active = false
+        WHERE id = $1
+          AND NOT EXISTS (
+            SELECT 1
+            FROM room_members
+            WHERE room_id = $1 AND is_active = true
+          );
+      `,
+      [roomId]
+    );
+  },
+
+  async transferOwnershipToOldestActiveMember(roomId: string): Promise<void> {
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      const { rows } = await client.query(
+        `
+          SELECT user_id
+          FROM room_members
+          WHERE room_id = $1 AND is_active = true
+          ORDER BY joined_at ASC
+          LIMIT 1;
+        `,
+        [roomId]
+      );
+
+      const nextOwnerId = rows[0]?.user_id;
+
+      if (nextOwnerId) {
+        await client.query(
+          `
+            UPDATE room_members
+            SET role = CASE WHEN user_id = $2 THEN 'owner' ELSE 'member' END
+            WHERE room_id = $1 AND is_active = true;
+          `,
+          [roomId, nextOwnerId]
+        );
+
+        await client.query(
+          `
+            UPDATE rooms
+            SET owner_id = $2
+            WHERE id = $1;
+          `,
+          [roomId, nextOwnerId]
+        );
+      }
+
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   },
 
   async checkActiveMembership(userId: string, roomId: string): Promise<boolean> {

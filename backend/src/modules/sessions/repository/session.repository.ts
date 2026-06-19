@@ -2,6 +2,7 @@ import { pool } from '../../../common/config/db.js';
 import type { EndSessionDTO, StartSessionDTO, StudySession, StudySessionPause } from '../types/session.types.js';
 
 const VALID_MINUTES_THRESHOLD = 5;
+const ROOM_ACTIVITY_MINUTES_THRESHOLD = 30;
 
 export const sessionsRepository = {
   async userExists(userId: string): Promise<boolean> {
@@ -258,6 +259,19 @@ export const sessionsRepository = {
             [session.room_id, session.user_id, weekYear, data.duration_minutes]
           );
         }
+      }
+
+      if (session.room_id && data.duration_minutes >= ROOM_ACTIVITY_MINUTES_THRESHOLD) {
+        await client.query(
+          `
+            UPDATE room_members
+            SET last_activity_at = NOW()
+            WHERE room_id = $1
+              AND user_id = $2
+              AND is_active = true;
+          `,
+          [session.room_id, session.user_id]
+        );
       }
 
       await client.query('COMMIT');

@@ -25,6 +25,8 @@ export interface CreatedRoom {
 export interface UserRoom extends CreatedRoom {
   members_count: number;
   role: string;
+  is_favorite: boolean;
+  last_activity_at: string | null;
 }
 
 export interface RoomMember {
@@ -43,6 +45,7 @@ export interface JoinableRoom {
   name: string;
   mode: RoomMode;
   invite_code: string;
+  owner_id: string;
   max_members: number;
   is_active: boolean;
   teams_enabled: boolean;

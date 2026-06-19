@@ -16,6 +16,8 @@ export interface CreatedRoom {
 export interface UserRoom extends CreatedRoom {
   members_count: number;
   role: string;
+  is_favorite: boolean;
+  last_activity_at: string | null;
 }
 
 export interface RoomMember {
@@ -156,6 +158,40 @@ export async function leaveRoom(
 
   if (!response.ok) {
     throw new Error(data.error ?? 'No se pudo abandonar la sala');
+  }
+
+  return data;
+}
+
+export async function markRoomFavorite(accessToken: string, roomId: string): Promise<UserRoom> {
+  const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/favorite`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo marcar la sala como favorita');
+  }
+
+  return data;
+}
+
+export async function unmarkRoomFavorite(accessToken: string, roomId: string): Promise<UserRoom> {
+  const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/favorite`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo quitar la sala de favoritas');
   }
 
   return data;
