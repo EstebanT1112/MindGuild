@@ -1,5 +1,6 @@
 import { RoomsRepository } from '../repository/rooms.repository.js';
 import { achievementService } from '../../achievements/service/achievement.service.js';
+import { sessionsRepository } from '../../sessions/repository/session.repository.js';
 import {
   RoomConflictError,
   RoomNotFoundError,
@@ -56,11 +57,23 @@ export const RoomsService = {
       throw new RoomConflictError('El usuario ya se encuentra inactivo en la sala');
     }
 
+    const activeSession = await sessionsRepository.findActiveSessionByUserAndRoom(userId, roomId);
+
+    if (activeSession) {
+      throw new RoomConflictError('No podes abandonar la sala mientras tenes una sesion activa');
+    }
+
     const result = await RoomsRepository.deactivateMember(userId, roomId);
 
     if (!result) {
       throw new RoomConflictError('No se pudo procesar la salida de sala');
     }
+
+    if (result.role === 'owner') {
+      await RoomsRepository.transferOwnershipToOldestActiveMember(roomId);
+    }
+
+    await RoomsRepository.deactivateRoomIfEmpty(roomId);
 
     return { success: true, message: 'Salida de sala procesada con exito' };
   },
