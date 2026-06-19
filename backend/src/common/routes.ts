@@ -36,8 +36,9 @@ router.get('/rooms/:roomId', RoomsController.getRoomDetails);
 // --- STUDY (Modulos externos) ---
 router.use('/study', studyRoutes);
 
-// --- SESSIONS ---
-router.use('/sessions', sessionRoutes);
+// --- SESSIONS (RF-10) ---
+// Se agrega checkAuth aquí para proteger todas las operaciones de forma unificada
+router.use('/sessions', checkAuth, sessionRoutes);
 
 // --- RANKINGS ---
 router.get('/ranking', rankingsController.getRanking);
