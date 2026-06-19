@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import { ChevronRight, Info, Settings, UserPlus, Users } from 'lucide-react-native';
@@ -75,7 +75,7 @@ export default function LiveRoomScreen() {
             'Sesion Finalizada',
             result.valid
                 ? `Se acreditaron ${result.duration_minutes} minutos.`
-                : `Estudiaste ${result.duration_minutes} minutos. Para sumar al ranking necesitas al menos 5 minutos.`
+                : `Estudiaste ${result.duration_minutes} minutos. Para sumar al ranking necesitas al menos 30 minutos.`
         );
     };
 
@@ -195,6 +195,7 @@ export default function LiveRoomScreen() {
                 ) : undefined
             }
         >
+            {/* ⚡ CORRECCIÓN: Un único ScrollView principal unificado */}
             <ScrollView
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
@@ -208,8 +209,6 @@ export default function LiveRoomScreen() {
                     />
                 }
             >
-
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                 {!isEnfocused && (
                     <Pressable style={styles.inviteFriendsMainBtn} onPress={() => setInviteFriendsVisible(true)}>
                         <UserPlus color="white" size={22} />
