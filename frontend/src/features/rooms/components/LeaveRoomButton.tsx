@@ -8,13 +8,18 @@ import { leaveRoom } from '../services/roomsService';
 
 interface Props {
   roomId?: string;
+  hidden?: boolean;
 }
 
-export default function LeaveRoomButton({ roomId }: Props) {
+export default function LeaveRoomButton({ roomId, hidden = false }: Props) {
   const navigation = useNavigation<any>();
   const accessToken = useAuthStore(state => state.access_token);
   const removeRoom = useAppDataStore(state => state.removeRoom);
   const [submitting, setSubmitting] = useState(false);
+
+  if (hidden) {
+    return null;
+  }
 
   // RF-07: pide confirmacion antes de ejecutar la baja logica de membresia.
   const confirmLeave = () => {

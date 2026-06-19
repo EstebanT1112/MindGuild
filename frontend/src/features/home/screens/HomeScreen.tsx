@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { ChevronRight, Inbox, Users } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { useAppDataStore } from '../../../store/appDataStore';
@@ -26,12 +26,12 @@ export default function HomeScreen() {
   const [missionsVisible, setMissionsVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     if (!accessToken) return;
     loadProfile(accessToken).catch(err => console.error('Error cargando perfil del usuario:', err));
-    loadRooms(accessToken).catch(err => console.error('Error cargando salas del usuario:', err));
+    loadRooms(accessToken, { force: true }).catch(err => console.error('Error cargando salas del usuario:', err));
     loadMissions(accessToken).catch(err => console.error('Error cargando misiones:', err));
-  }, [accessToken, loadProfile, loadRooms, loadMissions]);
+  }, [accessToken, loadProfile, loadRooms, loadMissions]));
 
   const recentRooms = rooms.slice(0, 3);
 
