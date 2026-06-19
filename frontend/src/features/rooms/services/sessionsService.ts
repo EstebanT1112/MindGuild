@@ -8,7 +8,7 @@ export interface StartedSession {
   started_at: string;
 }
 
-// ⚡ Sincronizado con el modelo de estados atómicos del backend
+// Sincronizado con el modelo de estados atómicos del backend
 export interface EndedSession {
   session_id: string;
   status: 'invalid' | 'pending';
@@ -180,16 +180,15 @@ export async function fetchMyStudySessions(accessToken: string, statusFilter?: s
   return response.json();
 }
 
-// ⚡ Obtener sesiones pendientes de votar de los compañeros de sala
+// ⚡ CORREGIDO: Sincronizado exactamente con router.get('/rooms/:roomId/pending-reviews') del back
 export async function fetchPendingSessionReviews(accessToken: string, roomId: string): Promise<PendingReviewSession[]> {
-  // Se acopla al endpoint unificado del back: router.get('/room/:roomId/pending-reviews')
-  const response = await fetch(`${API_BASE_URL}/sessions/room/${String(roomId)}/pending-reviews`, {
+  const response = await fetch(`${API_BASE_URL}/sessions/rooms/${String(roomId)}/pending-reviews`, {
     method: 'GET',
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 
   if (!response.ok) {
-    console.log('[fetchPendingSessionReviews] Error de respuesta de red:', response.status);
+    console.log('[fetchPendingSessionReviews] Error status:', response.status);
     throw new Error('No se pudieron listar las revisiones de la sala');
   }
   return response.json();
