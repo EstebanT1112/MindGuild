@@ -1,16 +1,31 @@
 import React from 'react';
+import { Alert } from 'react-native';
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Home, Trophy, Users, UsersRound } from 'lucide-react-native';
 import HomeScreen from "../features/home/screens/HomeScreen";
 import FriendsScreen from "../features/friends/screens/FriendsScreen";
 import RankingScreen from "../features/rankings/screens/RankingScreen";
 import RoomsStack from "./RoomsStack";
+import { useAppDataStore } from '../store/appDataStore';
 
 const Tab = createBottomTabNavigator();
 
 export default function TabNavigator() {
+  const activeStudySession = useAppDataStore(state => state.activeStudySession);
+
   return (
     <Tab.Navigator
+      screenListeners={{
+        tabPress: event => {
+          if (!activeStudySession) return;
+
+          event.preventDefault();
+          Alert.alert(
+            'Sesion activa',
+            'Finaliza la sesion antes de moverte por la app.'
+          );
+        },
+      }}
       screenOptions={{
         headerShown: false,
         tabBarStyle: {

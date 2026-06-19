@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { AppState, AppStateStatus, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../../store/authStore';
+import { useAppDataStore } from '../../../store/appDataStore';
 import {
   startStudySession,
   pauseStudySession,
@@ -26,6 +27,7 @@ export function useStudyTimer({
 }: UseStudyTimerProps) {
   const navigation = useNavigation<any>();
   const accessToken = useAuthStore((state) => state.access_token);
+  const setActiveStudySession = useAppDataStore((state) => state.setActiveStudySession);
 
   const [status, setStatus] = useState<TimerStatus>('idle');
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -82,6 +84,7 @@ export function useStudyTimer({
     // para que salte el Alert sin esperar la respuesta HTTP de Supabase.
     setStatus('idle');
     setSessionId(null);
+    setActiveStudySession(null);
     setStartTime(null);
     setAccumulatedSeconds(0);
 
@@ -187,6 +190,7 @@ export function useStudyTimer({
         mode: initialMode,
       });
       setSessionId(data.session_id);
+      setActiveStudySession({ sessionId: data.session_id, roomId });
       setStatus('running');
     } catch (error: any) {
       clearLocalInterval();
@@ -266,6 +270,7 @@ export function useStudyTimer({
     } finally {
       setStatus('idle');
       setSessionId(null);
+      setActiveStudySession(null);
       setStartTime(null);
       setAccumulatedSeconds(0);
       setDisplaySeconds(initialMode === 'pomodoro' ? initialDurationMinutes * 60 : 0);
@@ -276,6 +281,7 @@ export function useStudyTimer({
     return () => {
       clearLocalInterval();
       setStatus('idle');
+      setActiveStudySession(null);
       setStartTime(null);
       setAccumulatedSeconds(0);
     };

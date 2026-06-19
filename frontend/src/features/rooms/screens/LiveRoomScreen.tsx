@@ -1,20 +1,22 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRoute } from '@react-navigation/native';
-import { ChevronRight, Info, Settings, Users, UserPlus } from 'lucide-react-native';
+import { ChevronRight, Info, Settings, UserPlus, Users } from 'lucide-react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
+import InviteFriendsModal from '../components/InviteFriendsModal';
 import LeaveRoomButton from '../components/LeaveRoomButton';
 import RoomAdminModal from '../components/RoomAdminModal';
 import RoomInfoModal from '../components/RoomInfoModal';
 import RoomRanking from '../components/RoomRanking';
 import SessionConfigModal, { type SessionConfigData } from '../components/SessionConfigModal';
 import TeamsSection from '../components/TeamsSection';
-import { type RoomDetails } from '../services/roomsService';
 import { useStudyTimer } from '../components/useStudyTimer';
-import InviteFriendsModal from '../components/InviteFriendsModal';
+import { type RoomDetails } from '../services/roomsService';
 
 export default function LiveRoomScreen() {
     const route = useRoute<any>();
@@ -25,6 +27,7 @@ export default function LiveRoomScreen() {
     const loadRoomDetails = useAppDataStore(state => state.loadRoomDetails);
     const loadRoomRanking = useAppDataStore(state => state.loadRoomRanking);
     const setRoomDetails = useAppDataStore(state => state.setRoomDetails);
+    const markRoomActivity = useAppDataStore(state => state.markRoomActivity);
 
     const targetRoomId = route.params?.roomId ? String(route.params.roomId) : null;
 
@@ -32,7 +35,6 @@ export default function LiveRoomScreen() {
     const [adminVisible, setAdminVisible] = useState(false);
     const [infoVisible, setInfoVisible] = useState(false);
     const [inviteFriendsVisible, setInviteFriendsVisible] = useState(false);
-    
     const [room, setRoom] = useState<RoomDetails | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -42,11 +44,14 @@ export default function LiveRoomScreen() {
 
     const handleSessionEnded = (result: any) => {
         if ((result.valid || result.duration_minutes >= 30) && targetRoomId) {
+            if (result.duration_minutes >= 30) {
+                markRoomActivity(targetRoomId);
+            }
             invalidateAfterValidStudySession(targetRoomId);
         }
 
         Alert.alert(
-            'Sesión Finalizada',
+            'Sesion Finalizada',
             result.valid
                 ? `Se acreditaron ${result.duration_minutes} minutos.`
                 : `Estudiaste ${result.duration_minutes} minutos. Para sumar al ranking necesitas al menos 5 minutos.`
@@ -93,7 +98,7 @@ export default function LiveRoomScreen() {
                 }
             }
         } catch (error: any) {
-            console.error('Error crítico al cargar detalles de la sala:', error);
+            console.error('Error critico al cargar detalles de la sala:', error);
             Alert.alert('Error de sala', error.message ?? 'No se pudo cargar la sala.');
         } finally {
             if (shouldShowLoading) setLoading(false);
@@ -111,9 +116,10 @@ export default function LiveRoomScreen() {
 
     const handleSaveConfig = (newConfig: SessionConfigData) => {
         if (status !== 'idle') {
-            Alert.alert("Acción bloqueada", "No podés cambiar la configuración en medio de una sesión activa.");
+            Alert.alert('Accion bloqueada', 'No podes cambiar la configuracion en medio de una sesion activa.');
             return;
         }
+
         setSessionType(newConfig.sessionType === 'libre' ? 'free' : 'pomodoro');
         setDurationMinutes(newConfig.duration);
     };
@@ -178,6 +184,7 @@ export default function LiveRoomScreen() {
                 }
             >
 
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
                 {!isEnfocused && (
                     <Pressable style={styles.inviteFriendsMainBtn} onPress={() => setInviteFriendsVisible(true)}>
                         <UserPlus color="white" size={22} />
@@ -193,7 +200,7 @@ export default function LiveRoomScreen() {
                         <View style={styles.configInfo}>
                             <Text style={styles.configTitle}>Configurar Sesion</Text>
                             <Text style={styles.configSub}>
-                                {sessionType === 'pomodoro' ? `Pomodoro • ${durationMinutes} min` : 'Modo Libre • Sin límite'}
+                                {sessionType === 'pomodoro' ? `Pomodoro - ${durationMinutes} min` : 'Modo Libre - Sin limite'}
                             </Text>
                         </View>
                         <ChevronRight color="#4b5563" size={20} />
@@ -211,7 +218,7 @@ export default function LiveRoomScreen() {
                             <Text style={styles.timerValue}>{getDisplayTime()}</Text>
                         )}
                         <Text style={styles.timerCycles}>
-                            {status === 'paused' ? 'Sesión Pausada' : sessionType === 'pomodoro' ? 'Fase de Enfoque' : 'Tiempo Acumulado'}
+                            {status === 'paused' ? 'Sesion Pausada' : sessionType === 'pomodoro' ? 'Fase de Enfoque' : 'Tiempo Acumulado'}
                         </Text>
                     </TimerProgressRing>
                 </View>
