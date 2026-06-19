@@ -4,7 +4,7 @@ export type StudySessionMode = 'pomodoro' | 'free';
 
 export interface StartedSession {
   session_id: string;
-  status: 'active';
+  status: 'active' | 'paused';
   started_at: string;
 }
 
@@ -13,6 +13,13 @@ export interface EndedSession {
   status: 'completed';
   valid: boolean;
   duration_minutes: number;
+}
+
+export interface PauseResumeResponse {
+  session_id: string;
+  status: string;
+  paused_at?: string;
+  paused_seconds?: number;
 }
 
 export async function startStudySession(
@@ -28,13 +35,70 @@ export async function startStudySession(
     body: JSON.stringify(input),
   });
 
-  const data = await response.json();
-
+  const text = await response.text();
   if (!response.ok) {
-    throw new Error(data.error ?? 'No se pudo iniciar la sesion');
+    let errorMessage = 'No se pudo iniciar la sesion';
+    try {
+      const errorData = JSON.parse(text);
+      errorMessage = errorData.error ?? errorMessage;
+    } catch {
+      console.log('Error crudo del servidor al iniciar:', text);
+    }
+    throw new Error(errorMessage);
   }
+  return JSON.parse(text);
+}
 
-  return data;
+export async function pauseStudySession(
+  accessToken: string,
+  sessionId: string
+): Promise<PauseResumeResponse> {
+  const response = await fetch(`${API_BASE_URL}/sessions/${String(sessionId)}/pause`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  const text = await response.text();
+  if (!response.ok) {
+    let errorMessage = 'No se pudo pausar la sesion';
+    try {
+      const errorData = JSON.parse(text);
+      errorMessage = errorData.error ?? errorMessage;
+    } catch {
+      console.log('Error crudo del servidor al pausar:', text);
+    }
+    throw new Error(errorMessage);
+  }
+  return JSON.parse(text);
+}
+
+export async function resumeStudySession(
+  accessToken: string,
+  sessionId: string
+): Promise<PauseResumeResponse> {
+  const response = await fetch(`${API_BASE_URL}/sessions/${String(sessionId)}/resume`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  const text = await response.text();
+  if (!response.ok) {
+    let errorMessage = 'No se pudo reanudar la sesion';
+    try {
+      const errorData = JSON.parse(text);
+      errorMessage = errorData.error ?? errorMessage;
+    } catch {
+      console.log('Error crudo del servidor al reanudar:', text);
+    }
+    throw new Error(errorMessage);
+  }
+  return JSON.parse(text);
 }
 
 export async function endStudySession(
@@ -48,7 +112,7 @@ export async function endStudySession(
     summary_text?: string | null;
   }
 ): Promise<EndedSession> {
-  const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/end`, {
+  const response = await fetch(`${API_BASE_URL}/sessions/${String(sessionId)}/end`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -57,28 +121,39 @@ export async function endStudySession(
     body: JSON.stringify(input),
   });
 
-  const data = await response.json();
-
+  const text = await response.text();
   if (!response.ok) {
-    throw new Error(data.error ?? 'No se pudo finalizar la sesion');
+    let errorMessage = 'No se pudo finalizar la sesion';
+    try {
+      const errorData = JSON.parse(text);
+      errorMessage = errorData.error ?? errorMessage;
+    } catch {
+      console.log('Error crudo del servidor al finalizar:', text);
+    }
+    throw new Error(errorMessage);
   }
-
-  return data;
+  return JSON.parse(text);
 }
 
 export async function cancelStudySession(accessToken: string, sessionId: string) {
-  const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/cancel`, {
+  const response = await fetch(`${API_BASE_URL}/sessions/${String(sessionId)}/cancel`, {
     method: 'POST',
     headers: {
+      'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
     },
   });
 
-  const data = await response.json();
-
+  const text = await response.text();
   if (!response.ok) {
-    throw new Error(data.error ?? 'No se pudo cancelar la sesion');
+    let errorMessage = 'No se pudo cancelar la sesion';
+    try {
+      const errorData = JSON.parse(text);
+      errorMessage = errorData.error ?? errorMessage;
+    } catch {
+      console.log('Error crudo del servidor al cancelar:', text);
+    }
+    throw new Error(errorMessage);
   }
-
-  return data;
+  return JSON.parse(text);
 }

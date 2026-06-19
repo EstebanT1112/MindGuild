@@ -1,5 +1,12 @@
 export type StudySessionMode = 'pomodoro' | 'free';
-export type StudySessionStatus = 'active' | 'completed' | 'cancelled';
+
+export type StudySessionStatus = 
+  | 'active' 
+  | 'paused' 
+  | 'pending' 
+  | 'completed' 
+  | 'cancelled'
+  | 'invalid';
 
 export interface StartSessionDTO {
   room_id: string | null;
@@ -25,6 +32,14 @@ export interface StudySession {
   duration_minutes: number | null;
   paused_seconds: number | null;
   valid: boolean;
+}
+
+export interface StudySessionPause {
+  id: string;
+  session_id: string;
+  paused_at: string;
+  resumed_at: string | null;
+  created_at: string;
 }
 
 export class SessionValidationError extends Error {}
