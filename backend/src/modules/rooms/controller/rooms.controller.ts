@@ -159,6 +159,28 @@ export const RoomsController = {
       return res.status(500).json({ error: 'Error interno al unirse a sala' });
     }
   },
+
+  async markFavorite(req: Request, res: Response) {
+    try {
+      const user = await getAuthenticatedProfile(req);
+      const roomId = Array.isArray(req.params.roomId) ? req.params.roomId[0] : req.params.roomId;
+      const room = await RoomsService.markFavorite(user.id, roomId);
+      return res.status(200).json(room);
+    } catch (error: any) {
+      return handleRoomError(error, res, 'Error interno al marcar favorita');
+    }
+  },
+
+  async unmarkFavorite(req: Request, res: Response) {
+    try {
+      const user = await getAuthenticatedProfile(req);
+      const roomId = Array.isArray(req.params.roomId) ? req.params.roomId[0] : req.params.roomId;
+      const room = await RoomsService.unmarkFavorite(user.id, roomId);
+      return res.status(200).json(room);
+    } catch (error: any) {
+      return handleRoomError(error, res, 'Error interno al quitar favorita');
+    }
+  },
 };
 
 async function getAuthenticatedProfile(req: Request) {
@@ -172,4 +194,30 @@ async function getAuthenticatedProfile(req: Request) {
   return AuthService.getProfileFromAccessToken(
     authorization.replace('Bearer ', '').trim()
   );
+}
+
+function handleRoomError(error: any, res: Response, fallbackMessage: string) {
+  if (error instanceof AuthUnauthorizedError) {
+    return res.status(401).json({ error: error.message });
+  }
+
+  if (error instanceof RoomValidationError) {
+    return res.status(400).json({ error: error.message });
+  }
+
+  if (error instanceof RoomNotFoundError) {
+    return res.status(404).json({ error: error.message });
+  }
+
+  if (error instanceof RoomConflictError) {
+    return res.status(409).json({ error: error.message });
+  }
+
+  console.error(fallbackMessage, {
+    message: error?.message,
+    code: error?.code,
+    detail: error?.detail,
+  });
+
+  return res.status(500).json({ error: fallbackMessage });
 }

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useRoute } from '@react-navigation/native';
+import { usePreventRemove, useRoute } from '@react-navigation/native';
 import { ChevronRight, Info, Settings, Users } from 'lucide-react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
@@ -19,6 +19,8 @@ export default function LiveRoomScreen() {
     const accessToken = useAuthStore(state => state.access_token);
     const invalidateAfterValidStudySession = useAppDataStore(state => state.invalidateAfterValidStudySession);
     const loadRoomDetails = useAppDataStore(state => state.loadRoomDetails);
+    const markRoomActivity = useAppDataStore(state => state.markRoomActivity);
+    const setActiveStudySession = useAppDataStore(state => state.setActiveStudySession);
 
     const [configVisible, setConfigVisible] = useState(false);
     const [infoVisible, setInfoVisible] = useState(false);
@@ -45,6 +47,14 @@ export default function LiveRoomScreen() {
             if (timerRef.current) clearInterval(timerRef.current);
         };
     }, []);
+
+    usePreventRemove(isStudying, ({ data }) => {
+        Alert.alert(
+            'Sesion activa',
+            'Finaliza la sesion antes de salir de la sala.',
+            [{ text: 'Entendido', style: 'cancel' }]
+        );
+    });
 
     // RF-06: carga datos de sala e integrantes activos para la visualizacion.
     const loadRoom = async () => {
@@ -103,7 +113,11 @@ export default function LiveRoomScreen() {
 
                 setActiveSessionId(null);
                 setIsStudying(false);
+                setActiveStudySession(null);
                 if (result.valid || result.duration_minutes >= 30) {
+                    if (room?.id && result.duration_minutes >= 30) {
+                        markRoomActivity(room.id);
+                    }
                     invalidateAfterValidStudySession(room?.id);
                 }
 
@@ -130,6 +144,7 @@ export default function LiveRoomScreen() {
 
                 setActiveSessionId(session.session_id);
                 setIsStudying(true);
+                setActiveStudySession({ sessionId: session.session_id, roomId: room.id });
             } catch (error: any) {
                 Alert.alert('Error de sesion', error.message ?? 'No se pudo iniciar la sesion.');
                 return;
@@ -226,7 +241,7 @@ export default function LiveRoomScreen() {
 
                 <RoomRanking roomId={room?.id} />
                 {room?.teams_enabled && <TeamsSection />}
-                <LeaveRoomButton roomId={room?.id} />
+                {!isStudying && <LeaveRoomButton roomId={room?.id} />}
             </ScrollView>
 
             <SessionConfigModal
