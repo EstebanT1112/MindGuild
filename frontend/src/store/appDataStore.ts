@@ -202,9 +202,9 @@ export const useAppDataStore = create<AppDataState>((set, get) => ({
     set(state => ({
       rooms: {
         ...state.rooms,
-        data: sortUserRooms((state.rooms.data ?? []).map(room =>
+        data: (state.rooms.data ?? []).map(room =>
           room.id === roomId ? { ...room, is_favorite: isFavorite } : room
-        )),
+        ),
         lastFetchedAt: Date.now(),
       },
     })),
