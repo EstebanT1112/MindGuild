@@ -15,7 +15,7 @@ interface UseStudyTimerProps {
   roomId: string | null;
   initialMode: 'pomodoro' | 'free';
   initialDurationMinutes: number;
-  onSessionEnded: (result: any) => void;
+  onSessionEnded: (result: { status: 'invalid' | 'pending'; duration_minutes: number; session_id: string }) => void;
 }
 
 export function useStudyTimer({
@@ -59,15 +59,12 @@ export function useStudyTimer({
     }
   };
 
-  // ⚡ OPTIMIZACIÓN EXTREMA: Desacoplamos la UI de la red para disparar el cartel al instante sin delay
   const forceEndActiveSession = async () => {
     const { sessionId: currentSessionId, startTime: currentStartTime, initialMode: currentMode, displaySeconds: currentDisplay, accumulatedSeconds: currentAccumulated, initialDurationMinutes: currentDuration } = stateRef.current;
     if (!accessToken || !currentSessionId || !currentStartTime) return;
 
-    // 1. Limpiamos hilos de inmediato
     clearLocalInterval();
     
-    // 2. Calculamos tiempo localmente en el milisegundo actual
     let totalSecondsStudied = 0;
     if (currentMode === 'pomodoro') {
       const targetTotal = currentDuration * 60;
@@ -77,30 +74,32 @@ export function useStudyTimer({
     }
 
     const minutesStudied = Math.max(0, Math.floor(totalSecondsStudied / 60));
+    // Umbral oficial de 30 minutos según reglas del requerimiento
+    const finalStatus = minutesStudied >= 30 ? 'pending' : 'invalid';
 
-    // 3. 🚀 DISPARO OPTIMISTA INSTANTÁNEO: Reseteamos la UI local y mandamos el callback
-    // para que salte el Alert sin esperar la respuesta HTTP de Supabase.
-    setStatus('idle');
-    setSessionId(null);
-    setStartTime(null);
-    setAccumulatedSeconds(0);
+    if (finalStatus === 'invalid') {
+      setStatus('idle');
+      setSessionId(null);
+      setStartTime(null);
+      setAccumulatedSeconds(0);
+    }
 
-    // Mockeamos el formato del result de forma local inmediata para el Alert
-    const localResultMock = {
-      valid: minutesStudied >= 5, // Sincronizado con el umbral real de 5 min del backend
-      duration_minutes: minutesStudied
-    };
-    onSessionEnded(localResultMock);
+    onSessionEnded({
+      status: finalStatus,
+      duration_minutes: minutesStudied,
+      session_id: currentSessionId
+    });
 
-    // 4. Dejamos corriendo la promesa de red de fondo (en segundo plano)
     try {
-      endStudySession(accessToken, currentSessionId, {
-        ended_at: new Date().toISOString(),
-        duration_minutes: minutesStudied,
-        paused_seconds: 0, 
-      }).catch((err) => console.error('Error asincrónico silencioso en backend:', err));
+      if (finalStatus === 'invalid') {
+        endStudySession(accessToken, currentSessionId, {
+          ended_at: new Date().toISOString(),
+          duration_minutes: minutesStudied,
+          paused_seconds: 0, 
+        }).catch((err) => console.error('Error al cerrar automáticamente por background:', err));
+      }
     } catch (error) {
-      console.error('Error al finalizar sesion de forma automatica:', error);
+      console.error('Error en cierre forzado por AppState:', error);
     }
   };
 
@@ -126,12 +125,8 @@ export function useStudyTimer({
       if (stateRef.current.status === 'running' || stateRef.current.status === 'paused') {
         e.preventDefault();
         forceEndActiveSession()
-          .catch((error) => {
-            console.error('Error al finalizar sesion durante la navegacion', error);
-          })
-          .finally(() => {
-            navigation.dispatch(e.data.action);
-          });
+          .catch((error) => console.error('Error al finalizar por navegación nativa:', error))
+          .finally(() => navigation.dispatch(e.data.action));
       }
     });
     return unsubscribe;
@@ -140,36 +135,33 @@ export function useStudyTimer({
   useEffect(() => {
     const unsubscribeBlur = navigation.addListener('blur', () => {
       if (stateRef.current.status === 'running' || stateRef.current.status === 'paused') {
-        forceEndActiveSession().catch((error) => {
-          console.error('Error al finalizar sesión por desenfoque de pestaña (blur):', error);
-        });
+        forceEndActiveSession().catch((error) => console.error('Error al finalizar por blur:', error));
       }
     });
     return unsubscribeBlur;
   }, [navigation, accessToken]);
 
-  const startLocalTimer = (startTs: number) => {
+  const startLocalTimer = () => {
     clearLocalInterval();
-    const mode = stateRef.current.initialMode;
-    const durationSecs = stateRef.current.initialDurationMinutes * 60;
-
+    
     timerIntervalRef.current = setInterval(() => {
-      const now = Date.now();
-      const deltaSeconds = Math.floor((now - startTs) / 1000);
-
+      const mode = stateRef.current.initialMode;
+      
       if (mode === 'pomodoro') {
-        const remaining = durationSecs - (stateRef.current.accumulatedSeconds + deltaSeconds);
-        if (remaining <= 0) {
-          clearLocalInterval();
-          setDisplaySeconds(0);
-          Alert.alert('Tiempo cumplido', 'Finaliza la sesion para guardar el tiempo de estudio.');
-        } else {
-          setDisplaySeconds(remaining);
-        }
+        setDisplaySeconds((prev) => {
+          if (prev <= 1) {
+            clearLocalInterval();
+            Alert.alert('Tiempo cumplido', 'Finalizá la sesión para guardar el tiempo de estudio.');
+            return 0;
+          }
+          return prev - 1;
+        });
       } else {
-        const totalFree = stateRef.current.accumulatedSeconds + deltaSeconds;
-        setDisplaySeconds(totalFree);
-        setAccumulatedSeconds(totalFree);
+        setAccumulatedSeconds((prevSecs) => {
+          const nextSecs = prevSecs + 1;
+          setDisplaySeconds(nextSecs);
+          return nextSecs;
+        });
       }
     }, 1000);
   };
@@ -178,8 +170,8 @@ export function useStudyTimer({
     if (!accessToken || !roomId) return;
 
     setStatus('starting');
-    setStartTime(Date.now());
-    startLocalTimer(Date.now());
+    const now = Date.now();
+    setStartTime(now);
 
     try {
       const data = await startStudySession(accessToken, {
@@ -188,102 +180,105 @@ export function useStudyTimer({
       });
       setSessionId(data.session_id);
       setStatus('running');
+      startLocalTimer();
     } catch (error: any) {
-      clearLocalInterval();
       setStatus('idle');
       setStartTime(null);
       setDisplaySeconds(initialMode === 'pomodoro' ? initialDurationMinutes * 60 : 0);
-      Alert.alert('Error de sesion', error.message ?? 'No se pudo sincronizar el inicio con el servidor.');
+      Alert.alert('Error de sesión', error.message ?? 'No se pudo sincronizar el inicio con el servidor.');
     }
   };
 
   const pauseSession = async () => {
-    if (!accessToken || !sessionId) return;
+    const { sessionId: currentSessionId } = stateRef.current;
+    if (!accessToken || !currentSessionId) return;
     
     clearLocalInterval();
     setStatus('paused');
 
-    if (initialMode === 'pomodoro') {
-      const currentElapsed = initialDurationMinutes * 60 - displaySeconds;
-      setAccumulatedSeconds(currentElapsed);
-    }
-
     try {
-      await pauseStudySession(accessToken, sessionId);
+      await pauseStudySession(accessToken, currentSessionId);
     } catch (error: any) {
       setStatus('running');
-      startLocalTimer(startTime ?? Date.now());
-      Alert.alert('Error de conexion', error.message ?? 'No se pudo registrar la pausa en el servidor.');
+      startLocalTimer();
+      Alert.alert('Error', error.message ?? 'No se pudo registrar la pausa.');
     }
   };
 
   const resumeSession = async () => {
-    if (!accessToken || !sessionId) return;
+    const { sessionId: currentSessionId } = stateRef.current;
+    if (!accessToken || !currentSessionId) return;
 
     setStatus('running');
-    const newStartTs = Date.now();
-    setStartTime(newStartTs);
-    startLocalTimer(newStartTs);
 
     try {
-      await resumeStudySession(accessToken, sessionId);
+      await resumeStudySession(accessToken, currentSessionId);
+      startLocalTimer();
     } catch (error: any) {
-      Alert.alert('Aviso de sincronizacion', 'Se reanudo localmente pero el servidor no impacto el cambio.');
+      startLocalTimer();
+      Alert.alert('Error', 'Se reanudó localmente pero el servidor no impactó el cambio.');
     }
   };
 
   const endSession = async () => {
-    if (!accessToken || !sessionId) return;
+    const { sessionId: currentSessionId, displaySeconds: currentDisplay, accumulatedSeconds: currentAccumulated } = stateRef.current;
+    if (!accessToken || !currentSessionId) return;
 
     clearLocalInterval();
     setStatus('finishing');
 
     let totalSecondsStudied = 0;
     if (initialMode === 'pomodoro') {
-      totalSecondsStudied = Math.max(0, (initialDurationMinutes * 60) - displaySeconds);
+      totalSecondsStudied = Math.max(0, (initialDurationMinutes * 60) - currentDisplay);
     } else {
-      totalSecondsStudied = Math.max(0, displaySeconds);
+      totalSecondsStudied = Math.max(0, currentAccumulated);
     }
 
     const finalMinutes = Math.max(0, Math.floor(totalSecondsStudied / 60));
+    // Umbral oficial alineado a 30 minutos
+    const finalStatus = finalMinutes >= 30 ? 'pending' : 'invalid';
 
-    // Mockeamos el resultado local para que pinte el cartel instantáneo
-    const resultMock = {
-      valid: finalMinutes >= 5,
-      duration_minutes: finalMinutes
-    };
-    onSessionEnded(resultMock);
+    // Disparamos callback hacia la pantalla
+    onSessionEnded({
+      status: finalStatus,
+      duration_minutes: finalMinutes,
+      session_id: currentSessionId
+    });
 
-    // Mandamos el cierre de red asincrónico por detrás sin bloquear
     try {
-      endStudySession(accessToken, sessionId, {
-        ended_at: new Date().toISOString(),
-        duration_minutes: finalMinutes,
-        paused_seconds: 0, 
-      }).catch((err) => console.error('Error asincrónico en endSession manual:', err));
+      if (finalStatus === 'invalid') {
+        await endStudySession(accessToken, currentSessionId, {
+          ended_at: new Date().toISOString(),
+          duration_minutes: finalMinutes,
+          paused_seconds: 0, 
+        });
+        // Si fue inválida corta, reseteamos el estado al instante para liberar la UI
+        setStatus('idle');
+        setSessionId(null);
+        setStartTime(null);
+        setAccumulatedSeconds(0);
+        setDisplaySeconds(initialMode === 'pomodoro' ? initialDurationMinutes * 60 : 0);
+      }
     } catch (error: any) {
-      console.error('Error catastrófico al finalizar sesión manualmente:', error);
-    } finally {
+      console.error('Error al finalizar sesión manual:', error);
       setStatus('idle');
       setSessionId(null);
-      setStartTime(null);
-      setAccumulatedSeconds(0);
-      setDisplaySeconds(initialMode === 'pomodoro' ? initialDurationMinutes * 60 : 0);
     }
   };
 
   useEffect(() => {
     return () => {
       clearLocalInterval();
-      setStatus('idle');
-      setStartTime(null);
-      setAccumulatedSeconds(0);
     };
   }, []);
 
   return {
     status,
+    setStatus, // Exportado para que el modal limpie la UI al terminar la subida
+    setSessionId, // Exportado para liberar el ID
+    sessionId,
     displaySeconds,
+    setDisplaySeconds,
     startSession,
     pauseSession,
     resumeSession,

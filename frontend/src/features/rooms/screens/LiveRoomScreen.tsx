@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import { ChevronRight, Info, Settings, Users, UserPlus } from 'lucide-react-native';
@@ -15,6 +15,9 @@ import { type RoomDetails } from '../services/roomsService';
 import { useStudyTimer } from '../components/useStudyTimer';
 import InviteFriendsModal from '../components/InviteFriendsModal';
 
+import EvidenceUploadModal from '../components/EvidenceUploadModal';
+import ReviewPeerSessionsModal from '../components/ReviewPeerSessionsModal';
+
 export default function LiveRoomScreen() {
     const route = useRoute<any>();
     const accessToken = useAuthStore(state => state.access_token);
@@ -27,28 +30,41 @@ export default function LiveRoomScreen() {
     const [infoVisible, setInfoVisible] = useState(false);
     const [inviteFriendsVisible, setInviteFriendsVisible] = useState(false);
     
+    const [evidenceVisible, setEvidenceVisible] = useState(false);
+    const [reviewPeersVisible, setReviewPeersVisible] = useState(false);
+    const [activeSessionMinutes, setActiveSessionMinutes] = useState(0);
+    
     const [room, setRoom] = useState<RoomDetails | null>(null);
     const [loading, setLoading] = useState(true);
 
     const [sessionType, setSessionType] = useState<'pomodoro' | 'free'>('pomodoro');
-    const [durationMinutes, setDurationMinutes] = useState(25);
+    const [durationMinutes, setDurationMinutes] = useState(30);
 
     const handleSessionEnded = (result: any) => {
-        if ((result.valid || result.duration_minutes >= 30) && targetRoomId) {
-            invalidateAfterValidStudySession(targetRoomId);
+        if (result.status === 'invalid') {
+            Alert.alert(
+                'Sesión Guardada',
+                `Estudiaste ${result.duration_minutes} minutos. Recordá que se necesita un mínimo de tiempo enfocado para acumular puntos en el ranking de la sala.`
+            );
+            if (targetRoomId) {
+                invalidateAfterValidStudySession(targetRoomId);
+            }
+            return;
         }
 
-        Alert.alert(
-            'Sesión Finalizada',
-            result.valid
-                ? `Se acreditaron ${result.duration_minutes} minutos.`
-                : `Estudiaste ${result.duration_minutes} minutos. Para sumar al ranking necesitas al menos 5 minutos.`
-        );
+        if (result.status === 'pending') {
+            setActiveSessionMinutes(result.duration_minutes);
+            setEvidenceVisible(true);
+        }
     };
 
     const {
         status,
+        setStatus,
+        setSessionId,
+        sessionId,
         displaySeconds,
+        setDisplaySeconds,
         startSession,
         pauseSession,
         resumeSession,
@@ -137,10 +153,23 @@ export default function LiveRoomScreen() {
                             <Settings color="#22c55e" size={24} />
                         </View>
                         <View style={styles.configInfo}>
-                            <Text style={styles.configTitle}>Configurar Sesion</Text>
+                            <Text style={styles.configTitle}>Configurar Sesión</Text>
                             <Text style={styles.configSub}>
                                 {sessionType === 'pomodoro' ? `Pomodoro • ${durationMinutes} min` : 'Modo Libre • Sin límite'}
                             </Text>
+                        </View>
+                        <ChevronRight color="#4b5563" size={20} />
+                    </Pressable>
+                )}
+
+                {!isEnfocused && (
+                    <Pressable style={[styles.configCard, { marginTop: 12, borderColor: '#16a34a' }]} onPress={() => setReviewPeersVisible(true)}>
+                        <View style={[styles.configIconBox, { backgroundColor: '#14532d' }]}>
+                            <Users color="#22c55e" size={24} />
+                        </View>
+                        <View style={styles.configInfo}>
+                            <Text style={styles.configTitle}>Validar Compañeros</Text>
+                            <Text style={styles.configSub}>Panel de verificación social de apuntes y evidencias</Text>
                         </View>
                         <ChevronRight color="#4b5563" size={20} />
                     </Pressable>
@@ -223,6 +252,43 @@ export default function LiveRoomScreen() {
                     accessToken={accessToken}
                 />
             )}
+
+            <EvidenceUploadModal
+                visible={evidenceVisible}
+                sessionId={sessionId}
+                accessToken={accessToken}
+                durationMinutes={activeSessionMinutes}
+                onSuccess={() => {
+                    setEvidenceVisible(false);
+                    setDisplaySeconds(sessionType === 'pomodoro' ? durationMinutes * 60 : 0);
+                    setSessionId(null);
+                    setStatus('idle');
+                    if (targetRoomId) {
+                        invalidateAfterValidStudySession(targetRoomId);
+                    }
+                }}
+                onCancel={() => {
+                    setEvidenceVisible(false);
+                    setDisplaySeconds(sessionType === 'pomodoro' ? durationMinutes * 60 : 0);
+                    setSessionId(null);
+                    setStatus('idle');
+                    if (targetRoomId) {
+                        invalidateAfterValidStudySession(targetRoomId);
+                    }
+                }}
+            />
+
+            <ReviewPeerSessionsModal
+                visible={reviewPeersVisible}
+                roomId={targetRoomId}
+                accessToken={accessToken}
+                onClose={() => setReviewPeersVisible(false)}
+                onRefreshRanking={() => {
+                    if (targetRoomId) {
+                        invalidateAfterValidStudySession(targetRoomId);
+                    }
+                }}
+            />
         </ScreenLayout>
     );
 }
