@@ -34,6 +34,22 @@ export const sessionsRepository = {
     return (rows[0] as StudySession | undefined) ?? null;
   },
 
+  async findActiveSessionByUserAndRoom(userId: string, roomId: string): Promise<StudySession | null> {
+    const { rows } = await pool.query(
+      `
+        SELECT id, user_id, room_id, mode, status, started_at, ended_at, duration_minutes, paused_seconds, valid
+        FROM study_sessions
+        WHERE user_id = $1
+          AND room_id = $2
+          AND status IN ('active', 'paused')
+        LIMIT 1;
+      `,
+      [userId, roomId]
+    );
+
+    return (rows[0] as StudySession | undefined) ?? null;
+  },
+
   async createSession(userId: string, data: StartSessionDTO) {
     const { rows } = await pool.query(
       `

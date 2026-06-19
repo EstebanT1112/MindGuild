@@ -1,5 +1,6 @@
 import { RoomsRepository } from '../repository/rooms.repository.js';
 import { achievementService } from '../../achievements/service/achievement.service.js';
+import { sessionsRepository } from '../../sessions/repository/session.repository.js';
 import {
   RoomConflictError,
   RoomNotFoundError,
@@ -60,6 +61,12 @@ export const RoomsService = {
 
     if (!membership.is_active) {
       throw new RoomConflictError('El usuario ya se encuentra inactivo en la sala');
+    }
+
+    const activeSession = await sessionsRepository.findActiveSessionByUserAndRoom(userId, roomId);
+
+    if (activeSession) {
+      throw new RoomConflictError('No podes abandonar la sala mientras tenes una sesion activa');
     }
 
     const result = await RoomsRepository.deactivateMember(userId, roomId);

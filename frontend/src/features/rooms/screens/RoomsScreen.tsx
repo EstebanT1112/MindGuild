@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Inbox, LogIn, Plus, Users, Mail } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { useAppDataStore } from '../../../store/appDataStore';
@@ -44,15 +44,15 @@ export default function RoomsScreen() {
 
     const myRooms = rooms.map(mapUserRoomToCard);
 
-    useEffect(() => {
-        loadInitialRooms();
+    useFocusEffect(useCallback(() => {
+        loadInitialRooms(true);
         checkPendingInvitations();
-    }, [accessToken]);
+    }, [accessToken]));
 
-    const loadInitialRooms = async () => {
+    const loadInitialRooms = async (force = false) => {
         if (!accessToken) return;
         try {
-            await loadRoomsFromStore(accessToken);
+            await loadRoomsFromStore(accessToken, { force });
         } catch (error: any) {
             Alert.alert('Error al cargar salas', error.message ?? 'No se pudieron cargar tus salas.');
         }
