@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { ChevronRight, Inbox, Users } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { useAppDataStore } from '../../../store/appDataStore';
@@ -26,14 +26,14 @@ export default function HomeScreen() {
   const [missionsVisible, setMissionsVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     if (!accessToken) return;
     loadProfile(accessToken).catch(err => console.error('Error cargando perfil del usuario:', err));
-    loadRooms(accessToken).catch(err => console.error('Error cargando salas del usuario:', err));
+    loadRooms(accessToken, { force: true }).catch(err => console.error('Error cargando salas del usuario:', err));
     loadMissions(accessToken).catch(err => console.error('Error cargando misiones:', err));
-  }, [accessToken, loadProfile, loadRooms, loadMissions]);
+  }, [accessToken, loadProfile, loadRooms, loadMissions]));
 
-  const recentRooms = rooms.slice(0, 3);
+  const favoriteRooms = rooms.filter(room => room.is_favorite).slice(0, 3);
 
   const handleRefresh = async () => {
     if (!accessToken) return;
@@ -80,13 +80,13 @@ export default function HomeScreen() {
         <Text style={styles.section}>SALAS FRECUENTES</Text>
         {roomsLoading ? (
           <ActivityIndicator size="small" color="#22c55e" style={{ marginTop: 10 }} />
-        ) : recentRooms.length === 0 ? (
+        ) : favoriteRooms.length === 0 ? (
           <View style={styles.emptyState}>
             <Inbox color="#64748b" size={24} />
-            <Text style={styles.emptyText}>Todavia no tenes salas activas.</Text>
+            <Text style={styles.emptyText}>Marca hasta 3 salas favoritas para verlas aca.</Text>
           </View>
         ) : (
-          recentRooms.map(room => (
+          favoriteRooms.map(room => (
             <Pressable key={room.id} style={styles.roomCard} onPress={() => handleRoomPress(room)}>
               <View style={styles.roomLeft}>
                 <Text style={styles.roomName}>{room.name}</Text>

@@ -14,6 +14,7 @@ export default function RoomInfoPanel({ room }: { room: RoomDetails }) {
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>{room.name}</Text>
           <Text style={styles.mode}>{modeLabel}</Text>
+          {room.description ? <Text style={styles.description}>{room.description}</Text> : null}
         </View>
         <View style={styles.codeBox}>
           <Hash color="#22c55e" size={14} />
@@ -58,6 +59,7 @@ const styles = StyleSheet.create({
   },
   title: { color: 'white', fontSize: 20, fontWeight: '900' },
   mode: { color: '#94a3b8', fontSize: 13, marginTop: 4, fontWeight: 'bold' },
+  description: { color: '#cbd5e1', fontSize: 13, marginTop: 8, lineHeight: 18 },
   codeBox: {
     flexDirection: 'row',
     alignItems: 'center',

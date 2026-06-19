@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import { ChevronRight, Info, PlayCircle, Plus, Settings, Swords, Trash2 } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
@@ -7,6 +7,7 @@ import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
 import LeaveRoomButton from '../components/LeaveRoomButton';
 import NewQuestionModal from '../components/NewQuestionModal';
+import RoomAdminModal from '../components/RoomAdminModal';
 import RoomInfoModal from '../components/RoomInfoModal';
 import RoomRanking from '../components/RoomRanking';
 import SessionConfigModal from '../components/SessionConfigModal';
@@ -16,31 +17,60 @@ import { type RoomDetails } from '../services/roomsService';
 export default function BattleRoyaleScreen() {
     const route = useRoute<any>();
     const accessToken = useAuthStore(state => state.access_token);
+    const currentUser = useAuthStore(state => state.user);
+    const currentProfile = useAppDataStore(state => state.profile.data);
     const loadRoomDetails = useAppDataStore(state => state.loadRoomDetails);
+    const loadRoomRanking = useAppDataStore(state => state.loadRoomRanking);
+    const setRoomDetails = useAppDataStore(state => state.setRoomDetails);
 
     const [configVisible, setConfigVisible] = useState(false);
+    const [adminVisible, setAdminVisible] = useState(false);
     const [infoVisible, setInfoVisible] = useState(false);
     const [questionVisible, setQuestionVisible] = useState(false);
     const [quizVisible, setQuizVisible] = useState(false);
     const [room, setRoom] = useState<RoomDetails | null>(null);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+
+    const targetRoomId = route.params?.roomId ? String(route.params.roomId) : null;
 
     useEffect(() => {
         loadRoom();
     }, [route.params?.roomId, accessToken]);
 
     // RF-06: carga datos de sala e integrantes activos para la visualizacion.
-    const loadRoom = async () => {
-        if (!accessToken || !route.params?.roomId) return;
+    const loadRoom = async (options?: { force?: boolean; showLoading?: boolean }) => {
+        if (!accessToken || !targetRoomId) return;
 
-        setLoading(true);
+        const shouldShowLoading = options?.showLoading ?? true;
+        if (shouldShowLoading) setLoading(true);
         try {
-            const data = await loadRoomDetails(accessToken, String(route.params.roomId));
-            setRoom(data);
+            const data = await loadRoomDetails(accessToken, targetRoomId, { force: options?.force });
+            if (data) {
+                setRoom(data);
+                setRoomDetails(data);
+            }
+
+            if (options?.force) {
+                try {
+                    await loadRoomRanking(accessToken, targetRoomId, { force: true });
+                } catch (rankingError) {
+                    console.error('No se pudo actualizar el ranking de sala:', rankingError);
+                }
+            }
         } catch (error: any) {
             Alert.alert('Error de sala', error.message ?? 'No se pudo cargar la sala.');
         } finally {
-            setLoading(false);
+            if (shouldShowLoading) setLoading(false);
+        }
+    };
+
+    const handleRefresh = async () => {
+        setRefreshing(true);
+        try {
+            await loadRoom({ force: true, showLoading: false });
+        } finally {
+            setRefreshing(false);
         }
     };
 
@@ -55,6 +85,14 @@ export default function BattleRoyaleScreen() {
         );
     }
 
+    const currentUserId = currentUser?.id ?? currentProfile?.id;
+    const isOwner = Boolean(room && currentUserId === room.owner_id);
+
+    const handleRoomUpdated = (updatedRoom: RoomDetails) => {
+        setRoom(updatedRoom);
+        setRoomDetails(updatedRoom);
+    };
+
     return (
         <ScreenLayout
             title={room?.name ?? 'BATTLE ROYALE'}
@@ -62,13 +100,31 @@ export default function BattleRoyaleScreen() {
             icon={<Swords color="#a855f7" size={22} />}
             rightAction={
                 room ? (
-                    <Pressable style={styles.infoBtn} onPress={() => setInfoVisible(true)}>
-                        <Info color="#a855f7" size={20} />
-                    </Pressable>
+                    <View style={styles.headerActions}>
+                        {isOwner && (
+                            <Pressable style={styles.infoBtn} onPress={() => setAdminVisible(true)}>
+                                <Settings color="#a855f7" size={20} />
+                            </Pressable>
+                        )}
+                        <Pressable style={styles.infoBtn} onPress={() => setInfoVisible(true)}>
+                            <Info color="#a855f7" size={20} />
+                        </Pressable>
+                    </View>
                 ) : undefined
             }
         >
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.scrollContent}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={handleRefresh}
+                        tintColor="#a855f7"
+                        colors={['#a855f7']}
+                    />
+                }
+            >
                 <Pressable style={styles.configCard} onPress={() => setConfigVisible(true)}>
                     <View style={styles.configIconBox}>
                         <Settings color="#a855f7" size={24} />
@@ -132,6 +188,16 @@ export default function BattleRoyaleScreen() {
                     onClose={() => setInfoVisible(false)}
                 />
             )}
+            {room && accessToken && (
+                <RoomAdminModal
+                    visible={adminVisible}
+                    room={room}
+                    accessToken={accessToken}
+                    currentUserId={currentUserId}
+                    onClose={() => setAdminVisible(false)}
+                    onRoomUpdated={handleRoomUpdated}
+                />
+            )}
             <NewQuestionModal visible={questionVisible} onClose={() => setQuestionVisible(false)} />
             <WeeklyQuizModal visible={quizVisible} onClose={() => setQuizVisible(false)} />
         </ScreenLayout>
@@ -142,6 +208,7 @@ const styles = StyleSheet.create({
     loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
     loadingText: { color: '#94a3b8', fontWeight: 'bold' },
     scrollContent: { paddingBottom: 100, paddingVertical: 10 },
+    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     infoBtn: {
         width: 40,
         height: 40,

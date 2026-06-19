@@ -1,5 +1,6 @@
 import { RoomsRepository } from '../repository/rooms.repository.js';
 import { achievementService } from '../../achievements/service/achievement.service.js';
+import { sessionsRepository } from '../../sessions/repository/session.repository.js';
 import {
   RoomConflictError,
   RoomNotFoundError,
@@ -10,10 +11,14 @@ import {
   type MembershipJoinStatus,
   type RoomDetails,
   type RoomMode,
+  type UpdateRoomDTO,
   type UserRoom,
 } from '../types/rooms.types.js';
 
 const VALID_ROOM_MODES: RoomMode[] = ['survival', 'battle_royale'];
+const MAX_ACTIVE_ROOMS_PER_USER = 15;
+const MAX_ROOMS_CREATED_PER_DAY = 3;
+const MAX_FAVORITE_ROOMS = 3;
 
 export const RoomsService = {
   async createRoom(ownerId: string, input: Partial<CreateRoomDTO>): Promise<CreatedRoom> {
@@ -26,6 +31,9 @@ export const RoomsService = {
     if (!userExists) {
       throw new RoomNotFoundError('Usuario owner no encontrado');
     }
+
+    await validateActiveRoomsLimit(ownerId);
+    await validateDailyRoomCreationLimit(ownerId);
 
     try {
       const room = await RoomsRepository.createRoomWithOwner(ownerId, data);
@@ -56,11 +64,23 @@ export const RoomsService = {
       throw new RoomConflictError('El usuario ya se encuentra inactivo en la sala');
     }
 
+    const activeSession = await sessionsRepository.findActiveSessionByUserAndRoom(userId, roomId);
+
+    if (activeSession) {
+      throw new RoomConflictError('No podes abandonar la sala mientras tenes una sesion activa');
+    }
+
     const result = await RoomsRepository.deactivateMember(userId, roomId);
 
     if (!result) {
       throw new RoomConflictError('No se pudo procesar la salida de sala');
     }
+
+    if (result.role === 'owner') {
+      await RoomsRepository.transferOwnershipToOldestActiveMember(roomId);
+    }
+
+    await RoomsRepository.deactivateRoomIfEmpty(roomId);
 
     return { success: true, message: 'Salida de sala procesada con exito' };
   },
@@ -80,6 +100,7 @@ export const RoomsService = {
     }
 
     const membershipStatus = await validateJoinConditions(userId, room.id, room.max_members);
+    await validateActiveRoomsLimit(userId);
 
     try {
       const joinedRoom = await RoomsRepository.joinRoom(room, userId, membershipStatus);
@@ -123,6 +144,121 @@ export const RoomsService = {
       members,
     };
   },
+
+  async getAdminRoomDetails(userId: string, roomId: string): Promise<RoomDetails> {
+    await validateOwnerAccess(userId, roomId);
+    return this.getRoomDetails(userId, roomId);
+  },
+
+  async updateRoom(userId: string, roomId: string, input: Partial<UpdateRoomDTO>): Promise<RoomDetails> {
+    await validateOwnerAccess(userId, roomId);
+
+    const data = normalizeUpdateRoomInput(input);
+    validateUpdateRoomInput(data);
+
+    const updatedRoom = await RoomsRepository.updateRoom(roomId, data);
+
+    if (!updatedRoom) {
+      throw new RoomNotFoundError('Sala no encontrada o inactiva');
+    }
+
+    const members = await RoomsRepository.getActiveMembers(roomId);
+
+    return {
+      ...updatedRoom,
+      members,
+    };
+  },
+
+  async removeMember(ownerId: string, roomId: string, targetUserId: string): Promise<{ success: boolean; message: string }> {
+    await validateOwnerAccess(ownerId, roomId);
+
+    if (!targetUserId) {
+      throw new RoomValidationError('memberId es requerido');
+    }
+
+    if (targetUserId === ownerId) {
+      throw new RoomConflictError('No podes expulsarte a vos mismo');
+    }
+
+    const targetMembership = await RoomsRepository.findMembership(roomId, targetUserId);
+
+    if (!targetMembership?.is_active) {
+      throw new RoomNotFoundError('El integrante no pertenece activamente a la sala');
+    }
+
+    if (targetMembership.role === 'owner') {
+      throw new RoomConflictError('No se puede expulsar al owner de la sala');
+    }
+
+    const activeSession = await sessionsRepository.findActiveSessionByUserAndRoom(targetUserId, roomId);
+
+    if (activeSession) {
+      await sessionsRepository.cancelSession(activeSession.id);
+    }
+
+    const result = await RoomsRepository.removeMember(roomId, targetUserId, ownerId);
+
+    if (!result) {
+      throw new RoomConflictError('No se pudo expulsar al integrante');
+    }
+
+    return { success: true, message: 'Integrante expulsado con exito' };
+  async markFavorite(userId: string, roomId: string): Promise<UserRoom> {
+    if (!roomId) {
+      throw new RoomValidationError('roomId es requerido');
+    }
+
+    const membership = await RoomsRepository.findMembership(roomId, userId);
+
+    if (!membership?.is_active) {
+      throw new RoomConflictError('No tenes acceso activo a esta sala');
+    }
+
+    const room = await RoomsRepository.findActiveRoomById(roomId);
+
+    if (!room || !room.is_active) {
+      throw new RoomNotFoundError('Sala no encontrada o inactiva');
+    }
+
+    const currentRoom = await RoomsRepository.findActiveUserRoom(userId, roomId);
+
+    if (!currentRoom?.is_favorite) {
+      const favoritesCount = await RoomsRepository.countFavoriteRoomsByUserId(userId);
+
+      if (favoritesCount >= MAX_FAVORITE_ROOMS) {
+        throw new RoomConflictError('Solo podes marcar hasta 3 salas favoritas');
+      }
+    }
+
+    const updatedRoom = await RoomsRepository.setFavorite(userId, roomId, true);
+
+    if (!updatedRoom) {
+      throw new RoomConflictError('No se pudo marcar la sala como favorita');
+    }
+
+    return updatedRoom;
+  },
+
+  async unmarkFavorite(userId: string, roomId: string): Promise<UserRoom> {
+    if (!roomId) {
+      throw new RoomValidationError('roomId es requerido');
+    }
+
+    const membership = await RoomsRepository.findMembership(roomId, userId);
+
+    if (!membership) {
+      throw new RoomNotFoundError('El usuario no pertenece a la sala');
+    }
+
+    const updatedRoom = await RoomsRepository.setFavorite(userId, roomId, false);
+
+    if (!updatedRoom) {
+      throw new RoomConflictError('No se pudo quitar la sala de favoritas');
+    }
+
+    return updatedRoom;
+  },
 };
 
 function normalizeCreateRoomInput(input: Partial<CreateRoomDTO>): CreateRoomDTO {
@@ -149,6 +285,56 @@ function validateCreateRoomInput(input: CreateRoomDTO) {
   }
 }
 
+function normalizeUpdateRoomInput(input: Partial<UpdateRoomDTO>): UpdateRoomDTO {
+  const data: UpdateRoomDTO = {};
+
+  if (Object.prototype.hasOwnProperty.call(input, 'name')) {
+    data.name = typeof input.name === 'string' ? input.name.trim() : undefined;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(input, 'description')) {
+    data.description = typeof input.description === 'string' ? input.description.trim() : input.description ?? null;
+  }
+
+  return data;
+}
+
+function validateUpdateRoomInput(input: UpdateRoomDTO) {
+  if (input.name !== undefined && !input.name) {
+    throw new RoomValidationError('El nombre de la sala es requerido');
+  }
+
+  if (input.name && input.name.length > 60) {
+    throw new RoomValidationError('El nombre de la sala no puede superar los 60 caracteres');
+  }
+
+  if (input.description && input.description.length > 240) {
+    throw new RoomValidationError('La descripcion no puede superar los 240 caracteres');
+  }
+}
+
+async function validateOwnerAccess(userId: string, roomId: string) {
+  if (!roomId) {
+    throw new RoomValidationError('roomId es requerido');
+  }
+
+  const membership = await RoomsRepository.findMembership(roomId, userId);
+
+  if (!membership?.is_active) {
+    throw new RoomConflictError('No tenes acceso activo a esta sala');
+  }
+
+  if (membership.role !== 'owner') {
+    throw new RoomConflictError('Solo el owner puede administrar la sala');
+  }
+
+  const room = await RoomsRepository.findActiveRoomById(roomId);
+
+  if (!room || !room.is_active) {
+    throw new RoomNotFoundError('Sala no encontrada o inactiva');
+  }
+}
+
 async function validateJoinConditions(
   userId: string,
   roomId: string,
@@ -168,6 +354,22 @@ async function validateJoinConditions(
   }
 
   return membership ? 'reactivate' : 'new';
+}
+
+async function validateActiveRoomsLimit(userId: string) {
+  const activeRoomsCount = await RoomsRepository.countActiveRoomsByUserId(userId);
+
+  if (activeRoomsCount >= MAX_ACTIVE_ROOMS_PER_USER) {
+    throw new RoomConflictError('No podes superar 15 salas activas');
+  }
+}
+
+async function validateDailyRoomCreationLimit(ownerId: string) {
+  const roomsCreatedToday = await RoomsRepository.countRoomsCreatedToday(ownerId);
+
+  if (roomsCreatedToday >= MAX_ROOMS_CREATED_PER_DAY) {
+    throw new RoomConflictError('No podes crear mas de 3 salas en el mismo dia');
+  }
 }
 
 function normalizeInviteCode(inviteCode: string): string {

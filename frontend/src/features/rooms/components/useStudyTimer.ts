@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { AppState, AppStateStatus, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../../store/authStore';
+import { useAppDataStore } from '../../../store/appDataStore';
 import {
   startStudySession,
   pauseStudySession,
@@ -26,6 +27,7 @@ export function useStudyTimer({
 }: UseStudyTimerProps) {
   const navigation = useNavigation<any>();
   const accessToken = useAuthStore((state) => state.access_token);
+  const setActiveStudySession = useAppDataStore((state) => state.setActiveStudySession);
 
   const [status, setStatus] = useState<TimerStatus>('idle');
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -83,6 +85,13 @@ export function useStudyTimer({
       setStartTime(null);
       setAccumulatedSeconds(0);
     }
+    // 3. 🚀 DISPARO OPTIMISTA INSTANTÁNEO: Reseteamos la UI local y mandamos el callback
+    // para que salte el Alert sin esperar la respuesta HTTP de Supabase.
+    setStatus('idle');
+    setSessionId(null);
+    setActiveStudySession(null);
+    setStartTime(null);
+    setAccumulatedSeconds(0);
 
     onSessionEnded({
       status: finalStatus,
@@ -179,6 +188,7 @@ export function useStudyTimer({
         mode: initialMode,
       });
       setSessionId(data.session_id);
+      setActiveStudySession({ sessionId: data.session_id, roomId });
       setStatus('running');
       startLocalTimer();
     } catch (error: any) {
@@ -263,12 +273,20 @@ export function useStudyTimer({
       console.error('Error al finalizar sesión manual:', error);
       setStatus('idle');
       setSessionId(null);
+      setActiveStudySession(null);
+      setStartTime(null);
+      setAccumulatedSeconds(0);
+      setDisplaySeconds(initialMode === 'pomodoro' ? initialDurationMinutes * 60 : 0);
     }
   };
 
   useEffect(() => {
     return () => {
       clearLocalInterval();
+      setStatus('idle');
+      setActiveStudySession(null);
+      setStartTime(null);
+      setAccumulatedSeconds(0);
     };
   }, []);
 

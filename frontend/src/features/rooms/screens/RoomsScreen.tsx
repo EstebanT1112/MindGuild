@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Inbox, LogIn, Plus, Users, Mail } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { useAppDataStore } from '../../../store/appDataStore';
@@ -8,7 +8,14 @@ import { useAuthStore } from '../../../store/authStore';
 import RoomCard, { type RoomCardData } from '../components/RoomCard';
 import CreateRoomModal from '../components/CreateRoomModal';
 import JoinRoomModal from '../components/JoinRoomModal';
-import { createRoom, joinRoom, type CreatedRoom, type RoomMode, type UserRoom } from '../services/roomsService';
+import {
+    createRoom,
+    joinRoom,
+    markRoomFavorite,
+    unmarkRoomFavorite,
+    type RoomMode,
+    type UserRoom,
+} from '../services/roomsService';
 
 // --- IMPORTS DEL REQUERIMIENTO RF-05 ---
 import RoomInvitationsModal from '../components/RoomInvitationsModal';
@@ -20,6 +27,7 @@ export default function RoomsScreen() {
     const rooms = useAppDataStore(state => state.rooms.data ?? []);
     const loadRoomsFromStore = useAppDataStore(state => state.loadRooms);
     const addOrReplaceRoom = useAppDataStore(state => state.addOrReplaceRoom);
+    const setRoomFavorite = useAppDataStore(state => state.setRoomFavorite);
     const invalidateAfterRoomParticipation = useAppDataStore(state => state.invalidateAfterRoomParticipation);
 
     const [createVisible, setCreateVisible] = useState(false);
@@ -32,18 +40,19 @@ export default function RoomsScreen() {
     const [creating, setCreating] = useState(false);
     const [joining, setJoining] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
+    const [favoriteLoadingId, setFavoriteLoadingId] = useState<string | null>(null);
 
     const myRooms = rooms.map(mapUserRoomToCard);
 
-    useEffect(() => {
-        loadInitialRooms();
+    useFocusEffect(useCallback(() => {
+        loadInitialRooms(true);
         checkPendingInvitations();
-    }, [accessToken]);
+    }, [accessToken]));
 
-    const loadInitialRooms = async () => {
+    const loadInitialRooms = async (force = false) => {
         if (!accessToken) return;
         try {
-            await loadRoomsFromStore(accessToken);
+            await loadRoomsFromStore(accessToken, { force });
         } catch (error: any) {
             Alert.alert('Error al cargar salas', error.message ?? 'No se pudieron cargar tus salas.');
         }
@@ -108,6 +117,27 @@ export default function RoomsScreen() {
         }
     };
 
+    const handleToggleFavorite = async (room: RoomCardData) => {
+        if (!accessToken || favoriteLoadingId) return;
+
+        const nextFavorite = !room.isFavorite;
+        setFavoriteLoadingId(room.id);
+        setRoomFavorite(room.id, nextFavorite);
+
+        try {
+            const updatedRoom = room.isFavorite
+                ? await unmarkRoomFavorite(accessToken, room.id)
+                : await markRoomFavorite(accessToken, room.id);
+
+            addOrReplaceRoom(updatedRoom);
+        } catch (error: any) {
+            setRoomFavorite(room.id, Boolean(room.isFavorite));
+            Alert.alert('Error de favorita', error.message ?? 'No se pudo actualizar la sala favorita.');
+        } finally {
+            setFavoriteLoadingId(null);
+        }
+    };
+
     return (
         <ScreenLayout
             title="MIS SALAS"
@@ -159,6 +189,7 @@ export default function RoomsScreen() {
                         <RoomCard
                             key={room.id}
                             room={room}
+                            onToggleFavorite={() => handleToggleFavorite(room)}
                             onPress={() => {
                                 if (room.mode === 'Battle Royale') {
                                     navigation.navigate('BattleRoyale', { roomId: room.id, roomName: room.name });
@@ -197,18 +228,6 @@ export default function RoomsScreen() {
     );
 }
 
-function mapCreatedRoomToCard(room: CreatedRoom): RoomCardData {
-    return {
-        id: room.id,
-        name: room.name,
-        code: room.invite_code,
-        members: 1,
-        mode: room.mode === 'battle_royale' ? 'Battle Royale' : 'Supervivencia',
-        ranking: 1,
-        teamsEnabled: room.teams_enabled,
-    };
-}
-
 function mapUserRoomToCard(room: UserRoom): RoomCardData {
     return {
         id: room.id,
@@ -218,6 +237,7 @@ function mapUserRoomToCard(room: UserRoom): RoomCardData {
         mode: room.mode === 'battle_royale' ? 'Battle Royale' : 'Supervivencia',
         ranking: 1,
         teamsEnabled: room.teams_enabled,
+        isFavorite: room.is_favorite,
     };
 }
 

@@ -1,7 +1,8 @@
 import { pool } from '../../../common/config/db.js';
 import type { EndSessionDTO, StartSessionDTO, StudySession, StudySessionPause } from '../types/session.types.js';
 
-const VALID_MINUTES_THRESHOLD = 1;
+const VALID_MINUTES_THRESHOLD = 30;
+const ROOM_ACTIVITY_MINUTES_THRESHOLD = 30;
 
 export const sessionsRepository = {
   async userExists(userId: string): Promise<boolean> {
@@ -30,6 +31,22 @@ export const sessionsRepository = {
       `,
       [userId]
     );
+    return (rows[0] as StudySession | undefined) ?? null;
+  },
+
+  async findActiveSessionByUserAndRoom(userId: string, roomId: string): Promise<StudySession | null> {
+    const { rows } = await pool.query(
+      `
+        SELECT id, user_id, room_id, mode, status, started_at, ended_at, duration_minutes, paused_seconds, valid
+        FROM study_sessions
+        WHERE user_id = $1
+          AND room_id = $2
+          AND status IN ('active', 'paused')
+        LIMIT 1;
+      `,
+      [userId, roomId]
+    );
+
     return (rows[0] as StudySession | undefined) ?? null;
   },
 
@@ -155,6 +172,19 @@ export const sessionsRepository = {
       );
 
       await updateUserStreakAfterValidSession(client, session.user_id, session.id);
+
+      if (session.room_id && data.duration_minutes >= ROOM_ACTIVITY_MINUTES_THRESHOLD) {
+        await client.query(
+          `
+            UPDATE room_members
+            SET last_activity_at = NOW()
+            WHERE room_id = $1
+              AND user_id = $2
+              AND is_active = true;
+          `,
+          [session.room_id, session.user_id]
+        );
+      }
 
       await client.query('COMMIT');
       return rows[0];
