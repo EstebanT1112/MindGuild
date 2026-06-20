@@ -19,6 +19,7 @@ interface AuthState {
         user?: AuthUser
     ) => void;
     setUser: (user: AuthUser) => void;
+    updateAccessToken: (access_token: string) => void;
     clearSession: () => void;
 }
 
@@ -35,6 +36,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     setUser: (user) =>
         set({ user }),
+
+    updateAccessToken: (access_token) =>
+        set({ access_token, isAuthenticated: true }),
 
     // RF-02: limpia token y usuario para volver al flujo publico de login.
     clearSession: () =>

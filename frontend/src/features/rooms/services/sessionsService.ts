@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '../../../services/apiConfig';
+import { authenticatedFetch } from '../../../services/authenticatedFetch';
 
 export type StudySessionMode = 'pomodoro' | 'free';
 
@@ -37,14 +38,13 @@ export async function startStudySession(
   accessToken: string,
   input: { room_id: string | null; mode: StudySessionMode }
 ): Promise<StartedSession> {
-  const response = await fetch(`${API_BASE_URL}/sessions/start`, {
+  const response = await authenticatedFetch(`${API_BASE_URL}/sessions/start`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify(input),
-  });
+  }, accessToken);
 
   const text = await response.text();
   if (!response.ok) {
@@ -64,13 +64,12 @@ export async function pauseStudySession(
   accessToken: string,
   sessionId: string
 ): Promise<PauseResumeResponse> {
-  const response = await fetch(`${API_BASE_URL}/sessions/${String(sessionId)}/pause`, {
+  const response = await authenticatedFetch(`${API_BASE_URL}/sessions/${String(sessionId)}/pause`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
     },
-  });
+  }, accessToken);
 
   const text = await response.text();
   if (!response.ok) {
@@ -90,13 +89,12 @@ export async function resumeStudySession(
   accessToken: string,
   sessionId: string
 ): Promise<PauseResumeResponse> {
-  const response = await fetch(`${API_BASE_URL}/sessions/${String(sessionId)}/resume`, {
+  const response = await authenticatedFetch(`${API_BASE_URL}/sessions/${String(sessionId)}/resume`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
     },
-  });
+  }, accessToken);
 
   const text = await response.text();
   if (!response.ok) {
@@ -123,14 +121,13 @@ export async function endStudySession(
     summary_text?: string | null;
   }
 ): Promise<EndedSession> {
-  const response = await fetch(`${API_BASE_URL}/sessions/${String(sessionId)}/end`, {
+  const response = await authenticatedFetch(`${API_BASE_URL}/sessions/${String(sessionId)}/end`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify(input),
-  });
+  }, accessToken);
 
   const text = await response.text();
   if (!response.ok) {
@@ -147,13 +144,12 @@ export async function endStudySession(
 }
 
 export async function cancelStudySession(accessToken: string, sessionId: string) {
-  const response = await fetch(`${API_BASE_URL}/sessions/${String(sessionId)}/cancel`, {
+  const response = await authenticatedFetch(`${API_BASE_URL}/sessions/${String(sessionId)}/cancel`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
     },
-  });
+  }, accessToken);
 
   const text = await response.text();
   if (!response.ok) {

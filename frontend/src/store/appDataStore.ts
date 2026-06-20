@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { API_BASE_URL, fetchRanking, type RankingEntry } from '../services/apiConfig';
+import { authenticatedFetch, SessionExpiredError } from '../services/authenticatedFetch';
 import { fetchAchievements, type Achievement } from '../features/profiles/services/achievementsService';
 import { fetchMyProfile, type FullProfile } from '../features/profiles/services/profileService';
 import {
@@ -155,6 +156,10 @@ export const useAppDataStore = create<AppDataState>((set, get) => ({
       set({ profile: { data, lastFetchedAt: Date.now(), isLoading: false, error: null, dirty: false } });
       return data;
     } catch (error: any) {
+      if (error instanceof SessionExpiredError) {
+        set({ profile: { ...get().profile, isLoading: false, error: null } });
+        throw error;
+      }
       set({ profile: { ...get().profile, isLoading: false, error: error.message ?? 'No se pudo cargar el perfil' } });
       throw error;
     }
@@ -178,6 +183,10 @@ export const useAppDataStore = create<AppDataState>((set, get) => ({
       set({ rooms: { data: sortedData, lastFetchedAt: Date.now(), isLoading: false, error: null, dirty: false } });
       return sortedData;
     } catch (error: any) {
+      if (error instanceof SessionExpiredError) {
+        set({ rooms: { ...get().rooms, isLoading: false, error: null } });
+        throw error;
+      }
       set({ rooms: { ...get().rooms, isLoading: false, error: error.message ?? 'No se pudieron cargar las salas' } });
       throw error;
     }
@@ -248,19 +257,22 @@ export const useAppDataStore = create<AppDataState>((set, get) => ({
 
     set({ missions: { ...entry, isLoading: true, error: null } });
     try {
-      const response = await fetch(`${API_BASE_URL}/missions`, {
+      const response = await authenticatedFetch(`${API_BASE_URL}/missions`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
         },
-      });
+      }, accessToken);
       const raw = await response.json();
       if (!response.ok) throw new Error(raw.error ?? 'No se pudieron cargar las misiones');
       const data = mapMissions(raw.data ?? []);
       set({ missions: { data, lastFetchedAt: Date.now(), isLoading: false, error: null, dirty: false } });
       return data;
     } catch (error: any) {
+      if (error instanceof SessionExpiredError) {
+        set({ missions: { ...get().missions, isLoading: false, error: null } });
+        throw error;
+      }
       set({ missions: { ...get().missions, isLoading: false, error: error.message ?? 'No se pudieron cargar las misiones' } });
       throw error;
     }
@@ -280,6 +292,10 @@ export const useAppDataStore = create<AppDataState>((set, get) => ({
       set({ achievements: { data, lastFetchedAt: Date.now(), isLoading: false, error: null, dirty: false } });
       return data;
     } catch (error: any) {
+      if (error instanceof SessionExpiredError) {
+        set({ achievements: { ...get().achievements, isLoading: false, error: null } });
+        throw error;
+      }
       set({ achievements: { ...get().achievements, isLoading: false, error: error.message ?? 'No se pudieron cargar los logros' } });
       throw error;
     }

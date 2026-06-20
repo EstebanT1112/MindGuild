@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '../../../services/apiConfig';
+import { authenticatedFetch } from '../../../services/authenticatedFetch';
 
 export type RoomMode = 'survival' | 'battle_royale';
 
@@ -48,14 +49,13 @@ export async function createRoom(
   input: { name: string; mode: RoomMode; teams_enabled: boolean }
 ): Promise<CreatedRoom> {
   // RF-04: solicita al backend la creacion de sala privada con owner autenticado.
-  const response = await fetch(`${API_BASE_URL}/rooms`, {
+  const response = await authenticatedFetch(`${API_BASE_URL}/rooms`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify(input),
-  });
+  }, accessToken);
 
   const data = await response.json();
 
@@ -68,14 +68,13 @@ export async function createRoom(
 
 export async function joinRoom(accessToken: string, inviteCode: string): Promise<JoinedRoom> {
   // RF-05: solicita unirse a una sala existente mediante invite_code.
-  const response = await fetch(`${API_BASE_URL}/rooms/join`, {
+  const response = await authenticatedFetch(`${API_BASE_URL}/rooms/join`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify({ invite_code: inviteCode }),
-  });
+  }, accessToken);
 
   const data = await response.json();
 
@@ -87,11 +86,7 @@ export async function joinRoom(accessToken: string, inviteCode: string): Promise
 }
 
 export async function fetchMyRooms(accessToken: string): Promise<UserRoom[]> {
-  const response = await fetch(`${API_BASE_URL}/rooms/me`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
+  const response = await authenticatedFetch(`${API_BASE_URL}/rooms/me`, {}, accessToken);
 
   const data = await response.json();
 
@@ -107,11 +102,7 @@ export async function fetchRoomDetails(
   roomId: string
 ): Promise<RoomDetails> {
   // RF-06: obtiene la sala completa validando acceso en backend.
-  const response = await fetch(`${API_BASE_URL}/rooms/${roomId}`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
+  const response = await authenticatedFetch(`${API_BASE_URL}/rooms/${roomId}`, {}, accessToken);
 
   const data = await response.json();
 
@@ -126,11 +117,7 @@ export async function fetchRoomAdminDetails(
   accessToken: string,
   roomId: string
 ): Promise<RoomDetails> {
-  const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/admin`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
+  const response = await authenticatedFetch(`${API_BASE_URL}/rooms/${roomId}/admin`, {}, accessToken);
 
   const data = await response.json();
 
@@ -146,14 +133,13 @@ export async function updateRoom(
   roomId: string,
   input: { name?: string; description?: string | null }
 ): Promise<RoomDetails> {
-  const response = await fetch(`${API_BASE_URL}/rooms/${roomId}`, {
+  const response = await authenticatedFetch(`${API_BASE_URL}/rooms/${roomId}`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify(input),
-  });
+  }, accessToken);
 
   const data = await response.json();
 
@@ -169,12 +155,9 @@ export async function removeRoomMember(
   roomId: string,
   memberId: string
 ): Promise<{ success: boolean; message: string }> {
-  const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/members/${memberId}/remove`, {
+  const response = await authenticatedFetch(`${API_BASE_URL}/rooms/${roomId}/members/${memberId}/remove`, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
+  }, accessToken);
 
   const data = await response.json();
 
@@ -189,11 +172,7 @@ export async function fetchRoomTimeRanking(
   accessToken: string,
   roomId: string
 ): Promise<RoomTimeRankingEntry[]> {
-  const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/rankings/time`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
+  const response = await authenticatedFetch(`${API_BASE_URL}/rooms/${roomId}/rankings/time`, {}, accessToken);
 
   const data = await response.json();
 
@@ -209,14 +188,13 @@ export async function leaveRoom(
   roomId: string
 ): Promise<{ success: boolean; message: string }> {
   // RF-07: solicita la baja logica del usuario dentro de una sala.
-  const response = await fetch(`${API_BASE_URL}/rooms/leave`, {
+  const response = await authenticatedFetch(`${API_BASE_URL}/rooms/leave`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify({ room_id: roomId }),
-  });
+  }, accessToken);
 
   const data = await response.json();
 

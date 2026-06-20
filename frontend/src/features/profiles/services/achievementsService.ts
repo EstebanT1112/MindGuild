@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '../../../services/apiConfig';
+import { authenticatedFetch } from '../../../services/authenticatedFetch';
 
 export interface Achievement {
   id: string;
@@ -14,11 +15,7 @@ export interface Achievement {
 export async function fetchAchievements(
   accessToken: string
 ): Promise<Achievement[]> {
-  const response = await fetch(`${API_BASE_URL}/achievements/me`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
+  const response = await authenticatedFetch(`${API_BASE_URL}/achievements/me`, {}, accessToken);
 
   const data = await response.json();
 
