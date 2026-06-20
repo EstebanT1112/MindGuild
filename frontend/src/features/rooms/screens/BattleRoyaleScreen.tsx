@@ -1,21 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useRoute } from '@react-navigation/native';
-import { ChevronRight, Info, PlayCircle, Plus, Settings, Swords, Trash2 } from 'lucide-react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { CalendarClock, ChevronRight, Info, PlayCircle, Settings, Swords } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
 import LeaveRoomButton from '../components/LeaveRoomButton';
-import NewQuestionModal from '../components/NewQuestionModal';
 import RoomAdminModal from '../components/RoomAdminModal';
 import RoomInfoModal from '../components/RoomInfoModal';
 import RoomRanking from '../components/RoomRanking';
 import SessionConfigModal from '../components/SessionConfigModal';
-import WeeklyQuizModal from '../components/WeeklyQuizModal';
 import { type RoomDetails } from '../services/roomsService';
 
 export default function BattleRoyaleScreen() {
     const route = useRoute<any>();
+    const navigation = useNavigation<any>();
     const accessToken = useAuthStore(state => state.access_token);
     const currentUser = useAuthStore(state => state.user);
     const currentProfile = useAppDataStore(state => state.profile.data);
@@ -26,8 +25,6 @@ export default function BattleRoyaleScreen() {
     const [configVisible, setConfigVisible] = useState(false);
     const [adminVisible, setAdminVisible] = useState(false);
     const [infoVisible, setInfoVisible] = useState(false);
-    const [questionVisible, setQuestionVisible] = useState(false);
-    const [quizVisible, setQuizVisible] = useState(false);
     const [room, setRoom] = useState<RoomDetails | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -152,30 +149,14 @@ export default function BattleRoyaleScreen() {
                 <RoomRanking roomId={room?.id} />
 
                 <Text style={styles.sectionLabel}>QUIZ SEMANAL</Text>
-                <Pressable style={styles.quizBtn} onPress={() => setQuizVisible(true)}>
-                    <PlayCircle color="white" size={24} />
-                    <Text style={styles.quizBtnText}>Comenzar Quiz Semanal</Text>
+                <Pressable
+                    style={styles.quizBtn}
+                    onPress={() => room?.id && navigation.navigate('WeeklyQuiz', { roomId: room.id, roomName: room.name })}
+                >
+                    <CalendarClock color="white" size={24} />
+                    <Text style={styles.quizBtnText}>Abrir Quiz Semanal</Text>
                 </Pressable>
-                <Text style={styles.hintText}>2 preguntas - Despues podras validar las respuestas</Text>
-
-                <Text style={styles.sectionLabel}>AGREGAR PREGUNTAS</Text>
-                <Pressable style={styles.newQuestionBtn} onPress={() => setQuestionVisible(true)}>
-                    <Plus color="white" size={24} />
-                    <Text style={styles.newQuestionText}>Nueva Pregunta</Text>
-                </Pressable>
-                <Text style={styles.hintText}>Las preguntas seran votadas por el grupo</Text>
-
-                <Text style={styles.sectionLabel}>MIS PREGUNTAS PROPUESTAS</Text>
-                <View style={styles.proposedCard}>
-                    <View style={styles.proposedHeader}>
-                        <Text style={styles.proposedText}>Que es un limite en calculo?</Text>
-                        <Trash2 color="#ef4444" size={20} />
-                    </View>
-                    <View style={styles.proposedFooter}>
-                        <View style={styles.statusBadge}><Text style={styles.statusText}>Pendiente</Text></View>
-                        <Text style={styles.votesText}>3 votos</Text>
-                    </View>
-                </View>
+                <Text style={styles.hintText}>Configuracion, carga de preguntas y estado del cuestionario.</Text>
 
                 <LeaveRoomButton roomId={room?.id} />
             </ScrollView>
@@ -198,8 +179,6 @@ export default function BattleRoyaleScreen() {
                     onRoomUpdated={handleRoomUpdated}
                 />
             )}
-            <NewQuestionModal visible={questionVisible} onClose={() => setQuestionVisible(false)} />
-            <WeeklyQuizModal visible={quizVisible} onClose={() => setQuizVisible(false)} />
         </ScreenLayout>
     );
 }
@@ -233,14 +212,5 @@ const styles = StyleSheet.create({
     sectionLabel: { color: '#94a3b8', fontSize: 14, fontWeight: 'bold', marginTop: 25, marginBottom: 15 },
     quizBtn: { backgroundColor: '#a855f7', padding: 20, borderRadius: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
     quizBtnText: { color: 'white', fontWeight: '900', fontSize: 18 },
-    newQuestionBtn: { backgroundColor: '#22c55e', padding: 20, borderRadius: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
-    newQuestionText: { color: 'white', fontWeight: '900', fontSize: 18 },
     hintText: { color: '#64748b', fontSize: 12, textAlign: 'center', marginTop: 10 },
-    proposedCard: { backgroundColor: '#1e293b', borderRadius: 24, padding: 20, borderWidth: 1, borderColor: '#334155' },
-    proposedHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
-    proposedText: { color: 'white', fontWeight: 'bold', fontSize: 16, flex: 1 },
-    proposedFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    statusBadge: { backgroundColor: '#facc1515', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: '#facc1544' },
-    statusText: { color: '#facc15', fontSize: 12, fontWeight: 'bold' },
-    votesText: { color: '#64748b', fontSize: 12 },
 });

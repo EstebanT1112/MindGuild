@@ -199,7 +199,7 @@ export default function RoomsScreen() {
                             room={room}
                             onToggleFavorite={() => handleToggleFavorite(room)}
                             onPress={() => {
-                                if (room.mode === 'Battle Royale') {
+                                if (room.rawMode === 'battle_royale') {
                                     navigation.navigate('BattleRoyale', { roomId: room.id, roomName: room.name });
                                 } else {
                                     navigation.navigate('LiveRoom', { roomId: room.id, roomName: room.name });
@@ -243,6 +243,7 @@ function mapUserRoomToCard(room: UserRoom): RoomCardData {
         code: room.invite_code,
         members: room.members_count,
         mode: room.mode === 'battle_royale' ? 'Battle Royale' : 'Supervivencia',
+        rawMode: room.mode,
         ranking: 1,
         teamsEnabled: room.teams_enabled,
         isFavorite: room.is_favorite,
