@@ -3,6 +3,7 @@ import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } 
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Inbox, LogIn, Plus, Users, Mail } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
+import { SessionExpiredError } from '../../../services/authenticatedFetch';
 import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
 import RoomCard, { type RoomCardData } from '../components/RoomCard';
@@ -17,6 +18,7 @@ import { roomInvitationsService } from '../services/roomInvitationsService';
 export default function RoomsScreen() {
     const navigation = useNavigation<any>();
     const accessToken = useAuthStore(state => state.access_token);
+    const getCurrentAccessToken = () => useAuthStore.getState().access_token;
     const rooms = useAppDataStore(state => state.rooms.data ?? []);
     const loadRoomsFromStore = useAppDataStore(state => state.loadRooms);
     const addOrReplaceRoom = useAppDataStore(state => state.addOrReplaceRoom);
@@ -51,12 +53,18 @@ export default function RoomsScreen() {
 
     // Consulta el contador de invitaciones activas en segundo plano
     const checkPendingInvitations = async () => {
-        if (!accessToken) return;
+        const currentAccessToken = getCurrentAccessToken();
+        if (!currentAccessToken) return;
         try {
-            const data = await roomInvitationsService.fetchReceivedRoomInvitations(accessToken);
+            const data = await roomInvitationsService.fetchReceivedRoomInvitations(currentAccessToken);
             setPendingCount(data?.length || 0);
-        } catch (error) {
-            console.error('Error al chequear invitaciones pendientes:', error);
+        } catch (error: any) {
+            if (
+                !(error instanceof SessionExpiredError) &&
+                !String(error?.message ?? '').toLowerCase().includes('token invalido')
+            ) {
+                console.error('Error al chequear invitaciones pendientes:', error);
+            }
         }
     };
 

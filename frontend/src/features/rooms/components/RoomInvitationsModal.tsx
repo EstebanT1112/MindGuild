@@ -4,6 +4,7 @@ import { X, Check, Trash2, MailOpen } from 'lucide-react-native';
 import { roomInvitationsService } from '../services/roomInvitationsService';
 import { useNavigation } from '@react-navigation/native';
 import { useAppDataStore } from '../../../store/appDataStore';
+import { useAuthStore } from '../../../store/authStore';
 
 interface RoomInvitation {
   id: string;
@@ -32,6 +33,7 @@ interface RoomInvitationsModalProps {
 
 export default function RoomInvitationsModal({ visible, onClose, accessToken, onInvitationProcessed }: RoomInvitationsModalProps) {
   const navigation = useNavigation<any>();
+  const currentAccessToken = useAuthStore(state => state.access_token);
   const addOrReplaceRoom = useAppDataStore(state => state.addOrReplaceRoom);
   const invalidateAfterRoomParticipation = useAppDataStore(state => state.invalidateAfterRoomParticipation);
 
@@ -40,10 +42,11 @@ export default function RoomInvitationsModal({ visible, onClose, accessToken, on
   const [processingId, setProcessingId] = useState<string | null>(null);
 
   const loadInvitations = async () => {
-    if (!accessToken || !visible) return;
+    const token = currentAccessToken ?? accessToken;
+    if (!token || !visible) return;
     try {
       setLoading(true);
-      const data = await roomInvitationsService.fetchReceivedRoomInvitations(accessToken);
+      const data = await roomInvitationsService.fetchReceivedRoomInvitations(token);
       setInvitations(data || []);
     } catch (error: any) {
       console.error('Error al cargar invitaciones de sala:', error);
@@ -54,12 +57,12 @@ export default function RoomInvitationsModal({ visible, onClose, accessToken, on
 
   useEffect(() => {
     loadInvitations();
-  }, [visible, accessToken]);
+  }, [visible, accessToken, currentAccessToken]);
 
   const handleAccept = async (invitationId: string, roomName: string, roomId: string, roomMode: string) => {
     try {
       setProcessingId(invitationId);
-      const result = await roomInvitationsService.acceptRoomInvitation(accessToken, invitationId);
+      const result = await roomInvitationsService.acceptRoomInvitation(currentAccessToken ?? accessToken, invitationId);
       
       if (result.success) {
         // Actualizamos el listado global de salas del store de Zustand
@@ -87,7 +90,7 @@ export default function RoomInvitationsModal({ visible, onClose, accessToken, on
   const handleReject = async (invitationId: string) => {
     try {
       setProcessingId(invitationId);
-      await roomInvitationsService.rejectRoomInvitation(accessToken, invitationId);
+      await roomInvitationsService.rejectRoomInvitation(currentAccessToken ?? accessToken, invitationId);
       setInvitations(prev => prev.filter(item => item.id !== invitationId));
       onInvitationProcessed();
     } catch (error: any) {

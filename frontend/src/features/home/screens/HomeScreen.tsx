@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, T
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { ChevronRight, Inbox, Users } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
+import { SessionExpiredError } from '../../../services/authenticatedFetch';
 import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
 import { type UserRoom } from '../../rooms/services/roomsService';
@@ -28,9 +29,9 @@ export default function HomeScreen() {
 
   useFocusEffect(useCallback(() => {
     if (!accessToken) return;
-    loadProfile(accessToken).catch(err => console.error('Error cargando perfil del usuario:', err));
-    loadRooms(accessToken, { force: true }).catch(err => console.error('Error cargando salas del usuario:', err));
-    loadMissions(accessToken).catch(err => console.error('Error cargando misiones:', err));
+    loadProfile(accessToken).catch(err => logLoadError('Error cargando perfil del usuario:', err));
+    loadRooms(accessToken, { force: true }).catch(err => logLoadError('Error cargando salas del usuario:', err));
+    loadMissions(accessToken).catch(err => logLoadError('Error cargando misiones:', err));
   }, [accessToken, loadProfile, loadRooms, loadMissions]));
 
   const recentRooms = rooms.slice(0, 3);
@@ -45,6 +46,8 @@ export default function HomeScreen() {
         loadRooms(accessToken, { force: true }),
         loadMissions(accessToken, { force: true }),
       ]);
+    } catch (error) {
+      logLoadError('Error refrescando Home:', error);
     } finally {
       setRefreshing(false);
     }
@@ -132,6 +135,21 @@ export default function HomeScreen() {
       </ScrollView>
     </ScreenLayout>
   );
+}
+
+function logLoadError(message: string, error: any) {
+  if (error instanceof SessionExpiredError) {
+    return;
+  }
+
+  const detail = String(error?.message ?? error ?? '').toLowerCase();
+
+  if (detail.includes('token invalido') || detail.includes('token inválido')) {
+    console.warn(message, error);
+    return;
+  }
+
+  console.error(message, error);
 }
 
 const styles = StyleSheet.create({
