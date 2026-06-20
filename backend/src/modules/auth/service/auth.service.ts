@@ -4,6 +4,7 @@ import {
   AuthNotFoundError,
   AuthUnauthorizedError,
   AuthValidationError,
+  type AppSessionResult,
   type Auth0UserInfo,
   type LinkGoogleResult,
   type RegisterProfileDTO,
@@ -11,6 +12,7 @@ import {
   type SocialLoginDTO,
   type SocialLoginResult,
 } from '../types/auth.types.js';
+import { createAppToken, isAppToken, verifyAppToken } from './app-token.service.js';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,30}$/;
@@ -52,9 +54,20 @@ export const AuthService = {
   },
 
   async getProfileFromAccessToken(accessToken: string): Promise<RegisteredProfile> {
-    // RF-02/RF-01: confirma la identidad en Auth0 y la cruza con el perfil activo local.
+    // RF-02/RF-01: resuelve la sesion desde app_token local o desde Auth0.
     if (!accessToken) {
       throw new AuthUnauthorizedError('Token requerido');
+    }
+
+    if (isAppToken(accessToken)) {
+      const payload = verifyAppToken(accessToken);
+      const profile = await AuthRepository.findProfileById(payload.sub);
+
+      if (!profile) {
+        throw new AuthNotFoundError('Perfil no encontrado');
+      }
+
+      return profile;
     }
 
     const userInfo = await validateTokenWithAuth0(accessToken);
@@ -67,6 +80,38 @@ export const AuthService = {
     await AuthRepository.updateLastLoginAt(profile.id);
 
     return profile;
+  },
+
+  async createAppSessionFromAccessToken(accessToken: string): Promise<AppSessionResult> {
+    if (!accessToken) {
+      throw new AuthUnauthorizedError('Token requerido');
+    }
+
+    if (isAppToken(accessToken)) {
+      const profile = await this.getProfileFromAccessToken(accessToken);
+      return {
+        auth_user_id: profile.id,
+        email: profile.email,
+        app_token: accessToken,
+        profile,
+      };
+    }
+
+    const userInfo = await validateTokenWithAuth0(accessToken);
+    const profile = await resolveExistingProfileFromUserInfo(userInfo);
+
+    if (!profile) {
+      throw new AuthNotFoundError('Perfil no encontrado');
+    }
+
+    await AuthRepository.updateLastLoginAt(profile.id);
+
+    return {
+      auth_user_id: userInfo.sub,
+      email: profile.email,
+      app_token: createAppToken(profile),
+      profile,
+    };
   },
 
   async socialLogin(input: Partial<SocialLoginDTO> = {}): Promise<SocialLoginResult> {
@@ -121,6 +166,7 @@ export const AuthService = {
     return {
       auth_user_id: userInfo.sub,
       email,
+      app_token: createAppToken(profile),
       profile,
     };
   },

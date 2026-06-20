@@ -43,8 +43,8 @@ export const AuthController = {
     // RF-02: valida el Bearer token y devuelve el perfil asociado a la sesion.
     try {
       const accessToken = extractBearerToken(req);
-      const profile = await AuthService.getProfileFromAccessToken(accessToken);
-      return res.status(200).json(profile);
+      const session = await AuthService.createAppSessionFromAccessToken(accessToken);
+      return res.status(200).json(session);
     } catch (error: any) {
       if (error instanceof AuthUnauthorizedError) {
         return res.status(401).json({ error: error.message });

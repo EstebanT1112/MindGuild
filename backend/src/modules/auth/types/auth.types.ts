@@ -35,6 +35,14 @@ export interface AuthIdentity {
 export interface SocialLoginResult {
   auth_user_id: string;
   email: string;
+  app_token: string;
+  profile: RegisteredProfile;
+}
+
+export interface AppSessionResult {
+  auth_user_id: string;
+  email: string;
+  app_token: string;
   profile: RegisteredProfile;
 }
 
