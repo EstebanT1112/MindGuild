@@ -10,6 +10,7 @@ import {
     AUTH0_SCOPES,
     getAuth0RedirectUri,
 } from '../config/auth0Config';
+import { saveRefreshToken } from './tokenStorage';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -23,6 +24,7 @@ export interface Auth0Result {
     auth_user_id: string;
     email: string;
     access_token: string;
+    refresh_token?: string;
 }
 
 export interface RegisterResult extends Auth0Result {
@@ -72,6 +74,7 @@ export async function login(
     //Prueba de post
     //console.log(authResult.access_token);
     const profile = await getCurrentProfile(authResult.access_token);
+    await saveRefreshToken(authResult.refresh_token);
 
     return {
         ...authResult,
@@ -81,12 +84,12 @@ export async function login(
 
 export async function loginWithGoogle(): Promise<LoginResult> {
     // RF-01: usa Authorization Code + PKCE con Universal Login de Auth0 para Google.
-    const accessToken = await getGoogleAccessToken();
+    const tokenResult = await getGoogleTokens();
 
     const response = await safeFetch(`${API_BASE_URL}/auth/social-login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ access_token: accessToken }),
+        body: JSON.stringify({ access_token: tokenResult.accessToken }),
     }, 'No se pudo conectar con el backend para iniciar sesion con Google.');
 
     const data = await parseJson(response);
@@ -98,10 +101,13 @@ export async function loginWithGoogle(): Promise<LoginResult> {
         };
     }
 
+    await saveRefreshToken(tokenResult.refreshToken);
+
     return {
         auth_user_id: data.auth_user_id,
         email: data.email,
-        access_token: accessToken,
+        access_token: tokenResult.accessToken,
+        refresh_token: tokenResult.refreshToken,
         profile: data.profile,
     };
 }
@@ -180,7 +186,7 @@ export async function registerWithAuth0(
             connection: AUTH0_CONNECTION,
             username: email,
             password,
-            scope: 'openid profile email',
+            scope: AUTH0_SCOPES.join(' '),
         }),
     });
 
@@ -196,6 +202,7 @@ export async function registerWithAuth0(
         auth_user_id: userData.sub,
         email: userData.email ?? signupData.email,
         access_token: tokenData.access_token,
+        refresh_token: tokenData.refresh_token,
     };
 }
 
@@ -213,7 +220,7 @@ export async function loginWithAuth0(
             connection: AUTH0_CONNECTION,
             username: email,
             password,
-            scope: 'openid profile email',
+            scope: AUTH0_SCOPES.join(' '),
         }),
     });
 
@@ -229,6 +236,7 @@ export async function loginWithAuth0(
         auth_user_id: userData.sub,
         email: userData.email,
         access_token: tokenData.access_token,
+        refresh_token: tokenData.refresh_token,
     };
 }
 
@@ -293,6 +301,11 @@ async function fetchAuth0UserInfo(accessToken: string) {
 }
 
 async function getGoogleAccessToken(): Promise<string> {
+    const tokenResult = await getGoogleTokens();
+    return tokenResult.accessToken;
+}
+
+async function getGoogleTokens(): Promise<{ accessToken: string; refreshToken?: string }> {
     const redirectUri = getAuth0RedirectUri();
     console.log('AUTH0_REDIRECT_URI', redirectUri);
 
@@ -335,7 +348,10 @@ async function getGoogleAccessToken(): Promise<string> {
         };
     }
 
-    return tokenResponse.accessToken;
+    return {
+        accessToken: tokenResponse.accessToken,
+        refreshToken: tokenResponse.refreshToken,
+    };
 }
 
 async function safeFetch(url: string, options: RequestInit, networkMessage?: string) {

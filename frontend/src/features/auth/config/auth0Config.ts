@@ -8,7 +8,7 @@ export const AUTH0_GOOGLE_CONNECTION = 'google-oauth2';
 export const AUTH0_REDIRECT_PATH =
     process.env.EXPO_PUBLIC_AUTH0_REDIRECT_PATH ?? 'auth/callback';
 
-export const AUTH0_SCOPES = ['openid', 'profile', 'email'];
+export const AUTH0_SCOPES = ['openid', 'profile', 'email', 'offline_access'];
 
 export const AUTH0_DISCOVERY = {
     authorizationEndpoint: `https://${AUTH0_DOMAIN}/authorize`,
