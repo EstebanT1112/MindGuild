@@ -7,6 +7,7 @@ export type RoomCardData = {
   code: string;
   members: number;
   mode: string;
+  rawMode?: string;
   ranking: number;
   teamsEnabled?: boolean;
   isFavorite?: boolean;
