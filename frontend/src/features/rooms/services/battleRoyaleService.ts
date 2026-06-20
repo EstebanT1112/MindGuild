@@ -64,6 +64,58 @@ export interface CreateQuestionInput {
   }>;
 }
 
+export interface WeeklyQuizStatusResult {
+  quiz_id: string | null;
+  status: string;
+  can_start: boolean;
+  must_validate: boolean;
+  assigned_questions_count: number;
+  answered_questions_count: number;
+  opens_at: string | null;
+  closes_at: string | null;
+  reason?: string;
+}
+
+export interface AssignedQuizQuestion {
+  id: string;
+  type: BattleQuestionType;
+  question_text: string;
+  options: Array<{
+    id: string;
+    option_text: string;
+  }>;
+}
+
+export interface WeeklyQuizAttempt {
+  attempt_id: string;
+  quiz_id: string;
+  questions: AssignedQuizQuestion[];
+}
+
+export interface ValidationItem {
+  type: 'question' | 'response';
+  question_id: string;
+  response_id: string | null;
+  question_type: BattleQuestionType;
+  question_text: string;
+  expected_answer?: string | null;
+  answer_text?: string;
+  options?: Array<{
+    id: string;
+    option_text: string;
+    is_correct: boolean;
+    sort_order: number;
+  }>;
+  author?: {
+    id: string;
+    username: string;
+  };
+  responder?: {
+    id: string;
+    username: string;
+  };
+}
+
 export async function fetchBattleRoyaleConfig(
   accessToken: string,
   roomId: string
@@ -170,6 +222,153 @@ export async function createRoomQuestion(
 
   if (!response.ok) {
     throw new Error(data.error ?? 'No se pudo crear la pregunta');
+  }
+
+  return data;
+}
+
+export async function fetchWeeklyQuizStatus(
+  accessToken: string,
+  roomId: string
+): Promise<WeeklyQuizStatusResult> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/battle-royale/rooms/${roomId}/weekly-quiz/status`,
+    {},
+    accessToken
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo cargar el estado del quiz');
+  }
+
+  return data;
+}
+
+export async function startWeeklyQuiz(
+  accessToken: string,
+  roomId: string
+): Promise<WeeklyQuizAttempt> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/battle-royale/rooms/${roomId}/weekly-quiz/start`,
+    { method: 'POST' },
+    accessToken
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo iniciar el quiz semanal');
+  }
+
+  return data;
+}
+
+export async function submitWeeklyQuizAnswer(
+  accessToken: string,
+  attemptId: string,
+  input: { question_id: string; selected_option_id?: string; answer_text?: string }
+): Promise<{ success: boolean }> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/battle-royale/weekly-quiz/${attemptId}/answers`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+    accessToken
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo guardar la respuesta');
+  }
+
+  return data;
+}
+
+export async function completeWeeklyQuiz(
+  accessToken: string,
+  attemptId: string
+): Promise<{ success: boolean; must_validate: boolean; next_screen: string }> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/battle-royale/weekly-quiz/${attemptId}/complete`,
+    { method: 'POST' },
+    accessToken
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo finalizar el quiz');
+  }
+
+  return data;
+}
+
+export async function fetchWeeklyQuizValidationItems(
+  accessToken: string,
+  roomId: string
+): Promise<{ items: ValidationItem[] }> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/battle-royale/rooms/${roomId}/weekly-quiz/validation`,
+    {},
+    accessToken
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudieron cargar las validaciones');
+  }
+
+  return data;
+}
+
+export async function voteWeeklyQuizItem(
+  accessToken: string,
+  input: {
+    type: 'question' | 'response';
+    question_id: string;
+    response_id?: string | null;
+    vote: 'positive' | 'negative';
+  }
+): Promise<{ success: boolean }> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/battle-royale/weekly-quiz/validation/vote`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+    accessToken
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo registrar el voto');
+  }
+
+  return data;
+}
+
+export async function resolveWeeklyQuiz(
+  accessToken: string,
+  roomId: string
+): Promise<{ validated_questions: number; deleted_questions: number }> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/battle-royale/rooms/${roomId}/weekly-quiz/resolve`,
+    { method: 'POST' },
+    accessToken
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo resolver la validacion');
   }
 
   return data;

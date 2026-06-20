@@ -80,6 +80,71 @@ export interface BattleQuestion {
   }>;
 }
 
+export interface WeeklyQuizStatusResult {
+  quiz_id: string | null;
+  status: string;
+  can_start: boolean;
+  must_validate: boolean;
+  assigned_questions_count: number;
+  answered_questions_count: number;
+  opens_at: string | null;
+  closes_at: string | null;
+  reason?: string;
+}
+
+export interface AssignedQuizQuestion {
+  id: string;
+  type: BattleQuestionType;
+  question_text: string;
+  options: Array<{
+    id: string;
+    option_text: string;
+  }>;
+}
+
+export interface WeeklyQuizAttempt {
+  attempt_id: string;
+  quiz_id: string;
+  questions: AssignedQuizQuestion[];
+}
+
+export interface SaveAnswerInput {
+  question_id?: string;
+  selected_option_id?: string;
+  answer_text?: string;
+}
+
+export interface ValidationItem {
+  type: 'question' | 'response';
+  question_id: string;
+  response_id: string | null;
+  question_type: BattleQuestionType;
+  question_text: string;
+  expected_answer?: string | null;
+  answer_text?: string;
+  options?: Array<{
+    id: string;
+    option_text: string;
+    is_correct: boolean;
+    sort_order: number;
+  }>;
+  author?: {
+    id: string;
+    username: string;
+  };
+  responder?: {
+    id: string;
+    username: string;
+  };
+}
+
+export interface VoteInput {
+  type?: 'question' | 'response';
+  question_id?: string;
+  response_id?: string | null;
+  vote?: 'positive' | 'negative';
+}
+
 export class BattleRoyaleValidationError extends Error {
   constructor(message: string) {
     super(message);

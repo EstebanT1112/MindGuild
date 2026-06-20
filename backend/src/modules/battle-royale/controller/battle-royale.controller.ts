@@ -63,6 +63,82 @@ export const BattleRoyaleController = {
       return handleBattleRoyaleError(error, res, 'Error interno al crear pregunta');
     }
   },
+
+  async getWeeklyQuizStatus(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      const roomId = getParam(req, 'roomId');
+      const result = await BattleRoyaleService.getWeeklyQuizStatus(userId, roomId);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      return handleBattleRoyaleError(error, res, 'Error interno al obtener estado del quiz');
+    }
+  },
+
+  async startWeeklyQuiz(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      const roomId = getParam(req, 'roomId');
+      const result = await BattleRoyaleService.startWeeklyQuiz(userId, roomId);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      return handleBattleRoyaleError(error, res, 'Error interno al iniciar quiz');
+    }
+  },
+
+  async saveWeeklyQuizAnswer(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      const attemptId = getParam(req, 'attemptId');
+      const result = await BattleRoyaleService.saveWeeklyQuizAnswer(userId, attemptId, req.body);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      return handleBattleRoyaleError(error, res, 'Error interno al guardar respuesta');
+    }
+  },
+
+  async completeWeeklyQuiz(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      const attemptId = getParam(req, 'attemptId');
+      const result = await BattleRoyaleService.completeWeeklyQuiz(userId, attemptId);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      return handleBattleRoyaleError(error, res, 'Error interno al finalizar quiz');
+    }
+  },
+
+  async getValidationItems(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      const roomId = getParam(req, 'roomId');
+      const result = await BattleRoyaleService.listValidationItems(userId, roomId);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      return handleBattleRoyaleError(error, res, 'Error interno al listar validaciones');
+    }
+  },
+
+  async voteValidationItem(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      const result = await BattleRoyaleService.voteValidationItem(userId, req.body);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      return handleBattleRoyaleError(error, res, 'Error interno al votar validacion');
+    }
+  },
+
+  async resolveWeeklyQuiz(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      const roomId = getParam(req, 'roomId');
+      const result = await BattleRoyaleService.resolveWeeklyQuiz(userId, roomId);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      return handleBattleRoyaleError(error, res, 'Error interno al resolver validacion');
+    }
+  },
 };
 
 function getUserId(req: Request) {
