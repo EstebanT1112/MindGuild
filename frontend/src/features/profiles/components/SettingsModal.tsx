@@ -4,7 +4,6 @@ import { X, ChevronRight, LogOut, Lock, Globe } from 'lucide-react-native';
 import { useAuthStore } from '../../../store/authStore';
 import { useAppDataStore } from '../../../store/appDataStore';
 import { linkGoogleAccount, requestPasswordReset } from '../../auth/services/authService';
-import { clearRefreshToken } from '../../auth/services/tokenStorage';
 
 interface SettingsModalProps {
   visible: boolean;
@@ -46,7 +45,6 @@ export default function SettingsModal({
           style: 'destructive',
           onPress: async () => {
             onClose();
-            await clearRefreshToken();
             clearAppData();
             clearSession();
           },
