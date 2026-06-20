@@ -1,5 +1,6 @@
 import { sessionsRepository } from '../repository/session.repository.js';
 import { achievementService } from '../../achievements/service/achievement.service.js';
+import { pool } from '../../../common/config/db.js';
 import {
   SessionConflictError,
   SessionForbiddenError,
@@ -41,7 +42,6 @@ export const sessionsService = {
 
   async pauseSession(userId: string, sessionId: string) {
     if (!sessionId) throw new SessionValidationError('sessionId es requerido');
-
     const session = await sessionsRepository.findSessionById(sessionId);
     if (!session) throw new SessionNotFoundError('Sesion no encontrada');
 
@@ -57,7 +57,6 @@ export const sessionsService = {
 
   async resumeSession(userId: string, sessionId: string) {
     if (!sessionId) throw new SessionValidationError('sessionId es requerido');
-
     const session = await sessionsRepository.findSessionById(sessionId);
     if (!session) throw new SessionNotFoundError('Sesion no encontrada');
 
@@ -94,10 +93,6 @@ export const sessionsService = {
 
     const startMs = new Date(session.started_at).getTime();
     const endMs = new Date(finalEndedAt).getTime();
-    if (Number.isNaN(endMs)) {
-      throw new SessionValidationError('ended_at invalido');
-    }
-
     const dbPausedSeconds = session.paused_seconds ?? 0;
     const maxRealMinutes = Math.max(0, Math.floor(((endMs - startMs) / 1000 - dbPausedSeconds) / 60));
 
@@ -105,24 +100,18 @@ export const sessionsService = {
       data.duration_minutes = Math.max(0, maxRealMinutes);
     }
 
-    // Guardamos la sesión de estudio de forma segura
+    if (data.duration_minutes >= 30 && (!data.evidence_photo_url || !data.summary_text?.trim())) {
+      throw new SessionValidationError('La evidencia fotografica y el resumen son requeridos para sesiones de 30 minutos o mas');
+    }
+
     const completedSession = await sessionsRepository.completeSession(session, data);
 
-    // ⚡ CORREGIDO: Si la sesión es válida, procesamos los logros de forma SECUENCIAL
-    // Evitamos Promise.all para que el pooler de Supabase no colapse por concurrencia de queries pesadas
-    if (completedSession && completedSession.valid && completedSession.duration_minutes > 0) {
+    if (completedSession && data.duration_minutes >= 30) {
       try {
-        // Evaluamos primero un evento liberando su conexión y luego el otro
-        const sessionAchievements = await achievementService.handleAchievementEvent(userId, 'session_completed');
         const streakAchievements = await achievementService.handleAchievementEvent(userId, 'streak_updated');
-
-        return {
-          ...completedSession,
-          unlocked_achievements: [...(sessionAchievements ?? []), ...(streakAchievements ?? [])],
-        };
-      } catch (achievementError) {
-        // Logueamos el error de logros pero NO rompemos la respuesta principal del usuario
-        console.error('[sessionsService] Non-critical achievements processing error:', achievementError);
+        return { ...completedSession, unlocked_achievements: streakAchievements ?? [] };
+      } catch (err) {
+        console.error('[sessionsService] Logros de racha diferidos:', err);
       }
     }
 
@@ -144,6 +133,60 @@ export const sessionsService = {
 
     return sessionsRepository.cancelSession(sessionId);
   },
+
+  async getMySessions(userId: string, statusFilter?: string) {
+    return sessionsRepository.listUserSessions(userId, statusFilter);
+  },
+
+  async getPendingReviews(userId: string, roomId: string) {
+    if (!roomId) throw new SessionValidationError('roomId es requerido');
+    const isMember = await sessionsRepository.hasActiveRoomMembership(userId, roomId);
+    if (!isMember) throw new SessionForbiddenError('No sos miembro activo de esta sala');
+
+    return sessionsRepository.listPendingSessionsForRoom(roomId, userId);
+  },
+
+  async reviewSession(userId: string, sessionId: string, vote: 'accept' | 'reject', comment: string) {
+    if (!sessionId) throw new SessionValidationError('sessionId es requerido');
+    if (vote !== 'accept' && vote !== 'reject') throw new SessionValidationError('Voto invalido');
+
+    const session = await sessionsRepository.findSessionById(sessionId);
+    if (!session) throw new SessionNotFoundError('Sesion no encontrada');
+    if (session.status !== 'pending') throw new SessionConflictError('La sesion no esta pendiente de validacion');
+    if (session.user_id === userId) throw new SessionForbiddenError('No podes votar tu propia sesion de estudio');
+
+    if (session.room_id) {
+      const isMember = await sessionsRepository.hasActiveRoomMembership(userId, session.room_id);
+      if (!isMember) throw new SessionForbiddenError('No perteneces a la sala de esta sesion');
+    }
+
+    const client = await pool.connect();
+    try {
+      await sessionsRepository.createSessionReview(client, sessionId, userId, vote, comment ?? '');
+    } catch (err: any) {
+      if (err.code === '23505') throw new SessionConflictError('Ya votaste esta sesion de estudio');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    if (vote === 'accept') {
+      const validated = await sessionsRepository.validateAndImpactSession(sessionId);
+      try {
+        await achievementService.handleAchievementEvent(session.user_id, 'session_completed');
+      } catch (achErr) {
+        console.error('[sessionsService] Error al disparar logros de sesion validada:', achErr);
+      }
+      return { session_id: sessionId, status: 'validated', valid: true, is_impacted: true };
+    } else {
+      await sessionsRepository.deleteRejectedSession(sessionId);
+      return { session_id: sessionId, deleted: true };
+    }
+  },
+
+  async cleanupExpiredSessions() {
+    return sessionsRepository.cleanupExpiredSessionsManual();
+  }
 };
 
 function normalizeStartInput(input: Partial<StartSessionDTO>): StartSessionDTO {
@@ -156,8 +199,8 @@ function normalizeStartInput(input: Partial<StartSessionDTO>): StartSessionDTO {
 function normalizeEndInput(input: Partial<EndSessionDTO>): EndSessionDTO {
   return {
     ended_at: input.ended_at,
-    duration_minutes: Number(input.duration_minutes ?? 0),
-    paused_seconds: Number(input.paused_seconds ?? 0),
+    duration_minutes: Math.max(0, Number(input.duration_minutes ?? 0)),
+    paused_seconds: Math.max(0, Number(input.paused_seconds ?? 0)),
     evidence_photo_url: input.evidence_photo_url ?? null,
     summary_text: input.summary_text ?? null,
   };

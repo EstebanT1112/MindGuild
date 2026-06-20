@@ -204,6 +204,8 @@ export const RoomsService = {
     }
 
     return { success: true, message: 'Integrante expulsado con exito' };
+  }, // ⚡ CORRECCIÓN: Se cerró correctamente el método anterior antes de declarar el siguiente
+
   async markFavorite(userId: string, roomId: string): Promise<UserRoom> {
     if (!roomId) {
       throw new RoomValidationError('roomId es requerido');
