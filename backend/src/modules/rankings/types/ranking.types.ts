@@ -1,4 +1,4 @@
-export type RankingType = 'semanal' | 'racha' | 'academico' | 'jefes';
+export type RankingType = 'time' | 'qa' | 'academic' | 'boss' | 'semanal' | 'racha' | 'academico' | 'jefes';
 
 export interface RankingEntry {
   user_id: string;
@@ -13,6 +13,11 @@ export interface RoomTimeRankingEntry {
   username: string;
   avatar_url: string | null;
   total_minutes: number;
+}
+
+export interface CloseWeekInput {
+  week_year?: string;
+  room_id?: string;
 }
 
 export class RankingNotFoundError extends Error {}

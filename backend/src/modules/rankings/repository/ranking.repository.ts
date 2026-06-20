@@ -19,9 +19,10 @@ export const rankingsRepository = {
     return rows[0] || null;
   },
 
-  // Tu lógica anterior adaptada a SQL puro y Postgres Pool
   async getRankingData(type: string, weekYears: string[], roomId?: string) {
-    if (type === 'semanal' && !roomId) {
+    const normalizedType = normalizeRankingType(type);
+
+    if (normalizedType === 'time' && !roomId) {
       const { rows } = await pool.query(
         `
           SELECT
@@ -43,8 +44,7 @@ export const rankingsRepository = {
       return rows;
     }
 
-    // 1. Caso de RACHA (Viene de la tabla profiles)
-    if (type === 'racha') {
+    if (normalizedType === 'racha') {
       const { rows } = await pool.query(
         `SELECT id, username, avatar_url, streak_days 
          FROM profiles 
@@ -54,33 +54,161 @@ export const rankingsRepository = {
       return rows;
     }
 
-    // 2. Casos Semanal, Académico o Jefes (Vienen de estadísticas semanales)
-    // Mapeamos el tipo a la columna correspondiente
+    if (!roomId && normalizedType === 'qa') {
+      const { rows } = await pool.query(
+        `
+          SELECT
+            p.id,
+            p.username,
+            p.avatar_url,
+            COALESCE(SUM(rws.quiz_score), 0)::int AS quiz_score
+          FROM profiles p
+          JOIN room_members rm
+            ON rm.user_id = p.id
+            AND rm.is_active = true
+          JOIN rooms r
+            ON r.id = rm.room_id
+            AND r.is_active = true
+          LEFT JOIN room_user_weekly_stats rws
+            ON rws.user_id = p.id
+            AND rws.room_id = rm.room_id
+            AND rws.week_year = ANY($1::text[])
+          GROUP BY p.id, p.username, p.avatar_url
+          ORDER BY COALESCE(SUM(rws.quiz_score), 0) DESC, p.username ASC
+          LIMIT 50;
+        `,
+        [weekYears]
+      );
+      return rows;
+    }
+
+    if (!roomId && normalizedType === 'academic') {
+      const { rows } = await pool.query(
+        `
+          SELECT
+            p.id,
+            p.username,
+            p.avatar_url,
+            COALESCE(SUM(rws.academic_score), 0)::int AS academic_score
+          FROM profiles p
+          JOIN room_members rm
+            ON rm.user_id = p.id
+            AND rm.is_active = true
+          JOIN rooms r
+            ON r.id = rm.room_id
+            AND r.is_active = true
+          LEFT JOIN room_user_weekly_stats rws
+            ON rws.user_id = p.id
+            AND rws.room_id = rm.room_id
+            AND rws.week_year = ANY($1::text[])
+          GROUP BY p.id, p.username, p.avatar_url
+          ORDER BY COALESCE(SUM(rws.academic_score), 0) DESC, p.username ASC
+          LIMIT 50;
+        `,
+        [weekYears]
+      );
+      return rows;
+    }
+
+    if (!roomId && normalizedType === 'boss') {
+      const { rows } = await pool.query(
+        `
+          SELECT
+            p.id,
+            p.username,
+            p.avatar_url,
+            COALESCE(SUM(rws.bosses_count), 0)::int AS bosses_count
+          FROM profiles p
+          JOIN room_members rm
+            ON rm.user_id = p.id
+            AND rm.is_active = true
+          JOIN rooms r
+            ON r.id = rm.room_id
+            AND r.is_active = true
+          LEFT JOIN room_user_weekly_stats rws
+            ON rws.user_id = p.id
+            AND rws.room_id = rm.room_id
+          GROUP BY p.id, p.username, p.avatar_url
+          ORDER BY COALESCE(SUM(rws.bosses_count), 0) DESC, p.username ASC
+          LIMIT 50;
+        `
+      );
+      return rows;
+    }
+
     const columnMap: Record<string, string> = {
-      semanal: 'total_minutes',
-      academico: 'academic_score',
-      jefes: 'bosses_count'
+      time: 'total_minutes',
+      qa: 'quiz_score',
+      academic: 'academic_score',
+      boss: 'bosses_count',
     };
 
-    const column = columnMap[type] || 'total_minutes';
+    const column = columnMap[normalizedType] || 'total_minutes';
 
-    // Si pasamos roomId, filtramos por sala (Ranking de Sala)
-    // Si no, es un ranking Global
-    const query = `
-      SELECT 
-        ru.total_minutes,
-        ru.academic_score,
-        ru.bosses_count,
-        p.id, 
-        p.username, 
-        p.avatar_url
-      FROM ${roomId ? 'room_user_weekly_stats ru' : 'user_weekly_stats ru'}
-      INNER JOIN profiles p ON ru.user_id = p.id
-      WHERE ru.week_year = ANY($1::text[])
-      ${roomId ? 'AND ru.room_id = $2' : ''}
-      ORDER BY ru.${column} DESC
-      LIMIT 50;
-    `;
+    if (roomId && normalizedType === 'boss') {
+      const { rows } = await pool.query(
+        `
+          SELECT
+            p.id,
+            p.username,
+            p.avatar_url,
+            COALESCE(SUM(ru.total_minutes), 0)::int AS total_minutes,
+            COALESCE(SUM(ru.quiz_score), 0)::int AS quiz_score,
+            COALESCE(SUM(ru.academic_score), 0)::int AS academic_score,
+            COALESCE(SUM(ru.bosses_count), 0)::int AS bosses_count
+          FROM room_members rm
+          INNER JOIN profiles p ON p.id = rm.user_id
+          LEFT JOIN room_user_weekly_stats ru
+            ON ru.room_id = rm.room_id
+            AND ru.user_id = rm.user_id
+          WHERE rm.room_id = $1
+            AND rm.is_active = true
+          GROUP BY p.id, p.username, p.avatar_url
+          ORDER BY COALESCE(SUM(ru.${column}), 0) DESC, p.username ASC
+          LIMIT 50;
+        `,
+        [roomId]
+      );
+      return rows;
+    }
+
+    const query = roomId
+      ? `
+        SELECT
+          p.id,
+          p.username,
+          p.avatar_url,
+          COALESCE(SUM(ru.total_minutes), 0)::int AS total_minutes,
+          COALESCE(SUM(ru.quiz_score), 0)::int AS quiz_score,
+          COALESCE(SUM(ru.academic_score), 0)::int AS academic_score,
+          COALESCE(SUM(ru.bosses_count), 0)::int AS bosses_count
+        FROM room_members rm
+        INNER JOIN profiles p ON p.id = rm.user_id
+        LEFT JOIN room_user_weekly_stats ru
+          ON ru.room_id = rm.room_id
+          AND ru.user_id = rm.user_id
+          AND ru.week_year = ANY($1::text[])
+        WHERE rm.room_id = $2
+          AND rm.is_active = true
+        GROUP BY p.id, p.username, p.avatar_url
+        ORDER BY COALESCE(SUM(ru.${column}), 0) DESC, p.username ASC
+        LIMIT 50;
+      `
+      : `
+        SELECT
+          ru.total_minutes,
+          ru.quiz_score,
+          ru.academic_score,
+          ru.bosses_count,
+          p.id,
+          p.username,
+          p.avatar_url
+        FROM user_weekly_stats ru
+        INNER JOIN profiles p ON ru.user_id = p.id
+        WHERE ru.week_year = ANY($1::text[])
+        ORDER BY ru.${column} DESC
+        LIMIT 50;
+      `;
 
     const params = roomId ? [weekYears, roomId] : [weekYears];
     const { rows } = await pool.query(query, params);
@@ -109,5 +237,126 @@ export const rankingsRepository = {
     );
 
     return rows;
+  },
+
+  async recalculateAcademicScores(weekYear: string, roomId?: string) {
+    const params = roomId ? [weekYear, roomId] : [weekYear];
+    await pool.query(
+      `
+        UPDATE room_user_weekly_stats
+        SET academic_score = FLOOR((total_minutes * quiz_score) / 60.0)::int,
+            updated_at = NOW()
+        WHERE week_year = $1
+        ${roomId ? 'AND room_id = $2' : ''};
+      `,
+      params
+    );
+  },
+
+  async findRoomsForWeeklyClose(roomId?: string): Promise<Array<{ id: string; mode: string }>> {
+    const { rows } = await pool.query(
+      `
+        SELECT id, mode
+        FROM rooms
+        WHERE is_active = true
+        ${roomId ? 'AND id = $1' : ''};
+      `,
+      roomId ? [roomId] : []
+    );
+    return rows;
+  },
+
+  async findWeeklyBossCandidate(roomId: string, weekYear: string, mode: string): Promise<{ user_id: string } | null> {
+    const isBattleRoyale = mode === 'battle_royale';
+    const orderColumn = isBattleRoyale ? 'academic_score' : 'total_minutes';
+
+    const { rows } = await pool.query(
+      `
+        SELECT user_id
+        FROM room_user_weekly_stats
+        WHERE room_id = $1
+          AND week_year = $2
+        ORDER BY ${orderColumn} DESC, quiz_score DESC, total_minutes DESC, user_id ASC
+        LIMIT 1;
+      `,
+      [roomId, weekYear]
+    );
+
+    return rows[0] ?? null;
+  },
+
+  async assignWeeklyBoss(roomId: string, weekYear: string, bossUserId: string) {
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      const insertResult = await client.query(
+        `
+          INSERT INTO boss_weeks (room_id, week_year, boss_user_id)
+          VALUES ($1, $2, $3)
+          ON CONFLICT (room_id, week_year) DO NOTHING
+          RETURNING id;
+        `,
+        [roomId, weekYear, bossUserId]
+      );
+
+      if (insertResult.rowCount === 0) {
+        await client.query('COMMIT');
+        return { assigned: false, boss_user_id: bossUserId };
+      }
+
+      await client.query(
+        `
+          INSERT INTO room_user_weekly_stats (room_id, user_id, week_year, bosses_count)
+          VALUES ($1, $2, $3, 1)
+          ON CONFLICT (room_id, user_id, week_year)
+          DO UPDATE SET
+            bosses_count = room_user_weekly_stats.bosses_count + 1,
+            updated_at = NOW();
+        `,
+        [roomId, bossUserId, weekYear]
+      );
+
+      await client.query(
+        `
+          INSERT INTO user_weekly_stats (user_id, week_year, bosses_count)
+          VALUES ($1, $2, 1)
+          ON CONFLICT (user_id, week_year)
+          DO UPDATE SET
+            bosses_count = user_weekly_stats.bosses_count + 1,
+            updated_at = NOW();
+        `,
+        [bossUserId, weekYear]
+      );
+
+      await client.query(
+        `
+          UPDATE profiles
+          SET coins_balance = coins_balance + 10,
+              updated_at = NOW()
+          WHERE id = $1;
+        `,
+        [bossUserId]
+      );
+
+      await client.query('COMMIT');
+      return { assigned: true, boss_user_id: bossUserId };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 };
+
+function normalizeRankingType(type: string) {
+  const map: Record<string, string> = {
+    semanal: 'time',
+    academico: 'academic',
+    jefes: 'boss',
+  };
+
+  return map[type] ?? type;
+}

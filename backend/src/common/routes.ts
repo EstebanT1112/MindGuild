@@ -50,7 +50,9 @@ router.use('/sessions', checkAuth, sessionRoutes);
 router.use('/battle-royale', checkAuth, battleRoyaleRoutes);
 
 // --- RANKINGS ---
-router.get('/ranking', rankingsController.getRanking);
+router.post('/ranking/recalculate-week', checkAuth, rankingsController.recalculateWeek);
+router.post('/ranking/close-week', checkAuth, rankingsController.closeWeek);
+router.get('/ranking', checkAuth, rankingsController.getRanking);
 
 // --- ACHIEVEMENTS ---
 router.use('/achievements', achievementRoutes);
