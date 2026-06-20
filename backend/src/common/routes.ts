@@ -8,6 +8,7 @@ import { checkAuth } from './middleware/auth.middleware.js';
 import studyRoutes from '../modules/study/study.routes.js';
 import achievementRoutes from '../modules/achievements/achievements.routes.js';
 import sessionRoutes from '../modules/sessions/session.routes.js';
+import battleRoyaleRoutes from '../modules/battle-royale/battle-royale.routes.js';
 
 // --- INVITACIONES A SALAS ---
 import RoomInvitationsController from '../modules/room-invitations/controller/room-invitations.controller.js';
@@ -44,6 +45,9 @@ router.use('/study', studyRoutes);
 // --- SESSIONS (RF-10) ---
 // Se agrega checkAuth aquí para proteger todas las operaciones de forma unificada
 router.use('/sessions', checkAuth, sessionRoutes);
+
+// --- BATTLE ROYALE (RF-02) PROTEGIDO ---
+router.use('/battle-royale', checkAuth, battleRoyaleRoutes);
 
 // --- RANKINGS ---
 router.get('/ranking', rankingsController.getRanking);
