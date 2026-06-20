@@ -17,12 +17,15 @@ import {
   fetchWeeklyQuizValidationItems,
   voteWeeklyQuizItem,
   resolveWeeklyQuiz,
+  fetchWeeklyQuizResult,
+  resetWeeklyQuiz,
   type BattleQuestion,
   type AssignedQuizQuestion,
   type ValidationItem,
   type WeeklyQuizStatusResult,
   type WeeklyQuizAttempt,
   type WeeklyQuiz,
+  type WeeklyQuizResult,
 } from '../services/battleRoyaleService';
 import { fetchRoomDetails, type RoomDetails } from '../services/roomsService';
 
@@ -34,6 +37,7 @@ export default function WeeklyQuizScreen() {
   const [room, setRoom] = useState<RoomDetails | null>(null);
   const [weeklyQuiz, setWeeklyQuiz] = useState<WeeklyQuiz | null>(null);
   const [quizStatus, setQuizStatus] = useState<WeeklyQuizStatusResult | null>(null);
+  const [quizResult, setQuizResult] = useState<WeeklyQuizResult | null>(null);
   const [questions, setQuestions] = useState<BattleQuestion[]>([]);
   const [attempt, setAttempt] = useState<WeeklyQuizAttempt | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -61,18 +65,20 @@ export default function WeeklyQuizScreen() {
 
     if (options?.showLoading ?? true) setLoading(true);
     try {
-      const [roomData, configData, questionsData, statusData, validationData] = await Promise.all([
+      const [roomData, configData, questionsData, statusData, validationData, resultData] = await Promise.all([
         fetchRoomDetails(accessToken, roomId),
         fetchBattleRoyaleConfig(accessToken, roomId),
         fetchRoomQuestions(accessToken, roomId),
         fetchWeeklyQuizStatus(accessToken, roomId),
         fetchWeeklyQuizValidationItems(accessToken, roomId),
+        fetchWeeklyQuizResult(accessToken, roomId),
       ]);
 
       setRoom(roomData);
       setWeeklyQuiz(configData.quiz);
       setQuestions(questionsData);
       setQuizStatus(statusData);
+      setQuizResult(resultData);
       setValidationItems(validationData.items);
       setValidationPhase(resolveValidationPhase(validationData.items));
       setValidationIndex(0);
@@ -205,13 +211,52 @@ export default function WeeklyQuizScreen() {
     setActionLoading(true);
     try {
       const result = await resolveWeeklyQuiz(accessToken, roomId);
-      Alert.alert('Validacion resuelta', `Validadas: ${result.validated_questions}. Eliminadas: ${result.deleted_questions}.`);
+      Alert.alert(
+        'Resultados generados',
+        `Preguntas validadas: ${result.validated_questions}. Preguntas rechazadas: ${result.rejected_questions}. Respuestas correctas: ${result.validated_answers}. Respuestas incorrectas: ${result.rejected_answers}.`
+      );
       await loadData({ showLoading: false });
     } catch (error: any) {
       Alert.alert('No se pudo resolver', error.message ?? 'Intenta nuevamente.');
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const handleResetQuiz = () => {
+    if (!accessToken || !roomId) return;
+
+    Alert.alert(
+      'Reiniciar cuestionario',
+      'Se va a borrar el cuestionario semanal actual, sus preguntas, respuestas, votos y resultados. Despues vas a poder configurarlo nuevamente.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Reiniciar',
+          style: 'destructive',
+          onPress: async () => {
+            setActionLoading(true);
+            try {
+              const result = await resetWeeklyQuiz(accessToken, roomId);
+              setWeeklyQuiz(null);
+              setQuizStatus(null);
+              setQuizResult(null);
+              setQuestions([]);
+              setAttempt(null);
+              setValidationItems([]);
+              setMode('overview');
+              Alert.alert('Cuestionario reiniciado', `Se eliminaron ${result.deleted_questions} preguntas del cuestionario anterior.`);
+              await loadData({ showLoading: false });
+              setConfigVisible(true);
+            } catch (error: any) {
+              Alert.alert('No se pudo reiniciar', error.message ?? 'Intenta nuevamente.');
+            } finally {
+              setActionLoading(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (loading) {
@@ -397,6 +442,63 @@ export default function WeeklyQuizScreen() {
           </View>
         )}
 
+        {quizResult ? (
+          quizResult.status === 'validated' && quizResult.summary ? (
+            <View style={styles.resultCard}>
+              <Text style={styles.resultTitle}>Resultado del quiz semanal</Text>
+              <Text style={styles.resultSubtitle}>Resultado calculado con las preguntas validadas por el grupo.</Text>
+
+              <View style={styles.resultGrid}>
+                <View style={styles.resultMetric}>
+                  <Text style={styles.resultMetricValue}>{quizResult.summary.score}/{quizResult.summary.total_questions}</Text>
+                  <Text style={styles.resultMetricLabel}>Puntaje</Text>
+                </View>
+                <View style={styles.resultMetric}>
+                  <Text style={styles.resultMetricValue}>{quizResult.summary.accuracy_percentage}%</Text>
+                  <Text style={styles.resultMetricLabel}>Acierto</Text>
+                </View>
+              </View>
+
+              <View style={styles.resultCounts}>
+                <Text style={styles.resultCorrect}>Correctas: {quizResult.summary.correct_count}</Text>
+                <Text style={styles.resultIncorrect}>Incorrectas: {quizResult.summary.incorrect_count}</Text>
+              </View>
+
+              <Text style={styles.resultDetailTitle}>Resultados de tus preguntas propuestas</Text>
+              <View style={styles.resultDetailCard}>
+                <Text style={styles.resultAnswer}>Aceptadas: {quizResult.proposed_questions.validated_count}</Text>
+                <Text style={styles.resultAnswer}>Rechazadas: {quizResult.proposed_questions.rejected_count ?? 0}</Text>
+                <Text style={styles.resultExpected}>Las rechazadas se muestran en este resultado y se eliminan cuando el owner reinicia o cambia el cuestionario.</Text>
+              </View>
+              {quizResult.proposed_questions.items.map(item => (
+                <View key={item.question_id} style={styles.resultDetailCard}>
+                  <Text style={styles.resultQuestion}>{item.question_text}</Text>
+                  <Text style={[styles.resultStatus, item.status === 'validated' ? styles.resultStatusOk : styles.resultStatusBad]}>
+                    {item.status === 'validated' ? 'Pregunta validada' : 'Pregunta rechazada'}
+                  </Text>
+                </View>
+              ))}
+
+              <Text style={styles.resultDetailTitle}>Resultados de las preguntas respondidas</Text>
+              {quizResult.details.map(detail => (
+                <View key={detail.question_id} style={styles.resultDetailCard}>
+                  <Text style={styles.resultQuestion}>{detail.question_text}</Text>
+                  <Text style={styles.resultAnswer}>Tu respuesta: {detail.answer_text ?? 'Sin respuesta'}</Text>
+                  <Text style={styles.resultExpected}>Esperada: {detail.expected_answer ?? 'No disponible'}</Text>
+                  <Text style={[styles.resultStatus, detail.is_correct ? styles.resultStatusOk : styles.resultStatusBad]}>
+                    {detail.is_correct ? 'Hiciste bien esta respuesta' : 'Te equivocaste en esta respuesta'}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.pendingResultCard}>
+              <Text style={styles.emptyTitle}>Resultado pendiente</Text>
+              <Text style={styles.emptyText}>Ya completaste el quiz. El resultado se muestra cuando termine la validacion grupal y el owner genere los resultados.</Text>
+            </View>
+          )
+        ) : null}
+
         <Pressable
           style={[styles.startQuizBtn, (!quizStatus?.can_start || actionLoading) && styles.disabledBtn]}
           onPress={handleStartQuiz}
@@ -406,13 +508,24 @@ export default function WeeklyQuizScreen() {
         </Pressable>
 
         {isOwner && (
-          <Pressable
-            style={[styles.resolveBtn, actionLoading && styles.disabledBtn]}
-            onPress={handleResolve}
-            disabled={actionLoading}
-          >
-            <Text style={styles.resolveText}>Generar resultados</Text>
-          </Pressable>
+          <>
+            <Pressable
+              style={[styles.resolveBtn, actionLoading && styles.disabledBtn]}
+              onPress={handleResolve}
+              disabled={actionLoading}
+            >
+              <Text style={styles.resolveText}>Generar resultados</Text>
+            </Pressable>
+            {weeklyQuiz ? (
+              <Pressable
+                style={[styles.resetBtn, actionLoading && styles.disabledBtn]}
+                onPress={handleResetQuiz}
+                disabled={actionLoading}
+              >
+                <Text style={styles.resetText}>Reiniciar cuestionario semanal</Text>
+              </Pressable>
+            ) : null}
+          </>
         )}
 
         <Text style={styles.sectionLabel}>MIS PREGUNTAS PROPUESTAS</Text>
@@ -552,10 +665,31 @@ const styles = StyleSheet.create({
   voteText: { color: 'white', fontWeight: '900' },
   resolveBtn: { height: 48, borderRadius: 16, backgroundColor: '#facc15', alignItems: 'center', justifyContent: 'center', marginTop: 18 },
   resolveText: { color: '#111827', fontWeight: '900' },
+  resetBtn: { height: 48, borderRadius: 16, backgroundColor: '#7f1d1d', alignItems: 'center', justifyContent: 'center', marginTop: 10, borderWidth: 1, borderColor: '#ef4444' },
+  resetText: { color: 'white', fontWeight: '900' },
   statusCard: { backgroundColor: '#1e293b', borderRadius: 18, padding: 14, borderWidth: 1, borderColor: '#334155', marginTop: 12 },
   statusCardTitle: { color: 'white', fontWeight: 'bold', marginBottom: 6 },
   statusCardText: { color: '#94a3b8', fontSize: 13, marginTop: 3 },
   statusReason: { color: '#facc15', fontSize: 12, marginTop: 8, lineHeight: 18 },
   startQuizBtn: { backgroundColor: '#a855f7', height: 54, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
   startQuizText: { color: 'white', fontWeight: '900', fontSize: 16 },
+  resultCard: { backgroundColor: '#0f172a', borderRadius: 22, padding: 18, borderWidth: 1, borderColor: '#22c55e55', marginTop: 12 },
+  pendingResultCard: { backgroundColor: '#1e293b', borderRadius: 20, padding: 18, borderWidth: 1, borderColor: '#facc1544', marginTop: 12 },
+  resultTitle: { color: 'white', fontWeight: '900', fontSize: 18, marginBottom: 6 },
+  resultSubtitle: { color: '#94a3b8', fontSize: 13, lineHeight: 19, marginBottom: 14 },
+  resultGrid: { flexDirection: 'row', gap: 12, marginBottom: 12 },
+  resultMetric: { flex: 1, backgroundColor: '#1e293b', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#334155' },
+  resultMetricValue: { color: 'white', fontWeight: '900', fontSize: 22 },
+  resultMetricLabel: { color: '#94a3b8', fontSize: 12, marginTop: 3 },
+  resultCounts: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
+  resultCorrect: { color: '#22c55e', fontWeight: 'bold' },
+  resultIncorrect: { color: '#ef4444', fontWeight: 'bold' },
+  resultDetailTitle: { color: '#94a3b8', fontWeight: '900', fontSize: 12, marginBottom: 8 },
+  resultDetailCard: { backgroundColor: '#111827', borderRadius: 14, borderWidth: 1, borderColor: '#334155', padding: 12, marginBottom: 8 },
+  resultQuestion: { color: 'white', fontWeight: 'bold', marginBottom: 8 },
+  resultAnswer: { color: '#cbd5e1', fontSize: 13, marginBottom: 4 },
+  resultExpected: { color: '#94a3b8', fontSize: 13, marginBottom: 8 },
+  resultStatus: { fontWeight: '900', fontSize: 12 },
+  resultStatusOk: { color: '#22c55e' },
+  resultStatusBad: { color: '#ef4444' },
 });

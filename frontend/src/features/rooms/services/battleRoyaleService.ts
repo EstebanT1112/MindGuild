@@ -116,6 +116,45 @@ export interface ValidationItem {
   };
 }
 
+export interface WeeklyQuizResult {
+  status: 'pending_validation' | 'validated';
+  quiz: {
+    id: string;
+    title: string;
+  };
+  room: {
+    id: string;
+    name: string;
+  };
+  summary: {
+    score: number;
+    total_questions: number;
+    correct_count: number;
+    incorrect_count: number;
+    accuracy_percentage: number;
+    duration_seconds: number | null;
+  } | null;
+  details: Array<{
+    question_id: string;
+    question_text: string;
+    question_type: BattleQuestionType;
+    answer_text: string | null;
+    expected_answer: string | null;
+    validation_status: string;
+    is_correct: boolean;
+  }>;
+  proposed_questions: {
+    validated_count: number;
+    rejected_count: number | null;
+    items: Array<{
+      question_id: string;
+      question_text: string;
+      question_type: BattleQuestionType;
+      status: 'validated' | 'rejected';
+    }>;
+  };
+}
+
 export async function fetchBattleRoyaleConfig(
   accessToken: string,
   roomId: string
@@ -358,7 +397,7 @@ export async function voteWeeklyQuizItem(
 export async function resolveWeeklyQuiz(
   accessToken: string,
   roomId: string
-): Promise<{ validated_questions: number; deleted_questions: number }> {
+): Promise<{ validated_questions: number; rejected_questions: number; validated_answers: number; rejected_answers: number }> {
   const response = await authenticatedFetch(
     `${API_BASE_URL}/battle-royale/rooms/${roomId}/weekly-quiz/resolve`,
     { method: 'POST' },
@@ -369,6 +408,48 @@ export async function resolveWeeklyQuiz(
 
   if (!response.ok) {
     throw new Error(data.error ?? 'No se pudo resolver la validacion');
+  }
+
+  return data;
+}
+
+export async function fetchWeeklyQuizResult(
+  accessToken: string,
+  roomId: string
+): Promise<WeeklyQuizResult | null> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/battle-royale/rooms/${roomId}/weekly-quiz/result`,
+    {},
+    accessToken
+  );
+
+  const data = await response.json();
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo cargar el resultado del quiz');
+  }
+
+  return data;
+}
+
+export async function resetWeeklyQuiz(
+  accessToken: string,
+  roomId: string
+): Promise<{ success: boolean; deleted_questions: number }> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/battle-royale/rooms/${roomId}/weekly-quiz/reset`,
+    { method: 'POST' },
+    accessToken
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo reiniciar el cuestionario');
   }
 
   return data;
