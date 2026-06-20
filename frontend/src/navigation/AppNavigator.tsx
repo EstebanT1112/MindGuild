@@ -6,6 +6,7 @@ import TabNavigator from './TabNavigator';
 import ProfileScreen from '../features/profiles/screens/ProfileScreen';
 import LiveRoomScreen from '../features/rooms/screens/LiveRoomScreen';
 import BattleRoyaleScreen from '../features/rooms/screens/BattleRoyaleScreen';
+import WeeklyQuizScreen from '../features/rooms/screens/WeeklyQuizScreen';
 import LoginScreen from '../features/auth/screens/LoginScreen';
 import RegisterScreen from '../features/auth/screens/RegisterScreen';
 import { useAuthStore } from '../store/authStore';
@@ -119,6 +120,7 @@ export default function AppNavigator() {
             <Stack.Screen name="Perfil" component={ProfileScreen} />
             <Stack.Screen name="LiveRoom" component={LiveRoomScreen} />
             <Stack.Screen name="BattleRoyale" component={BattleRoyaleScreen} />
+            <Stack.Screen name="WeeklyQuiz" component={WeeklyQuizScreen} />
           </>
         ) : (
           <>
