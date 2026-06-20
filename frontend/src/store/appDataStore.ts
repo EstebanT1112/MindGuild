@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { API_BASE_URL, fetchRanking, type RankingEntry } from '../services/apiConfig';
+import { API_BASE_URL, fetchRanking, type RankingEntry, type RankingType } from '../services/apiConfig';
 import { authenticatedFetch, SessionExpiredError } from '../services/authenticatedFetch';
 import { fetchAchievements, type Achievement } from '../features/profiles/services/achievementsService';
 import { fetchMyProfile, type FullProfile } from '../features/profiles/services/profileService';
@@ -41,8 +41,6 @@ export interface MissionSummary {
   completed: boolean;
 }
 
-type RankingType = 'semanal' | 'racha' | 'academico' | 'jefes';
-
 interface AppDataState {
   profile: CacheEntry<FullProfile>;
   rooms: CacheEntry<UserRoom[]>;
@@ -73,7 +71,7 @@ interface AppDataState {
   loadAchievements: (accessToken: string, options?: LoadOptions) => Promise<Achievement[]>;
   invalidateAchievements: () => void;
 
-  loadGlobalRanking: (options?: LoadRankingOptions) => Promise<RankingEntry[]>;
+  loadGlobalRanking: (accessToken?: string, options?: LoadRankingOptions) => Promise<RankingEntry[]>;
   invalidateGlobalRanking: () => void;
 
   loadRoomRanking: (
@@ -304,14 +302,14 @@ export const useAppDataStore = create<AppDataState>((set, get) => ({
   invalidateAchievements: () =>
     set(state => ({ achievements: { ...state.achievements, dirty: true } })),
 
-  loadGlobalRanking: async (options = {}) => {
+  loadGlobalRanking: async (accessToken, options = {}) => {
     const entry = get().globalRanking;
     if (!options.force && isFresh(entry, TTL.globalRanking)) return entry.data ?? [];
     if (entry.isLoading && entry.data) return entry.data;
 
     set({ globalRanking: { ...entry, isLoading: true, error: null } });
     try {
-      const response = await fetchRanking(options.type ?? 'semanal');
+      const response = await fetchRanking(options.type ?? 'time', accessToken);
       const data = Array.isArray(response?.data?.data) ? response.data.data : [];
       set({ globalRanking: { data, lastFetchedAt: Date.now(), isLoading: false, error: null, dirty: false } });
       return data;
