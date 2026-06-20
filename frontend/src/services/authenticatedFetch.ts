@@ -1,6 +1,4 @@
 import { useAuthStore } from '../store/authStore';
-import { useAppDataStore } from '../store/appDataStore';
-import { refreshAccessToken } from '../features/auth/services/tokenStorage';
 
 export class SessionExpiredError extends Error {
   constructor() {
@@ -22,24 +20,8 @@ export async function authenticatedFetch(
     return response;
   }
 
-  const renewedAccessToken = await refreshAccessToken();
-
-  if (!renewedAccessToken) {
-    useAppDataStore.getState().clearAll();
-    useAuthStore.getState().clearSession();
-    throw new SessionExpiredError();
-  }
-
-  useAuthStore.getState().updateAccessToken(renewedAccessToken);
-  const retryResponse = await fetch(url, withAuthorization(options, renewedAccessToken));
-
-  if (retryResponse.status === 401) {
-    useAppDataStore.getState().clearAll();
-    useAuthStore.getState().clearSession();
-    throw new SessionExpiredError();
-  }
-
-  return retryResponse;
+  useAuthStore.getState().clearSession();
+  throw new SessionExpiredError();
 }
 
 function withAuthorization(options: RequestInit, accessToken?: string | null): RequestInit {

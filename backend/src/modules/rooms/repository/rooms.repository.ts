@@ -351,22 +351,6 @@ export const RoomsRepository = {
     );
   },
 
-  async deactivateRoomIfEmpty(roomId: string): Promise<void> {
-    await pool.query(
-      `
-        UPDATE rooms
-        SET is_active = false
-        WHERE id = $1
-          AND NOT EXISTS (
-            SELECT 1
-            FROM room_members
-            WHERE room_id = $1 AND is_active = true
-          );
-      `,
-      [roomId]
-    );
-  },
-
   async transferOwnershipToOldestActiveMember(roomId: string): Promise<void> {
     const client = await pool.connect();
 
@@ -379,7 +363,6 @@ export const RoomsRepository = {
           FROM room_members
           WHERE room_id = $1
             AND is_active = true
-          WHERE room_id = $1 AND is_active = true
           ORDER BY joined_at ASC
           LIMIT 1;
         `,
@@ -395,7 +378,6 @@ export const RoomsRepository = {
             SET role = CASE WHEN user_id = $2 THEN 'owner' ELSE 'member' END
             WHERE room_id = $1
               AND is_active = true;
-            WHERE room_id = $1 AND is_active = true;
           `,
           [roomId, nextOwnerId]
         );

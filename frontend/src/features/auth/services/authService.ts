@@ -10,7 +10,6 @@ import {
     AUTH0_SCOPES,
     getAuth0RedirectUri,
 } from '../config/auth0Config';
-import { saveRefreshToken } from './tokenStorage';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -24,7 +23,6 @@ export interface Auth0Result {
     auth_user_id: string;
     email: string;
     access_token: string;
-    refresh_token?: string;
 }
 
 export interface RegisterResult extends Auth0Result {
@@ -42,6 +40,13 @@ export interface AuthError {
 
 export interface LinkGoogleResult {
     auth_providers: string[];
+}
+
+interface BackendSessionResult {
+    auth_user_id: string;
+    email: string;
+    app_token: string;
+    profile: ProfileResult;
 }
 
 export async function register(
@@ -73,12 +78,13 @@ export async function login(
     const authResult = await loginWithAuth0(email, password);
     //Prueba de post
     //console.log(authResult.access_token);
-    const profile = await getCurrentProfile(authResult.access_token);
-    await saveRefreshToken(authResult.refresh_token);
+    const session = await getCurrentSession(authResult.access_token);
 
     return {
-        ...authResult,
-        profile,
+        auth_user_id: session.auth_user_id,
+        email: session.email,
+        access_token: session.app_token,
+        profile: session.profile,
     };
 }
 
@@ -101,13 +107,10 @@ export async function loginWithGoogle(): Promise<LoginResult> {
         };
     }
 
-    await saveRefreshToken(tokenResult.refreshToken);
-
     return {
         auth_user_id: data.auth_user_id,
         email: data.email,
-        access_token: tokenResult.accessToken,
-        refresh_token: tokenResult.refreshToken,
+        access_token: data.app_token,
         profile: data.profile,
     };
 }
@@ -202,7 +205,6 @@ export async function registerWithAuth0(
         auth_user_id: userData.sub,
         email: userData.email ?? signupData.email,
         access_token: tokenData.access_token,
-        refresh_token: tokenData.refresh_token,
     };
 }
 
@@ -236,7 +238,6 @@ export async function loginWithAuth0(
         auth_user_id: userData.sub,
         email: userData.email,
         access_token: tokenData.access_token,
-        refresh_token: tokenData.refresh_token,
     };
 }
 
@@ -264,8 +265,8 @@ async function createProfile(input: {
     return data;
 }
 
-async function getCurrentProfile(accessToken: string): Promise<ProfileResult> {
-    // Usa el access_token para que el backend valide identidad y devuelva el perfil local.
+async function getCurrentSession(accessToken: string): Promise<BackendSessionResult> {
+    // Usa el token de Auth0 para que el backend emita un app_token local.
     const response = await safeFetch(`${API_BASE_URL}/auth/me`, {
         method: 'GET',
         headers: {
@@ -305,7 +306,7 @@ async function getGoogleAccessToken(): Promise<string> {
     return tokenResult.accessToken;
 }
 
-async function getGoogleTokens(): Promise<{ accessToken: string; refreshToken?: string }> {
+async function getGoogleTokens(): Promise<{ accessToken: string }> {
     const redirectUri = getAuth0RedirectUri();
     console.log('AUTH0_REDIRECT_URI', redirectUri);
 
@@ -350,7 +351,6 @@ async function getGoogleTokens(): Promise<{ accessToken: string; refreshToken?: 
 
     return {
         accessToken: tokenResponse.accessToken,
-        refreshToken: tokenResponse.refreshToken,
     };
 }
 

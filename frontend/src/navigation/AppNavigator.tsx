@@ -12,7 +12,7 @@ import { useAuthStore } from '../store/authStore';
 import { useAppDataStore } from '../store/appDataStore';
 import { fetchMyProfile, updateMyProfile } from '../features/profiles/services/profileService';
 import { registerForPushNotifications } from '../features/profiles/services/notificationService';
-import { clearRefreshToken, refreshAccessToken } from '../features/auth/services/tokenStorage';
+import { SessionExpiredError } from '../services/authenticatedFetch';
 
 const Stack = createNativeStackNavigator();
 
@@ -20,60 +20,17 @@ export default function AppNavigator() {
   // RF-02: el estado de sesion decide si se muestra el stack publico o privado.
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
   const accessToken = useAuthStore(state => state.access_token);
-  const setSession = useAuthStore(state => state.setSession);
   const clearSession = useAuthStore(state => state.clearSession);
   const setUser = useAuthStore(state => state.setUser);
-  const updateAccessToken = useAuthStore(state => state.updateAccessToken);
   const setProfile = useAppDataStore(state => state.setProfile);
   const clearAppData = useAppDataStore(state => state.clearAll);
-  const [restoringSession, setRestoringSession] = useState(true);
   const [validatingSession, setValidatingSession] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-
-    const restoreSession = async () => {
-      if (isAuthenticated) {
-        setRestoringSession(false);
-        return;
-      }
-
-      try {
-        const renewedAccessToken = await refreshAccessToken();
-
-        if (!renewedAccessToken || cancelled) {
-          return;
-        }
-
-        const profile = await fetchMyProfile(renewedAccessToken);
-
-        if (cancelled) return;
-
-        setProfile(profile);
-        setSession(profile.id, profile.email, renewedAccessToken, {
-          id: profile.id,
-          email: profile.email,
-          username: profile.username,
-        });
-      } catch (error) {
-        await clearRefreshToken();
-        if (!cancelled) {
-          clearAppData();
-          clearSession();
-        }
-      } finally {
-        if (!cancelled) {
-          setRestoringSession(false);
-        }
-      }
-    };
-
-    restoreSession();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isAuthenticated, setSession, setProfile, clearAppData, clearSession]);
+    if (!isAuthenticated) {
+      clearAppData();
+    }
+  }, [isAuthenticated, clearAppData]);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,24 +54,6 @@ export default function AppNavigator() {
         if (cancelled) return;
 
         if (isInvalidSessionError(error)) {
-          const renewedAccessToken = await refreshAccessToken();
-
-          if (renewedAccessToken) {
-            try {
-              const profile = await fetchMyProfile(renewedAccessToken);
-
-              if (cancelled) return;
-
-              updateAccessToken(renewedAccessToken);
-              setProfile(profile);
-              setUser({ id: profile.id, email: profile.email, username: profile.username });
-              return;
-            } catch (retryError) {
-              console.warn('No se pudo validar la sesion renovada', retryError);
-            }
-          }
-
-          await clearRefreshToken();
           clearAppData();
           clearSession();
           return;
@@ -133,7 +72,7 @@ export default function AppNavigator() {
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, accessToken, clearSession, clearAppData, setProfile, setUser, updateAccessToken]);
+  }, [isAuthenticated, accessToken, clearSession, clearAppData, setProfile, setUser]);
 
   useEffect(() => {
     let cancelled = false;
@@ -163,7 +102,7 @@ export default function AppNavigator() {
     };
   }, [isAuthenticated, accessToken, validatingSession]);
 
-  if (restoringSession || (isAuthenticated && validatingSession)) {
+  if (isAuthenticated && validatingSession) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a' }}>
         <ActivityIndicator color="#22c55e" />
@@ -193,6 +132,10 @@ export default function AppNavigator() {
 }
 
 function isInvalidSessionError(error: any) {
+  if (error instanceof SessionExpiredError) {
+    return true;
+  }
+
   const message = String(error?.message ?? error ?? '').toLowerCase();
 
   return (
