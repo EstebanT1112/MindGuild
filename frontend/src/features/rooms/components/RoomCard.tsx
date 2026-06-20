@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { ChevronRight, Trophy, Users } from 'lucide-react-native';
+import { ChevronRight, Star, Trophy, Users } from 'lucide-react-native';
 
 export type RoomCardData = {
   id: string;
@@ -9,9 +9,18 @@ export type RoomCardData = {
   mode: string;
   ranking: number;
   teamsEnabled?: boolean;
+  isFavorite?: boolean;
 };
 
-export default function RoomCard({ room, onPress }: { room: RoomCardData; onPress: () => void }) {
+export default function RoomCard({
+  room,
+  onPress,
+  onToggleFavorite,
+}: {
+  room: RoomCardData;
+  onPress: () => void;
+  onToggleFavorite?: () => void;
+}) {
   const isBR = room.mode === 'Battle Royale';
   const accent = isBR ? '#a855f7' : '#22c55e';
 
@@ -24,7 +33,25 @@ export default function RoomCard({ room, onPress }: { room: RoomCardData; onPres
             <Text style={[styles.code, { color: accent }]}>{room.code}</Text>
           </View>
         </View>
-        <ChevronRight color="#64748b" size={18} />
+        <View style={styles.actions}>
+          {onToggleFavorite && (
+            <Pressable
+              style={styles.favoriteButton}
+              onPress={event => {
+                event.stopPropagation();
+                onToggleFavorite();
+              }}
+              hitSlop={8}
+            >
+              <Star
+                color={room.isFavorite ? '#facc15' : '#64748b'}
+                fill={room.isFavorite ? '#facc15' : 'transparent'}
+                size={19}
+              />
+            </Pressable>
+          )}
+          <ChevronRight color="#64748b" size={18} />
+        </View>
       </View>
 
       <View style={styles.footer}>
@@ -54,6 +81,14 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderWidth: 1,
     borderColor: '#2a2f45',
+  },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  favoriteButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   header: {
     flexDirection: 'row',

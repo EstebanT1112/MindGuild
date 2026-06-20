@@ -1,7 +1,8 @@
 import { pool } from '../../../common/config/db.js';
 import type { EndSessionDTO, StartSessionDTO, StudySession, StudySessionPause } from '../types/session.types.js';
 
-const VALID_MINUTES_THRESHOLD = 5;
+const VALID_MINUTES_THRESHOLD = 30;
+const ROOM_ACTIVITY_MINUTES_THRESHOLD = 30;
 
 export const sessionsRepository = {
   async userExists(userId: string): Promise<boolean> {
@@ -53,7 +54,7 @@ export const sessionsRepository = {
     const { rows } = await pool.query(
       `
         INSERT INTO study_sessions (user_id, room_id, mode, status, started_at, valid, paused_seconds, approval_status)
-        VALUES ($1, $2, $3, 'active', NOW(), true, 0, 'pending')
+        VALUES ($1, $2, $3, 'active', NOW(), false, 0, 'pending')
         RETURNING id AS session_id, status, started_at;
       `,
       [userId, data.room_id, data.mode]
@@ -64,7 +65,7 @@ export const sessionsRepository = {
   async findSessionById(sessionId: string): Promise<StudySession | null> {
     const { rows } = await pool.query(
       `
-        SELECT id, user_id, room_id, mode, status, started_at, ended_at, duration_minutes, paused_seconds, valid
+        SELECT id, user_id, room_id, mode, status, started_at, ended_at, duration_minutes, paused_seconds, valid, approval_status, is_impacted
         FROM study_sessions
         WHERE id = $1
         LIMIT 1;
@@ -78,31 +79,15 @@ export const sessionsRepository = {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      
-      await client.query(
-        `UPDATE study_sessions SET status = 'paused' WHERE id = $1;`,
-        [sessionId]
-      );
-
+      await client.query(`UPDATE study_sessions SET status = 'paused' WHERE id = $1;`, [sessionId]);
       const { rows } = await client.query(
-        `
-          INSERT INTO study_session_pauses (session_id, paused_at)
-          VALUES ($1, NOW())
-          RETURNING id, session_id, paused_at, resumed_at, created_at;
-        `,
+        `INSERT INTO study_session_pauses (session_id, paused_at) VALUES ($1, NOW()) RETURNING *;`,
         [sessionId]
       );
-
       await client.query('COMMIT');
       return rows[0] as StudySessionPause;
-    } catch (error: any) {
+    } catch (error) {
       await client.query('ROLLBACK');
-      console.error('[sessionsRepository] pauseSession failed', {
-        sessionId,
-        message: error?.message,
-        code: error?.code,
-        detail: error?.detail,
-      });
       throw error;
     } finally {
       client.release();
@@ -113,38 +98,19 @@ export const sessionsRepository = {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-
       await client.query(
-        `
-          UPDATE study_session_pauses
-          SET resumed_at = NOW()
-          WHERE session_id = $1 AND resumed_at IS NULL;
-        `,
+        `UPDATE study_session_pauses SET resumed_at = NOW() WHERE session_id = $1 AND resumed_at IS NULL;`,
         [sessionId]
       );
-
       const totalPaused = await this.sumPausedSeconds(client, sessionId);
-
       const { rows } = await client.query(
-        `
-          UPDATE study_sessions 
-          SET status = 'active', paused_seconds = $2
-          WHERE id = $1
-          RETURNING id AS session_id, status, paused_seconds;
-        `,
+        `UPDATE study_sessions SET status = 'active', paused_seconds = $2 WHERE id = $1 RETURNING id AS session_id, status, paused_seconds;`,
         [sessionId, totalPaused]
       );
-
       await client.query('COMMIT');
       return rows[0];
-    } catch (error: any) {
+    } catch (error) {
       await client.query('ROLLBACK');
-      console.error('[sessionsRepository] resumeSession failed', {
-        sessionId,
-        message: error?.message,
-        code: error?.code,
-        detail: error?.detail,
-      });
       throw error;
     } finally {
       client.release();
@@ -161,21 +127,15 @@ export const sessionsRepository = {
 
   async sumPausedSeconds(client: any, sessionId: string): Promise<number> {
     const { rows } = await client.query(
-      `
-        SELECT COALESCE(
-          SUM(EXTRACT(EPOCH FROM (resumed_at - paused_at)))::integer, 
-          0
-        ) as total_seconds
-        FROM study_session_pauses
-        WHERE session_id = $1 AND resumed_at IS NOT NULL;
-      `,
+      `SELECT COALESCE(SUM(EXTRACT(EPOCH FROM (resumed_at - paused_at)))::integer, 0) as total_seconds
+       FROM study_session_pauses WHERE session_id = $1 AND resumed_at IS NOT NULL;`,
       [sessionId]
     );
     return rows[0].total_seconds;
   },
 
   async completeSession(session: StudySession, data: EndSessionDTO) {
-    const valid = data.duration_minutes >= VALID_MINUTES_THRESHOLD;
+    const isPendingThreshold = data.duration_minutes >= VALID_MINUTES_THRESHOLD;
     const endedAt = data.ended_at ?? new Date().toISOString();
     const client = await pool.connect();
 
@@ -192,99 +152,44 @@ export const sessionsRepository = {
 
       const finalPausedSeconds = await this.sumPausedSeconds(client, session.id);
 
-      // ⚡ BYPASS SEGURO CORREGIDO: Si duration_minutes es 0 (cierres rápidos), actualizamos al estado nativo 'invalid'
-      // y seteamos approval_status en 'rejected' para satisfacer al check constraint real de la BD.
-      if (data.duration_minutes === 0) {
+      if (!isPendingThreshold) {
         const { rows } = await client.query(
-          `
-            UPDATE study_sessions
-            SET
-              status = 'invalid',
-              valid = false,
-              ended_at = $2,
-              duration_minutes = 0,
-              paused_seconds = $3,
-              approval_status = 'rejected',
-              updated_at = NOW()
-            WHERE id = $1
-            RETURNING id AS session_id, status, valid, duration_minutes;
-          `,
-          [session.id, endedAt, finalPausedSeconds]
+          `UPDATE study_sessions
+           SET status = 'invalid', valid = false, ended_at = $2, duration_minutes = $3, paused_seconds = $4, approval_status = 'not_required', updated_at = NOW()
+           WHERE id = $1 RETURNING id AS session_id, status, valid, duration_minutes;`,
+          [session.id, endedAt, data.duration_minutes, finalPausedSeconds]
         );
-
         await client.query('COMMIT');
         return rows[0];
       }
 
-      // Si supera el umbral, usamos el estado permitido 'validated' y approval_status 'approved'
       const { rows } = await client.query(
-        `
-          UPDATE study_sessions
-          SET
-            status = CASE WHEN $2 THEN 'validated'::character varying ELSE 'invalid'::character varying END,
-            valid = $2,
-            ended_at = $3,
-            duration_minutes = $4,
-            paused_seconds = $5,
-            approval_status = CASE WHEN $2 THEN 'approved'::character varying ELSE 'rejected'::character varying END,
-            evidence_photo_url = CASE WHEN $2 AND $6::text IS NOT NULL THEN $6::text ELSE evidence_photo_url END,
-            summary_text = CASE WHEN $2 AND $7::text IS NOT NULL THEN $7::text ELSE summary_text END,
-            updated_at = NOW()
-          WHERE id = $1
-          RETURNING id AS session_id, status, valid, duration_minutes;
-        `,
-        [
-          session.id,
-          valid,
-          endedAt,
-          data.duration_minutes,
-          finalPausedSeconds,
-          data.evidence_photo_url ?? null,
-          data.summary_text ?? null,
-        ]
+        `UPDATE study_sessions
+         SET status = 'pending', valid = false, ended_at = $2, duration_minutes = $3, paused_seconds = $4, approval_status = 'pending',
+             evidence_photo_url = $5::text, summary_text = $6::text, updated_at = NOW()
+         WHERE id = $1 RETURNING id AS session_id, status, valid, duration_minutes;`,
+        [session.id, endedAt, data.duration_minutes, finalPausedSeconds, data.evidence_photo_url, data.summary_text]
       );
 
-      if (valid && data.duration_minutes > 0) {
-        await client.query(
-          `UPDATE profiles SET total_study_minutes = total_study_minutes + $2, updated_at = NOW() WHERE id = $1;`,
-          [session.user_id, data.duration_minutes]
-        );
+      await updateUserStreakAfterValidSession(client, session.user_id, session.id);
 
-        await updateUserStreakAfterValidSession(client, session.user_id, session.id);
-        const weekYear = getWeekYear();
-
+      if (session.room_id && data.duration_minutes >= ROOM_ACTIVITY_MINUTES_THRESHOLD) {
         await client.query(
           `
-            INSERT INTO user_weekly_stats (user_id, week_year, total_minutes)
-            VALUES ($1, $2, $3)
-            ON CONFLICT (user_id, week_year)
-            DO UPDATE SET total_minutes = user_weekly_stats.total_minutes + EXCLUDED.total_minutes, updated_at = NOW();
+            UPDATE room_members
+            SET last_activity_at = NOW()
+            WHERE room_id = $1
+              AND user_id = $2
+              AND is_active = true;
           `,
-          [session.user_id, weekYear, data.duration_minutes]
+          [session.room_id, session.user_id]
         );
-
-        if (session.room_id) {
-          await client.query(
-            `
-              INSERT INTO room_user_weekly_stats (room_id, user_id, week_year, total_minutes)
-              VALUES ($1, $2, $3, $4)
-              ON CONFLICT (room_id, user_id, week_year)
-              DO UPDATE SET total_minutes = room_user_weekly_stats.total_minutes + EXCLUDED.total_minutes, updated_at = NOW();
-            `,
-            [session.room_id, session.user_id, weekYear, data.duration_minutes]
-          );
-        }
       }
 
       await client.query('COMMIT');
       return rows[0];
-    } catch (error: any) {
+    } catch (error) {
       await client.query('ROLLBACK');
-      console.error('[sessionsRepository] completeSession failed', {
-        sessionId: session.id,
-        message: error?.message,
-        code: error?.code,
-      });
       throw error;
     } finally {
       client.release();
@@ -303,6 +208,120 @@ export const sessionsRepository = {
     );
     return rows[0];
   },
+
+  async listUserSessions(userId: string, statusFilter?: string) {
+    let query = `SELECT s.*, r.name as room_name FROM study_sessions s 
+                 LEFT JOIN rooms r ON s.room_id = r.id 
+                 WHERE s.user_id = $1`;
+    const params: any[] = [userId];
+    if (statusFilter) {
+      params.push(statusFilter);
+      query += ` AND s.status = $2`;
+    }
+    query += ` ORDER BY s.created_at DESC;`;
+    const { rows } = await pool.query(query, params);
+    return rows;
+  },
+
+  async listPendingSessionsForRoom(roomId: string, reviewerId: string) {
+    const { rows } = await pool.query(
+      `SELECT s.id, s.duration_minutes, s.evidence_photo_url, s.summary_text, s.created_at, p.username, p.avatar_url
+       FROM study_sessions s
+       JOIN profiles p ON s.user_id = p.id
+       WHERE s.room_id = $1 AND s.status = 'pending' AND s.user_id <> $2
+       AND NOT EXISTS (
+         SELECT 1 FROM study_session_reviews WHERE session_id = s.id AND reviewer_user_id = $2
+       ) ORDER BY s.created_at ASC;`,
+      [roomId, reviewerId]
+    );
+    return rows;
+  },
+
+  async createSessionReview(client: any, sessionId: string, reviewerId: string, vote: string, comment: string) {
+    await client.query(
+      `INSERT INTO study_session_reviews (session_id, reviewer_user_id, vote, comment, created_at)
+       VALUES ($1, $2, $3, $4, NOW());`,
+      [sessionId, reviewerId, vote, comment]
+    );
+  },
+
+  async validateAndImpactSession(sessionId: string) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const { rows: sessionRows } = await client.query(
+        `UPDATE study_sessions SET status = 'validated', valid = true, approval_status = 'approved', is_impacted = true, updated_at = NOW()
+         WHERE id = $1 AND status = 'pending' AND is_impacted = false RETURNING *;`,
+        [sessionId]
+      );
+      const session = sessionRows[0];
+      if (!session) {
+        throw new Error('Sesion no elegible para impacto o ya procesada');
+      }
+
+      await client.query(
+        `UPDATE profiles SET total_study_minutes = total_study_minutes + $2, updated_at = NOW() WHERE id = $1;`,
+        [session.user_id, session.duration_minutes]
+      );
+
+      const weekYear = getWeekYear();
+      await client.query(
+        `INSERT INTO user_weekly_stats (user_id, week_year, total_minutes) VALUES ($1, $2, $3)
+         ON CONFLICT (user_id, week_year) DO UPDATE SET total_minutes = user_weekly_stats.total_minutes + EXCLUDED.total_minutes, updated_at = NOW();`,
+        [session.user_id, weekYear, session.duration_minutes]
+      );
+
+      if (session.room_id) {
+        await client.query(
+          `INSERT INTO room_user_weekly_stats (room_id, user_id, week_year, total_minutes) VALUES ($1, $2, $3, $4)
+           ON CONFLICT (room_id, user_id, week_year) DO UPDATE SET total_minutes = room_user_weekly_stats.total_minutes + EXCLUDED.total_minutes, updated_at = NOW();`,
+          [session.room_id, session.user_id, weekYear, session.duration_minutes]
+        );
+      }
+
+      await client.query('COMMIT');
+      return session;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
+  async deleteRejectedSession(sessionId: string) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(`DELETE FROM study_session_reviews WHERE session_id = $1;`, [sessionId]);
+      await client.query(`DELETE FROM study_sessions WHERE id = $1;`, [sessionId]);
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
+  async cleanupExpiredSessionsManual() {
+    const cutoffDate = new Date();
+    cutoffDate.setHours(0, 0, 0, 0);
+
+    const { rows: expired } = await pool.query(
+      `UPDATE study_sessions SET status = 'expired', approval_status = 'expired'
+       WHERE status = 'pending' AND ended_at < $1 RETURNING id;`,
+      [cutoffDate.toISOString()]
+    );
+
+    const { rowCount: deleted } = await pool.query(
+      `DELETE FROM study_sessions WHERE status IN ('invalid', 'validated', 'cancelled', 'expired') AND ended_at < $1;`,
+      [cutoffDate.toISOString()]
+    );
+
+    return { expired_sessions: expired.length, deleted_sessions: deleted ?? 0 };
+  }
 };
 
 async function updateUserStreakAfterValidSession(client: any, userId: string, sessionId: string) {
@@ -312,12 +331,12 @@ async function updateUserStreakAfterValidSession(client: any, userId: string, se
         SELECT
           EXISTS (
             SELECT 1 FROM study_sessions
-            WHERE user_id = $1 AND id <> $2 AND status = 'validated' AND valid = true
+            WHERE user_id = $1 AND id <> $2 AND status IN ('validated', 'pending')
               AND (ended_at AT TIME ZONE 'UTC')::date = (NOW() AT TIME ZONE 'UTC')::date
           ) AS has_valid_today,
           EXISTS (
             SELECT 1 FROM study_sessions
-            WHERE user_id = $1 AND status = 'validated' AND valid = true
+            WHERE user_id = $1 AND status IN ('validated', 'pending')
               AND (ended_at AT TIME ZONE 'UTC')::date = (NOW() AT TIME ZONE 'UTC')::date - INTERVAL '1 day'
           ) AS has_valid_yesterday
       )

@@ -193,6 +193,28 @@ export const RoomsController = {
       return res.status(500).json({ error: 'Error interno al unirse a sala' });
     }
   },
+
+  async markFavorite(req: Request, res: Response) {
+    try {
+      const user = await getAuthenticatedProfile(req);
+      const roomId = Array.isArray(req.params.roomId) ? req.params.roomId[0] : req.params.roomId;
+      const room = await RoomsService.markFavorite(user.id, roomId);
+      return res.status(200).json(room);
+    } catch (error: any) {
+      return handleRoomError(error, res, 'Error interno al marcar favorita');
+    }
+  },
+
+  async unmarkFavorite(req: Request, res: Response) {
+    try {
+      const user = await getAuthenticatedProfile(req);
+      const roomId = Array.isArray(req.params.roomId) ? req.params.roomId[0] : req.params.roomId;
+      const room = await RoomsService.unmarkFavorite(user.id, roomId);
+      return res.status(200).json(room);
+    } catch (error: any) {
+      return handleRoomError(error, res, 'Error interno al quitar favorita');
+    }
+  },
 };
 
 async function getAuthenticatedProfile(req: Request) {

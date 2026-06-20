@@ -51,6 +51,10 @@ interface AppDataState {
   globalRanking: CacheEntry<RankingEntry[]>;
   roomRankings: Record<string, CacheEntry<RoomTimeRankingEntry[]>>;
   roomDetails: Record<string, CacheEntry<RoomDetails>>;
+  activeStudySession: {
+    sessionId: string;
+    roomId: string | null;
+  } | null;
 
   loadProfile: (accessToken: string, options?: LoadOptions) => Promise<FullProfile | null>;
   setProfile: (profile: FullProfile) => void;
@@ -58,7 +62,9 @@ interface AppDataState {
 
   loadRooms: (accessToken: string, options?: LoadOptions) => Promise<UserRoom[]>;
   addOrReplaceRoom: (room: CreatedRoom | JoinedRoom | UserRoom) => void;
+  setRoomFavorite: (roomId: string, isFavorite: boolean) => void;
   removeRoom: (roomId: string) => void;
+  markRoomActivity: (roomId: string) => void;
   invalidateRooms: () => void;
 
   loadMissions: (accessToken: string, options?: LoadOptions) => Promise<MissionSummary[]>;
@@ -85,6 +91,7 @@ interface AppDataState {
 
   invalidateAfterRoomParticipation: () => void;
   invalidateAfterValidStudySession: (roomId?: string) => void;
+  setActiveStudySession: (session: { sessionId: string; roomId: string | null } | null) => void;
   clearAll: () => void;
 }
 
@@ -114,7 +121,19 @@ const toUserRoom = (room: CreatedRoom | JoinedRoom | UserRoom): UserRoom => ({
   ...room,
   members_count: 'members_count' in room ? room.members_count : 1,
   role: 'role' in room ? room.role : 'owner',
+  is_favorite: 'is_favorite' in room ? room.is_favorite : false,
+  last_activity_at: 'last_activity_at' in room ? room.last_activity_at : null,
 });
+
+const sortUserRooms = (rooms: UserRoom[]) =>
+  [...rooms].sort((a, b) => {
+    if (a.is_favorite !== b.is_favorite) return a.is_favorite ? -1 : 1;
+
+    const activityA = a.last_activity_at ? new Date(a.last_activity_at).getTime() : 0;
+    const activityB = b.last_activity_at ? new Date(b.last_activity_at).getTime() : 0;
+
+    return activityB - activityA;
+  });
 
 export const useAppDataStore = create<AppDataState>((set, get) => ({
   profile: createEntry<FullProfile>(),
@@ -124,6 +143,7 @@ export const useAppDataStore = create<AppDataState>((set, get) => ({
   globalRanking: createEntry<RankingEntry[]>([]),
   roomRankings: {},
   roomDetails: {},
+  activeStudySession: null,
 
   loadProfile: async (accessToken, options = {}) => {
     const entry = get().profile;
@@ -159,8 +179,9 @@ export const useAppDataStore = create<AppDataState>((set, get) => ({
     set({ rooms: { ...entry, isLoading: true, error: null } });
     try {
       const data = await fetchMyRooms(accessToken);
-      set({ rooms: { data, lastFetchedAt: Date.now(), isLoading: false, error: null, dirty: false } });
-      return data;
+      const sortedData = sortUserRooms(data);
+      set({ rooms: { data: sortedData, lastFetchedAt: Date.now(), isLoading: false, error: null, dirty: false } });
+      return sortedData;
     } catch (error: any) {
       if (error instanceof SessionExpiredError) {
         set({ rooms: { ...get().rooms, isLoading: false, error: null } });
@@ -175,7 +196,7 @@ export const useAppDataStore = create<AppDataState>((set, get) => ({
     set(state => {
       const nextRoom = toUserRoom(room);
       const current = state.rooms.data ?? [];
-      const nextRooms = [nextRoom, ...current.filter(item => item.id !== nextRoom.id)];
+      const nextRooms = sortUserRooms([nextRoom, ...current.filter(item => item.id !== nextRoom.id)]);
       return {
         rooms: {
           data: nextRooms,
@@ -186,6 +207,17 @@ export const useAppDataStore = create<AppDataState>((set, get) => ({
         },
       };
     }),
+
+  setRoomFavorite: (roomId, isFavorite) =>
+    set(state => ({
+      rooms: {
+        ...state.rooms,
+        data: (state.rooms.data ?? []).map(room =>
+          room.id === roomId ? { ...room, is_favorite: isFavorite } : room
+        ),
+        lastFetchedAt: Date.now(),
+      },
+    })),
 
   removeRoom: roomId =>
     set(state => {
@@ -203,6 +235,17 @@ export const useAppDataStore = create<AppDataState>((set, get) => ({
         roomDetails,
       };
     }),
+
+  markRoomActivity: roomId =>
+    set(state => ({
+      rooms: {
+        ...state.rooms,
+        data: sortUserRooms((state.rooms.data ?? []).map(room =>
+          room.id === roomId ? { ...room, last_activity_at: new Date().toISOString() } : room
+        )),
+        lastFetchedAt: Date.now(),
+      },
+    })),
 
   invalidateRooms: () =>
     set(state => ({ rooms: { ...state.rooms, dirty: true } })),
@@ -427,6 +470,9 @@ export const useAppDataStore = create<AppDataState>((set, get) => ({
         : state.roomRankings,
     })),
 
+  setActiveStudySession: session =>
+    set({ activeStudySession: session }),
+
   clearAll: () =>
     set({
       profile: createEntry<FullProfile>(),
@@ -436,6 +482,7 @@ export const useAppDataStore = create<AppDataState>((set, get) => ({
       globalRanking: createEntry<RankingEntry[]>([]),
       roomRankings: {},
       roomDetails: {},
+      activeStudySession: null,
     }),
 }));
 

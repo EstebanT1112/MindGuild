@@ -4,9 +4,20 @@ export type StudySessionStatus =
   | 'active' 
   | 'paused' 
   | 'pending' 
-  | 'completed' 
+  | 'validated'
+  | 'rejected' 
+  | 'expired'
   | 'cancelled'
   | 'invalid';
+
+export type StudySessionApprovalStatus =
+  | 'not_required'
+  | 'pending'
+  | 'approved'
+  | 'rejected'
+  | 'expired';
+
+export type StudySessionReviewVote = 'accept' | 'reject';
 
 export interface StartSessionDTO {
   room_id: string | null;
@@ -32,6 +43,8 @@ export interface StudySession {
   duration_minutes: number | null;
   paused_seconds: number | null;
   valid: boolean;
+  approval_status?: StudySessionApprovalStatus;
+  is_impacted?: boolean;
 }
 
 export interface StudySessionPause {
