@@ -8,5 +8,12 @@ router.post('/rooms/:roomId/weekly-quiz', BattleRoyaleController.createWeeklyQui
 router.patch('/rooms/:roomId/weekly-quiz/:quizId', BattleRoyaleController.updateWeeklyQuiz);
 router.get('/rooms/:roomId/questions', BattleRoyaleController.getQuestions);
 router.post('/rooms/:roomId/questions', BattleRoyaleController.createQuestion);
+router.get('/rooms/:roomId/weekly-quiz/status', BattleRoyaleController.getWeeklyQuizStatus);
+router.post('/rooms/:roomId/weekly-quiz/start', BattleRoyaleController.startWeeklyQuiz);
+router.post('/weekly-quiz/:attemptId/answers', BattleRoyaleController.saveWeeklyQuizAnswer);
+router.post('/weekly-quiz/:attemptId/complete', BattleRoyaleController.completeWeeklyQuiz);
+router.get('/rooms/:roomId/weekly-quiz/validation', BattleRoyaleController.getValidationItems);
+router.post('/weekly-quiz/validation/vote', BattleRoyaleController.voteValidationItem);
+router.post('/rooms/:roomId/weekly-quiz/resolve', BattleRoyaleController.resolveWeeklyQuiz);
 
 export default router;

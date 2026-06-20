@@ -6,12 +6,16 @@ import {
   BattleRoyaleValidationError,
   type BattleQuestionType,
   type CreateQuestionInput,
+  type SaveAnswerInput,
+  type VoteInput,
   type WeeklyQuizInput,
 } from '../types/battle-royale.types.js';
 
 const VALID_WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 const DEFAULT_QUIZ_DURATION_MINUTES = 1440;
 const EDITABLE_QUIZ_STATUSES = ['draft', 'scheduled'];
+const MIN_OWN_QUESTIONS_TO_PARTICIPATE = 3;
+const MAX_ASSIGNED_QUESTIONS = 8;
 
 export const BattleRoyaleService = {
   async getConfig(userId: string, roomId: string) {
@@ -103,7 +107,288 @@ export const BattleRoyaleService = {
       ...question,
     });
   },
+
+  async getWeeklyQuizStatus(userId: string, roomId: string) {
+    await assertBattleRoyaleAccess(userId, roomId);
+    const quiz = await getCurrentQuizOrNull(roomId);
+
+    if (!quiz) {
+      return {
+        quiz_id: null,
+        status: 'not_configured',
+        can_start: false,
+        must_validate: false,
+        assigned_questions_count: 0,
+        answered_questions_count: 0,
+        opens_at: null,
+        closes_at: null,
+        reason: 'El cuestionario semanal no esta configurado',
+      };
+    }
+
+    const attempt = await BattleRoyaleRepository.findAttempt(quiz.id, userId);
+    const assignedCount = await BattleRoyaleRepository.countAssignedQuestions(quiz.id, userId);
+    const answeredCount = await BattleRoyaleRepository.countAnsweredQuestions(quiz.id, userId, attempt?.id);
+    const isOpen = isQuizOpen(quiz);
+    const validationItems = await BattleRoyaleRepository.listValidationItems(roomId, userId);
+
+    return {
+      quiz_id: quiz.id,
+      status: quiz.status,
+      can_start: isOpen && !attempt?.completed_at,
+      must_validate: Boolean(attempt?.completed_at && validationItems.length > 0),
+      assigned_questions_count: assignedCount,
+      answered_questions_count: answeredCount,
+      opens_at: quiz.opens_at,
+      closes_at: quiz.closes_at,
+      reason: isOpen ? undefined : 'El cuestionario esta fuera de la ventana activa',
+    };
+  },
+
+  async startWeeklyQuiz(userId: string, roomId: string) {
+    await assertBattleRoyaleAccess(userId, roomId);
+    const quiz = await getCurrentQuiz(roomId);
+
+    if (!isQuizOpen(quiz)) {
+      throw new BattleRoyaleConflictError('El cuestionario esta fuera de la ventana activa');
+    }
+
+    const ownQuestionsCount = await BattleRoyaleRepository.countUserEligibleQuestions(roomId, userId, quiz.week_year);
+
+    if (ownQuestionsCount < MIN_OWN_QUESTIONS_TO_PARTICIPATE) {
+      throw new BattleRoyaleConflictError('Debes cargar al menos 3 preguntas elegibles para participar del quiz semanal');
+    }
+
+    let assignedCount = await BattleRoyaleRepository.countAssignedQuestions(quiz.id, userId);
+
+    if (assignedCount === 0) {
+      const assignableQuestions = await BattleRoyaleRepository.listAssignableQuestions(
+        roomId,
+        userId,
+        quiz.week_year,
+        MAX_ASSIGNED_QUESTIONS
+      );
+
+      await BattleRoyaleRepository.createAssignments(
+        quiz.id,
+        userId,
+        assignableQuestions.map(question => question.id)
+      );
+
+      assignedCount = assignableQuestions.length;
+    }
+
+    const attempt =
+      (await BattleRoyaleRepository.findAttempt(quiz.id, userId)) ??
+      (await BattleRoyaleRepository.createAttempt(quiz.id, userId));
+
+    if (assignedCount === 0) {
+      return {
+        attempt_id: attempt.id,
+        quiz_id: quiz.id,
+        questions: [],
+      };
+    }
+
+    return {
+      attempt_id: attempt.id,
+      quiz_id: quiz.id,
+      questions: await BattleRoyaleRepository.listAssignedQuestions(quiz.id, userId),
+    };
+  },
+
+  async saveWeeklyQuizAnswer(userId: string, attemptId: string, input: SaveAnswerInput) {
+    const attempt = await getAttempt(attemptId);
+    const questionId = String(input.question_id ?? '').trim();
+
+    if (!questionId) {
+      throw new BattleRoyaleValidationError('question_id es requerido');
+    }
+
+    if (attempt.user_id !== userId) {
+      throw new BattleRoyaleForbiddenError('No podes responder un intento de otro usuario');
+    }
+
+    if (attempt.completed_at) {
+      throw new BattleRoyaleConflictError('El intento ya esta finalizado');
+    }
+
+    const question = await BattleRoyaleRepository.findAssignedQuestion(attempt.quiz_id, userId, questionId);
+
+    if (!question) {
+      throw new BattleRoyaleForbiddenError('La pregunta no esta asignada a este intento');
+    }
+
+    if (question.author_id === userId) {
+      throw new BattleRoyaleForbiddenError('No podes responder una pregunta propia');
+    }
+
+    if (await BattleRoyaleRepository.hasAnswer(attemptId, questionId)) {
+      throw new BattleRoyaleConflictError('La pregunta ya fue respondida');
+    }
+
+    if (question.type === 'multiple_choice') {
+      const selectedOptionId = String(input.selected_option_id ?? '').trim();
+
+      if (!selectedOptionId) {
+        throw new BattleRoyaleValidationError('selected_option_id es requerido');
+      }
+
+      const option = await BattleRoyaleRepository.optionBelongsToQuestion(selectedOptionId, questionId);
+
+      if (!option) {
+        throw new BattleRoyaleValidationError('La opcion seleccionada no pertenece a la pregunta');
+      }
+
+      await BattleRoyaleRepository.saveMultipleChoiceAnswer({
+        attemptId,
+        questionId,
+        responderUserId: userId,
+        selectedOptionId,
+        selectedOption: option.option_text,
+        isCorrect: option.is_correct,
+      });
+
+      return { success: true };
+    }
+
+    const answerText = String(input.answer_text ?? '').trim();
+
+    if (!answerText) {
+      throw new BattleRoyaleValidationError('answer_text es requerido');
+    }
+
+    await BattleRoyaleRepository.saveOpenAnswer({
+      attemptId,
+      questionId,
+      responderUserId: userId,
+      answerText,
+    });
+
+    return { success: true };
+  },
+
+  async completeWeeklyQuiz(userId: string, attemptId: string) {
+    const attempt = await getAttempt(attemptId);
+
+    if (attempt.user_id !== userId) {
+      throw new BattleRoyaleForbiddenError('No podes finalizar un intento de otro usuario');
+    }
+
+    const assignedCount = await BattleRoyaleRepository.countAssignedQuestions(attempt.quiz_id, userId);
+    const answeredCount = await BattleRoyaleRepository.countAnsweredQuestions(attempt.quiz_id, userId, attemptId);
+
+    if (assignedCount === 0) {
+      throw new BattleRoyaleConflictError('No tenes preguntas asignadas para completar');
+    }
+
+    if (answeredCount < assignedCount) {
+      throw new BattleRoyaleConflictError('Debes responder todas las preguntas antes de finalizar');
+    }
+
+    await BattleRoyaleRepository.completeAttempt(attemptId);
+
+    return {
+      success: true,
+      must_validate: true,
+      next_screen: 'weekly_quiz_validation',
+    };
+  },
+
+  async listValidationItems(userId: string, roomId: string) {
+    await assertBattleRoyaleAccess(userId, roomId);
+    return {
+      items: await BattleRoyaleRepository.listValidationItems(roomId, userId),
+    };
+  },
+
+  async voteValidationItem(userId: string, input: VoteInput) {
+    const type = input.type;
+    const vote = input.vote;
+
+    if (!['question', 'response'].includes(String(type))) {
+      throw new BattleRoyaleValidationError('type debe ser question o response');
+    }
+
+    if (!['positive', 'negative'].includes(String(vote))) {
+      throw new BattleRoyaleValidationError('vote debe ser positive o negative');
+    }
+
+    if (type === 'question') {
+      const questionId = String(input.question_id ?? '').trim();
+
+      if (!questionId) {
+        throw new BattleRoyaleValidationError('question_id es requerido');
+      }
+
+      const question = await BattleRoyaleRepository.findQuestionForVote(questionId);
+
+      if (!question) {
+        throw new BattleRoyaleNotFoundError('Pregunta no encontrada');
+      }
+
+      await assertBattleRoyaleAccess(userId, question.room_id);
+
+      if (question.author_id === userId) {
+        throw new BattleRoyaleForbiddenError('No podes votar tu propia pregunta');
+      }
+
+      await BattleRoyaleRepository.saveQuestionVote(questionId, userId, vote as 'positive' | 'negative');
+      return { success: true };
+    }
+
+    const responseId = String(input.response_id ?? '').trim();
+
+    if (!responseId) {
+      throw new BattleRoyaleValidationError('response_id es requerido');
+    }
+
+    const response = await BattleRoyaleRepository.findResponseForVote(responseId);
+
+    if (!response) {
+      throw new BattleRoyaleNotFoundError('Respuesta no encontrada');
+    }
+
+    await assertBattleRoyaleAccess(userId, response.room_id);
+
+    if (response.responder_user_id === userId) {
+      throw new BattleRoyaleForbiddenError('No podes votar tu propia respuesta');
+    }
+
+    await BattleRoyaleRepository.saveResponseVote(response.question_id, responseId, userId, vote as 'positive' | 'negative');
+    return { success: true };
+  },
+
+  async resolveWeeklyQuiz(userId: string, roomId: string) {
+    await assertBattleRoyaleAccess(userId, roomId, { ownerOnly: true });
+    const quiz = await getCurrentQuiz(roomId);
+    return BattleRoyaleRepository.resolveQuestionVotes(roomId, quiz.id);
+  },
 };
+
+async function getCurrentQuizOrNull(roomId: string) {
+  return BattleRoyaleRepository.findWeeklyQuiz(roomId, getCurrentWeekYear());
+}
+
+async function getCurrentQuiz(roomId: string) {
+  const quiz = await getCurrentQuizOrNull(roomId);
+
+  if (!quiz) {
+    throw new BattleRoyaleNotFoundError('Cuestionario semanal no configurado');
+  }
+
+  return quiz;
+}
+
+async function getAttempt(attemptId: string) {
+  const attempt = await BattleRoyaleRepository.findAttemptById(attemptId);
+
+  if (!attempt) {
+    throw new BattleRoyaleNotFoundError('Intento no encontrado');
+  }
+
+  return attempt;
+}
 
 async function assertBattleRoyaleAccess(userId: string, roomId: string, options: { ownerOnly?: boolean } = {}) {
   if (!roomId) {
@@ -237,6 +522,11 @@ function buildWeeklySchedule(weekday: string, startTime: string, durationMinutes
     opensAt: scheduledAt,
     closesAt,
   };
+}
+
+function isQuizOpen(quiz: { opens_at: string; closes_at: string }) {
+  const now = Date.now();
+  return new Date(quiz.opens_at).getTime() <= now && now <= new Date(quiz.closes_at).getTime();
 }
 
 function getCurrentWeekYear() {
