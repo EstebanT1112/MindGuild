@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { CalendarClock, ChevronRight, Info, PlayCircle, Settings, Swords } from 'lucide-react-native';
+import { BrainCircuit, CalendarClock, ChevronRight, Info, PlayCircle, Settings, Swords } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
@@ -142,7 +142,6 @@ export default function BattleRoyaleScreen() {
                 </View>
 
                 <Pressable style={styles.startBtn}>
-                    <PlayCircle color="white" size={24} fill="white" />
                     <Text style={styles.startBtnText}>COMENZAR SESION</Text>
                 </Pressable>
 
@@ -154,9 +153,19 @@ export default function BattleRoyaleScreen() {
                     onPress={() => room?.id && navigation.navigate('WeeklyQuiz', { roomId: room.id, roomName: room.name })}
                 >
                     <CalendarClock color="white" size={24} />
-                    <Text style={styles.quizBtnText}>Abrir Quiz Semanal</Text>
+                    <Text style={styles.quizBtnText}>Quiz Semanal</Text>
                 </Pressable>
                 <Text style={styles.hintText}>Configuracion, carga de preguntas y estado del cuestionario.</Text>
+
+                <Text style={styles.sectionLabel}>PRACTICA</Text>
+                <Pressable
+                    style={styles.practiceBtn}
+                    onPress={() => room?.id && navigation.navigate('PracticeQuiz', { roomId: room.id, roomName: room.name })}
+                >
+                    <BrainCircuit color="white" size={24} />
+                    <Text style={styles.quizBtnText}>Quiz Atemporal</Text>
+                </Pressable>
+                <Text style={styles.hintText}>Practica atemporal. No guarda resultados ni afecta rankings.</Text>
 
                 <LeaveRoomButton roomId={room?.id} />
             </ScrollView>
@@ -211,6 +220,7 @@ const styles = StyleSheet.create({
     startBtnText: { color: 'white', fontSize: 18, fontWeight: '900' },
     sectionLabel: { color: '#94a3b8', fontSize: 14, fontWeight: 'bold', marginTop: 25, marginBottom: 15 },
     quizBtn: { backgroundColor: '#a855f7', padding: 20, borderRadius: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+    practiceBtn: { backgroundColor: '#22c55e', padding: 20, borderRadius: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
     quizBtnText: { color: 'white', fontWeight: '900', fontSize: 18 },
     hintText: { color: '#64748b', fontSize: 12, textAlign: 'center', marginTop: 10 },
 });
