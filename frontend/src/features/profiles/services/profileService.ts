@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '../../../services/apiConfig';
+import { authenticatedFetch } from '../../../services/authenticatedFetch';
 
 export interface FullProfile {
   id: string;
@@ -30,11 +31,10 @@ export interface UpdateProfileInput {
 
 export async function fetchMyProfile(accessToken: string): Promise<FullProfile> {
   // RF-03: pide al backend el perfil unificado con stats semanales y aldea.
-  const response = await fetch(`${API_BASE_URL}/users/me`, {
+  const response = await authenticatedFetch(`${API_BASE_URL}/users/me`, {
     headers: {
-      Authorization: `Bearer ${accessToken}`,
     },
-  });
+  }, accessToken);
 
   const data = await response.json();
 
@@ -50,14 +50,13 @@ export async function updateMyProfile(
   input: UpdateProfileInput
 ): Promise<FullProfile> {
   // RF-03: actualiza solo campos editables y espera el perfil completo actualizado.
-  const response = await fetch(`${API_BASE_URL}/users/me`, {
+  const response = await authenticatedFetch(`${API_BASE_URL}/users/me`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify(input),
-  });
+  }, accessToken);
 
   const data = await response.json();
 

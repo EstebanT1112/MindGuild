@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Modal, Pressable, ScrollView, ActivityIndicator
 import { X, UserPlus, Users } from 'lucide-react-native';
 import { roomInvitationsService } from '../services/roomInvitationsService';
 import Constants from 'expo-constants';
+import { authenticatedFetch } from '../../../services/authenticatedFetch';
 
 interface Friend {
   id: string;
@@ -39,9 +40,7 @@ export default function InviteFriendsModal({ visible, onClose, roomId, accessTok
     try {
       setLoading(true);
       // Consumimos el endpoint real de tus amigos aceptados
-      const response = await fetch(`${API_URL}/friends`, {
-        headers: { 'Authorization': `Bearer ${accessToken}` }
-      });
+      const response = await authenticatedFetch(`${API_URL}/friends`, {}, accessToken);
       const json = await response.json();
 
       if (json.success) {

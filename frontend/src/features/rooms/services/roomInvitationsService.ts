@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { authenticatedFetch } from '../../../services/authenticatedFetch';
 
 const getApiUrl = (): string => {
   const debuggerHost = Constants.expoConfig?.hostUri || Constants.manifest2?.extra?.expoGoLaunchContext?.debuggerHost;
@@ -15,10 +16,8 @@ export const roomInvitationsService = {
   /**
    * Lista las invitaciones de sala pendientes que recibió el usuario
    */
-  async fetchReceivedRoomInvitations(accessToken: string) {
-    const response = await fetch(`${API_URL}/room-invitations`, {
-      headers: { 'Authorization': `Bearer ${accessToken}` }
-    });
+  async fetchReceivedRoomInvitations(accessToken?: string | null) {
+    const response = await authenticatedFetch(`${API_URL}/room-invitations`, {}, accessToken);
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.error || 'No se pudieron cargar las invitaciones de sala.');
@@ -29,15 +28,14 @@ export const roomInvitationsService = {
   /**
    * Envía una invitación de sala a un amigo específico
    */
-  async sendRoomInvitation(accessToken: string, roomId: string, receiverId: string) {
-    const response = await fetch(`${API_URL}/room-invitations`, {
+  async sendRoomInvitation(accessToken: string | null | undefined, roomId: string, receiverId: string) {
+    const response = await authenticatedFetch(`${API_URL}/room-invitations`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ room_id: roomId, receiver_id: receiverId })
-    });
+    }, accessToken);
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.error || 'No se pudo enviar la invitación.');
@@ -48,11 +46,10 @@ export const roomInvitationsService = {
   /**
    * Acepta una invitación de sala y retorna los datos de la membresía nueva
    */
-  async acceptRoomInvitation(accessToken: string, invitationId: string) {
-    const response = await fetch(`${API_URL}/room-invitations/${invitationId}/accept`, {
+  async acceptRoomInvitation(accessToken: string | null | undefined, invitationId: string) {
+    const response = await authenticatedFetch(`${API_URL}/room-invitations/${invitationId}/accept`, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${accessToken}` }
-    });
+    }, accessToken);
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.error || 'No se pudo aceptar la invitación.');
@@ -63,11 +60,10 @@ export const roomInvitationsService = {
   /**
    * Rechaza una invitación de sala cambiando su estado a 'rejected'
    */
-  async rejectRoomInvitation(accessToken: string, invitationId: string) {
-    const response = await fetch(`${API_URL}/room-invitations/${invitationId}/reject`, {
+  async rejectRoomInvitation(accessToken: string | null | undefined, invitationId: string) {
+    const response = await authenticatedFetch(`${API_URL}/room-invitations/${invitationId}/reject`, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${accessToken}` }
-    });
+    }, accessToken);
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.error || 'No se pudo rechazar la invitación.');

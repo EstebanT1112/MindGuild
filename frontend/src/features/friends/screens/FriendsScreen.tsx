@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert, ActivityIndicator, RefreshControl, Modal, TextInput } from 'react-native';
 import { Users2, Flame, Trophy, Check, X, UserPlus, SlidersHorizontal } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
+import { authenticatedFetch } from '../../../services/authenticatedFetch';
 
 // ⚡ IMPORTAMOS EXPO CONSTANTS PARA DETECTAR LA IP LOCAL AUTOMÁTICAMENTE
 import Constants from 'expo-constants';
@@ -77,15 +78,11 @@ export default function FriendsScreen() {
       if (showLoadingIndicator) setLoading(true);
       
       // 🔄 1. Fetch de Amigos Aceptados
-      const friendsRes = await fetch(`${API_URL}/friends`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const friendsRes = await authenticatedFetch(`${API_URL}/friends`, {}, token);
       const friendsJson = await friendsRes.json() as { success: boolean; data?: any[] };
 
       // 🔄 2. Fetch de Solicitudes Recibidas
-      const requestsRes = await fetch(`${API_URL}/friends/requests`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const requestsRes = await authenticatedFetch(`${API_URL}/friends/requests`, {}, token);
       const requestsJson = await requestsRes.json() as { success: boolean; received?: any[] };
 
       if (friendsJson.success && friendsJson.data) {
@@ -154,14 +151,13 @@ export default function FriendsScreen() {
 
     try {
       setSendingRequest(true);
-      const response = await fetch(`${API_URL}/friends/requests`, {
+      const response = await authenticatedFetch(`${API_URL}/friends/requests`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ username: searchUsername.trim() })
-      });
+      }, token);
 
       const json = await response.json() as { success: boolean; error?: string };
 
@@ -182,10 +178,9 @@ export default function FriendsScreen() {
 
   const handleAccept = async (id: string, username: string) => {
     try {
-      const response = await fetch(`${API_URL}/friends/requests/${id}/accept`, {
+      const response = await authenticatedFetch(`${API_URL}/friends/requests/${id}/accept`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      }, token);
       const json = await response.json() as { success: boolean; error?: string };
 
       if (json.success) {
@@ -202,10 +197,9 @@ export default function FriendsScreen() {
 
   const handleDecline = async (id: string) => {
     try {
-      const response = await fetch(`${API_URL}/friends/requests/${id}/reject`, {
+      const response = await authenticatedFetch(`${API_URL}/friends/requests/${id}/reject`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      }, token);
       const json = await response.json() as { success: boolean; error?: string };
 
       if (json.success) {
