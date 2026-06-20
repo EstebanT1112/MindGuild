@@ -161,6 +161,26 @@ export const BattleRoyaleController = {
       return handleBattleRoyaleError(error, res, 'Error interno al reiniciar cuestionario');
     }
   },
+
+  async generatePracticeQuiz(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      const result = await BattleRoyaleService.generatePracticeQuiz(userId, req.body);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      return handleBattleRoyaleError(error, res, 'Error interno al generar practica');
+    }
+  },
+
+  async checkPracticeAnswer(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      const result = await BattleRoyaleService.checkPracticeAnswer(userId, req.body);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      return handleBattleRoyaleError(error, res, 'Error interno al corregir respuesta de practica');
+    }
+  },
 };
 
 function getUserId(req: Request) {

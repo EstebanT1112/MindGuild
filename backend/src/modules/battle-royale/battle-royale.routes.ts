@@ -17,5 +17,7 @@ router.post('/weekly-quiz/validation/vote', BattleRoyaleController.voteValidatio
 router.post('/rooms/:roomId/weekly-quiz/resolve', BattleRoyaleController.resolveWeeklyQuiz);
 router.get('/rooms/:roomId/weekly-quiz/result', BattleRoyaleController.getWeeklyQuizResult);
 router.post('/rooms/:roomId/weekly-quiz/reset', BattleRoyaleController.resetWeeklyQuiz);
+router.post('/practice/generate', BattleRoyaleController.generatePracticeQuiz);
+router.post('/practice/check-answer', BattleRoyaleController.checkPracticeAnswer);
 
 export default router;
