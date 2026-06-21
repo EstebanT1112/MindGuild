@@ -1,4 +1,5 @@
 import { pool } from '../../../common/config/db.js';
+import { walletRepository } from '../../wallet/repository/wallet.repository.js';
 
 export const rankingsRepository = {
   async roomExists(roomId: string): Promise<boolean> {
@@ -359,15 +360,14 @@ export const rankingsRepository = {
         [bossUserId, weekYear]
       );
 
-      await client.query(
-        `
-          UPDATE profiles
-          SET coins_balance = coins_balance + 10,
-              updated_at = NOW()
-          WHERE id = $1;
-        `,
-        [bossUserId]
-      );
+      await walletRepository.creditCoins(client, {
+        userId: bossUserId,
+        amount: 10,
+        type: 'ranking_reward',
+        referenceType: 'boss_week',
+        referenceId: `${roomId}:${weekYear}`,
+        description: 'Premio por jefe semanal',
+      });
 
       await client.query('COMMIT');
       return { assigned: true, boss_user_id: bossUserId };
