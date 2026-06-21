@@ -6,6 +6,7 @@ export interface BasicProfile {
   bio: string | null;
   streak_days: number;
   total_study_minutes: number;
+  coins_balance: number;
   //Lo agrego para el REQ 15
   expo_push_token?: string | null;
 }

@@ -31,7 +31,7 @@ export const UsersRepository = {
     // Obtiene los datos base editables y calculados desde profiles.
     const { rows } = await pool.query(
       `
-        SELECT id, username, email, avatar_url, bio, streak_days, total_study_minutes, expo_push_token
+        SELECT id, username, email, avatar_url, bio, streak_days, total_study_minutes, coins_balance, expo_push_token
         FROM profiles
         WHERE id = $1 AND is_active = true
         LIMIT 1;
@@ -185,7 +185,7 @@ export const UsersRepository = {
         UPDATE profiles
         SET ${fields.join(', ')}
         WHERE id = $${values.length} AND is_active = true
-        RETURNING id, username, email, avatar_url, bio, streak_days, total_study_minutes;
+        RETURNING id, username, email, avatar_url, bio, streak_days, total_study_minutes, coins_balance;
       `,
       values
     );
