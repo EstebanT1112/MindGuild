@@ -1,10 +1,26 @@
 import { pool } from '../../../common/config/db.js';
 import { walletRepository } from '../repository/wallet.repository.js';
-import type { CreditCoinsInput, DebitCoinsInput, WalletSummary } from '../types/wallet.types.js';
+import { WalletValidationError, type CreditCoinsInput, type DebitCoinsInput, type WalletSummary } from '../types/wallet.types.js';
 
 export const walletService = {
   async getWallet(userId: string): Promise<WalletSummary> {
     return walletRepository.getWallet(userId);
+  },
+
+  async purchaseStoreItem(userId: string, itemId: string) {
+    if (!itemId) {
+      throw new WalletValidationError('El item es obligatorio');
+    }
+
+    return walletRepository.purchaseStoreItem(userId, itemId);
+  },
+
+  async equipStoreItem(userId: string, itemId: string) {
+    if (!itemId) {
+      throw new WalletValidationError('El item es obligatorio');
+    }
+
+    return walletRepository.equipStoreItem(userId, itemId);
   },
 
   async creditCoins(input: CreditCoinsInput): Promise<number> {

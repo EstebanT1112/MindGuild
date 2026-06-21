@@ -1,7 +1,52 @@
 import { pool } from '../../../common/config/db.js';
 import type { BasicProfile, UpdateProfileDTO, VillageState, WeeklyStats } from '../types/users.types.js';
 
+const APP_TIMEZONE = 'America/Argentina/Buenos_Aires';
+
 export const UsersRepository = {
+  async applyDueStreakProtections(userId: string): Promise<void> {
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      const { rows: protectionRows } = await client.query(
+        `
+          SELECT protected_date
+          FROM user_streak_protections
+          WHERE user_id = $1
+            AND protected_date <= (NOW() AT TIME ZONE $2)::date
+            AND applied_at IS NULL
+          ORDER BY protected_date ASC
+          FOR UPDATE;
+        `,
+        [userId, APP_TIMEZONE]
+      );
+
+      for (const protection of protectionRows) {
+        const protectedDate = protection.protected_date;
+
+        await client.query(
+          `
+            UPDATE user_streak_protections
+            SET applied_at = NOW()
+            WHERE user_id = $1
+              AND protected_date = $2::date
+              AND applied_at IS NULL;
+          `,
+          [userId, protectedDate]
+        );
+      }
+
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
   async resetExpiredStreak(userId: string): Promise<void> {
     // Mantiene la racha consistente al consultar perfil sin depender de un job externo.
     await pool.query(
@@ -16,9 +61,17 @@ export const UsersRepository = {
             SELECT 1
             FROM study_sessions
             WHERE user_id = $1
-              AND status IN ('completed', 'validated')
-              AND valid = true
+              AND status IN ('pending', 'completed', 'validated')
               AND (ended_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date BETWEEN
+                (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date - INTERVAL '1 day'
+                AND (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date
+          )
+          AND NOT EXISTS (
+            SELECT 1
+            FROM user_streak_protections
+            WHERE user_id = $1
+              AND applied_at IS NOT NULL
+              AND protected_date BETWEEN
                 (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date - INTERVAL '1 day'
                 AND (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date
           );
@@ -121,10 +174,17 @@ export const UsersRepository = {
         SELECT 1
         FROM study_sessions
         WHERE user_id = $1
-          AND status IN ('completed', 'validated')
-          AND valid = true
+          AND status IN ('pending', 'completed', 'validated')
           AND (ended_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date =
             (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date
+        
+        UNION
+
+        SELECT 1
+        FROM user_streak_protections
+        WHERE user_id = $1
+          AND protected_date = (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date
+          AND applied_at IS NOT NULL
         LIMIT 1;
       `,
       [userId]

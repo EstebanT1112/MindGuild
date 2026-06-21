@@ -8,6 +8,7 @@ export interface StoreItem {
   price: number;
   category: string | null;
   owned: boolean;
+  is_equipped: boolean;
 }
 
 export interface WalletSummary {
@@ -21,6 +22,36 @@ export async function fetchMyWallet(accessToken: string): Promise<WalletSummary>
 
   if (!response.ok) {
     throw new Error(data.error ?? 'No se pudo cargar la wallet');
+  }
+
+  return data.data;
+}
+
+export async function purchaseStoreItem(accessToken: string, itemId: string) {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/wallet/items/${itemId}/purchase`,
+    { method: 'POST' },
+    accessToken
+  );
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo comprar el cosmetico');
+  }
+
+  return data.data;
+}
+
+export async function equipStoreItem(accessToken: string, itemId: string) {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/wallet/items/${itemId}/equip`,
+    { method: 'POST' },
+    accessToken
+  );
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo equipar el cosmetico');
   }
 
   return data.data;
