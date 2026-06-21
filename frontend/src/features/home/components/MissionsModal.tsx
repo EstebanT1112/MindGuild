@@ -17,15 +17,25 @@ type Mission = {
     target: number;
     percentage: number;
     completed: boolean;
+    claimed?: boolean;
+    reward_coins?: number;
 };
 
 interface MissionsModalProps {
     visible: boolean;
     onClose: () => void;
     missions: Mission[];
+    onClaimMission?: (missionId: string) => void;
+    claimingMissionId?: string | null;
 }
 
-export default function MissionsModal({ visible, onClose, missions = [] }: MissionsModalProps) {
+export default function MissionsModal({
+    visible,
+    onClose,
+    missions = [],
+    onClaimMission,
+    claimingMissionId,
+}: MissionsModalProps) {
     const active = missions
         .filter(m => !m.completed)
         .sort((a, b) => b.percentage - a.percentage);
@@ -65,7 +75,15 @@ export default function MissionsModal({ visible, onClose, missions = [] }: Missi
                             <Text style={[styles.sectionLabel, styles.sectionLabelDone]}>
                                 COMPLETADOS ({completed.length})
                             </Text>
-                            {completed.map(m => <MissionRow key={m.id} mission={m} done />)}
+                            {completed.map(m => (
+                                <MissionRow
+                                    key={m.id}
+                                    mission={m}
+                                    done
+                                    onClaimMission={onClaimMission}
+                                    claiming={claimingMissionId === String(m.id)}
+                                />
+                            ))}
                         </>
                     )}
 
@@ -76,7 +94,17 @@ export default function MissionsModal({ visible, onClose, missions = [] }: Missi
     );
 }
 
-function MissionRow({ mission, done }: { mission: Mission; done: boolean }) {
+function MissionRow({
+    mission,
+    done,
+    onClaimMission,
+    claiming,
+}: {
+    mission: Mission;
+    done: boolean;
+    onClaimMission?: (missionId: string) => void;
+    claiming?: boolean;
+}) {
     const animatedProgress = useSharedValue(0);
 
     useEffect(() => {
@@ -98,7 +126,7 @@ function MissionRow({ mission, done }: { mission: Mission; done: boolean }) {
                     <View style={styles.metaRow}>
                         <Text style={styles.metaText}>{mission.progress}/{mission.target}</Text>
                         <View style={styles.rewardBadge}>
-                            <Text style={styles.rewardText}>+50 H</Text>
+                            <Text style={styles.rewardText}>+{mission.reward_coins ?? 0}</Text>
                         </View>
                     </View>
                 </View>
@@ -121,6 +149,18 @@ function MissionRow({ mission, done }: { mission: Mission; done: boolean }) {
                     ]}
                 />
             </View>
+
+            {done && (
+                <Pressable
+                    style={[styles.claimBtn, mission.claimed && styles.claimedBtn]}
+                    disabled={mission.claimed || claiming}
+                    onPress={() => onClaimMission?.(String(mission.id))}
+                >
+                    <Text style={styles.claimText}>
+                        {mission.claimed ? 'Reclamada' : claiming ? 'Reclamando...' : 'Reclamar'}
+                    </Text>
+                </Pressable>
+            )}
         </View>
     );
 }
@@ -150,6 +190,9 @@ const styles = StyleSheet.create({
     barBg: { height: 6, backgroundColor: '#2e3245', borderRadius: 6, overflow: 'hidden' },
     barFill: { height: 6, backgroundColor: '#3b82f6', borderRadius: 6 },
     barFillDone: { backgroundColor: '#22c55e' },
+    claimBtn: { height: 38, borderRadius: 13, backgroundColor: '#22c55e', alignItems: 'center', justifyContent: 'center', marginTop: 12 },
+    claimedBtn: { backgroundColor: '#334155' },
+    claimText: { color: 'white', fontSize: 13, fontWeight: '900' },
     emptyState: { alignItems: 'center', gap: 8, paddingVertical: 24 },
     emptyText: { color: '#64748b', fontSize: 13, textAlign: 'center', marginTop: 10 },
 });
