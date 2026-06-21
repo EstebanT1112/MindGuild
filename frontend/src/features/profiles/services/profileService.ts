@@ -9,6 +9,7 @@ export interface FullProfile {
   bio: string | null;
   streak_days: number;
   total_study_minutes: number;
+  coins_balance: number;
   streak_completed_today: boolean;
   auth_providers: string[];
   weekly_stats: {

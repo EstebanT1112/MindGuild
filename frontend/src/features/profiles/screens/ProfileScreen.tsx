@@ -40,10 +40,17 @@ import WeeklyProgress from '../components/WeeklyProgress';
 import { updateMyProfile } from '../services/profileService';
 
 import {
+    claimAchievementReward,
     type Achievement
 } from '../services/achievementsService';
 
 const fallbackAvatar = 'https://ui-avatars.com/api/?background=1e293b&color=ffffff&name=MG';
+const DEFAULT_ACHIEVEMENT_REWARD_COINS = 3;
+
+const getAchievementRewardCoins = (achievement: Achievement) => {
+    const rewardCoins = achievement.reward_coins ?? 0;
+    return rewardCoins > 0 ? rewardCoins : DEFAULT_ACHIEVEMENT_REWARD_COINS;
+};
 
 const renderAchievementIcon = (achievement: Achievement) => {
     const color = achievement.unlocked ? '#22c55e' : '#64748b';
@@ -97,6 +104,7 @@ export default function ProfileScreen() {
     const [isSettingsVisible, setSettingsVisible] = useState(false);
     const [saving, setSaving] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
+    const [claimingAchievementId, setClaimingAchievementId] = useState<string | null>(null);
     const unlockedAchievementsCount = achievements.filter(achievement => achievement.unlocked).length;
     
     const avatarUri = profile?.avatar_url || fallbackAvatar;
@@ -165,6 +173,23 @@ export default function ProfileScreen() {
             Alert.alert('Error al guardar', error.message ?? 'No se pudo actualizar el perfil.');
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleClaimAchievement = async (achievementId: string) => {
+        if (!accessToken || claimingAchievementId) return;
+
+        setClaimingAchievementId(achievementId);
+        try {
+            await claimAchievementReward(accessToken, achievementId);
+            await Promise.all([
+                loadProfileFromStore(accessToken, { force: true }),
+                loadAchievementsFromStore(accessToken, { force: true }),
+            ]);
+        } catch (error: any) {
+            Alert.alert('Error al reclamar', error.message ?? 'No se pudo reclamar la recompensa.');
+        } finally {
+            setClaimingAchievementId(null);
         }
     };
 
@@ -255,15 +280,31 @@ export default function ProfileScreen() {
                     <View style={styles.medalsGrid}>
                         {achievements.length === 0 ? (
                             <Text style={styles.emptyAchievementsText}>Todavia no hay logros disponibles.</Text>
-                        ) : achievements.map((m) => (
-                            <View key={m.id} style={[styles.medalCard, !m.unlocked && styles.lockedMedalCard]}>
-                                {renderAchievementIcon(m)}
-                                <Text style={styles.medalName}>{m.name}</Text>
-                                <Text style={[styles.medalStatus, m.unlocked && styles.medalStatusUnlocked]}>
-                                    {m.unlocked ? 'Desbloqueado' : 'Pendiente'}
-                                </Text>
-                            </View>
-                        ))}
+                        ) : achievements.map((m) => {
+                            const rewardCoins = getAchievementRewardCoins(m);
+
+                            return (
+                                <View key={m.id} style={[styles.medalCard, !m.unlocked && styles.lockedMedalCard]}>
+                                    {renderAchievementIcon(m)}
+                                    <Text style={styles.medalName}>{m.name}</Text>
+                                    <Text style={styles.medalReward}>+{rewardCoins}</Text>
+                                    <Text style={[styles.medalStatus, m.unlocked && styles.medalStatusUnlocked]}>
+                                        {m.reward_claimed_at ? 'Reclamado' : m.unlocked ? 'Desbloqueado' : 'Pendiente'}
+                                    </Text>
+                                    {m.unlocked && !m.reward_claimed_at && rewardCoins > 0 && (
+                                        <Pressable
+                                            style={styles.claimAchievementBtn}
+                                            onPress={() => handleClaimAchievement(m.id)}
+                                            disabled={claimingAchievementId === m.id}
+                                        >
+                                            <Text style={styles.claimAchievementText}>
+                                                {claimingAchievementId === m.id ? '...' : 'Reclamar'}
+                                            </Text>
+                                        </Pressable>
+                                    )}
+                                </View>
+                            );
+                        })}
                     </View>
                 </View>
 
@@ -369,8 +410,11 @@ const styles = StyleSheet.create({
     },
     lockedMedalCard: { opacity: 0.55 },
     medalName: { color: 'white', fontSize: 10, textAlign: 'center', fontWeight: 'bold' },
+    medalReward: { color: '#facc15', fontSize: 11, textAlign: 'center', fontWeight: '900' },
     medalStatus: { color: '#94a3b8', fontSize: 9, textAlign: 'center', fontWeight: '700' },
     medalStatusUnlocked: { color: '#22c55e' },
+    claimAchievementBtn: { backgroundColor: '#22c55e', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 6, marginTop: 2 },
+    claimAchievementText: { color: 'white', fontSize: 10, fontWeight: '900' },
     emptyAchievementsText: { color: '#94a3b8', fontSize: 13, textAlign: 'center', width: '100%' },
     villageCard: {
         backgroundColor: '#1e293b', borderRadius: 28,
