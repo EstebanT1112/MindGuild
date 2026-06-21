@@ -357,6 +357,22 @@ export const BattleRoyaleRepository = {
     return rows as Array<{ id: string }>;
   },
 
+  async countAssignableQuestions(roomId: string, userId: string, weekYear: string): Promise<number> {
+    const { rows } = await pool.query(
+      `
+        SELECT COUNT(*)::int AS count
+        FROM questions q
+        WHERE q.room_id = $1
+          AND q.author_id <> $2
+          AND q.week_year = $3
+          AND q.status IN ('pending', 'answered', 'in_validation', 'validated');
+      `,
+      [roomId, userId, weekYear]
+    );
+
+    return rows[0]?.count ?? 0;
+  },
+
   async createAssignments(quizId: string, userId: string, questionIds: string[]): Promise<void> {
     if (questionIds.length === 0) return;
 
