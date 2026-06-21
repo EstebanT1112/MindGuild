@@ -32,6 +32,8 @@ router.post('/rooms', RoomsController.createRoom);
 router.post('/rooms/join', RoomsController.joinRoom);
 router.post('/rooms/leave', RoomsController.handleLeaveRoom);
 router.get('/rooms/:roomId/admin', RoomsController.getAdminRoomDetails);
+router.get('/rooms/:roomId/roles', RoomsController.getRoomRoles);
+router.post('/rooms/:roomId/roles/assign', RoomsController.assignTemporaryRole);
 router.patch('/rooms/:roomId', RoomsController.updateRoom);
 router.post('/rooms/:roomId/members/:memberId/remove', RoomsController.removeMember);
 router.post('/rooms/:roomId/favorite', RoomsController.markFavorite);

@@ -70,6 +70,28 @@ export const RoomsController = {
     }
   },
 
+  async getRoomRoles(req: Request, res: Response) {
+    try {
+      const user = await getAuthenticatedProfile(req);
+      const roomId = Array.isArray(req.params.roomId) ? req.params.roomId[0] : req.params.roomId;
+      const roles = await RoomsService.getRoomRoles(user.id, roomId);
+      return res.status(200).json(roles);
+    } catch (error: any) {
+      return handleRoomError(error, res, 'Error interno al obtener roles de sala');
+    }
+  },
+
+  async assignTemporaryRole(req: Request, res: Response) {
+    try {
+      const user = await getAuthenticatedProfile(req);
+      const roomId = Array.isArray(req.params.roomId) ? req.params.roomId[0] : req.params.roomId;
+      const roles = await RoomsService.assignTemporaryRole(user.id, roomId, req.body);
+      return res.status(200).json(roles);
+    } catch (error: any) {
+      return handleRoomError(error, res, 'Error interno al asignar rol');
+    }
+  },
+
   async updateRoom(req: Request, res: Response) {
     try {
       const user = await getAuthenticatedProfile(req);
