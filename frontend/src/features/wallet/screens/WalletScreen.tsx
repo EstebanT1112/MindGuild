@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Brain, CheckCircle2, ShoppingBag } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { useAuthStore } from '../../../store/authStore';
 import { useAppDataStore } from '../../../store/appDataStore';
-import { fetchMyWallet, type StoreItem } from '../services/walletService';
+import { equipStoreItem, fetchMyWallet, purchaseStoreItem, type StoreItem } from '../services/walletService';
 
 export default function WalletScreen() {
   const accessToken = useAuthStore(state => state.access_token);
@@ -14,6 +14,7 @@ export default function WalletScreen() {
   const [coinsBalance, setCoinsBalance] = useState(profile?.coins_balance ?? 0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [actionItemId, setActionItemId] = useState<string | null>(null);
 
   useEffect(() => {
     loadWallet();
@@ -41,6 +42,40 @@ export default function WalletScreen() {
       await loadWallet(true);
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const handlePurchase = async (item: StoreItem) => {
+    if (!accessToken || actionItemId) return;
+
+    if (coinsBalance < item.price) {
+      Alert.alert('Saldo insuficiente', 'No tenes monedas suficientes para comprar este cosmetico.');
+      return;
+    }
+
+    setActionItemId(item.id);
+    try {
+      await purchaseStoreItem(accessToken, item.id);
+      await loadWallet(true);
+    } catch (error: any) {
+      Alert.alert('Error al comprar', error.message ?? 'No se pudo comprar el cosmetico.');
+    } finally {
+      setActionItemId(null);
+    }
+  };
+
+  const handleEquip = async (item: StoreItem) => {
+    if (!accessToken || actionItemId || item.is_equipped) return;
+    if (!isEquippableItem(item)) return;
+
+    setActionItemId(item.id);
+    try {
+      await equipStoreItem(accessToken, item.id);
+      await loadWallet(true);
+    } catch (error: any) {
+      Alert.alert('Error al equipar', error.message ?? 'No se pudo equipar el cosmetico.');
+    } finally {
+      setActionItemId(null);
     }
   };
 
@@ -87,11 +122,22 @@ export default function WalletScreen() {
           ) : (
             items.map(item => {
               const canAfford = coinsBalance >= item.price;
+              const isBusy = actionItemId === item.id;
+              const isEquippable = isEquippableItem(item);
+              const buttonText = item.is_equipped
+                ? 'Equipado'
+                : item.owned
+                  ? isEquippable ? 'Equipar' : 'Comprado'
+                  : `${item.price}`;
+              const buttonDisabled = isBusy || item.is_equipped || (item.owned && !isEquippable) || (!item.owned && !canAfford);
+
               return (
                 <View key={item.id} style={styles.itemCard}>
                   <View style={styles.itemIcon}>
-                    {item.owned ? (
+                    {item.is_equipped ? (
                       <CheckCircle2 color="#22c55e" size={24} />
+                    ) : item.owned ? (
+                      <ShoppingBag color="#facc15" size={24} />
                     ) : (
                       <ShoppingBag color="#94a3b8" size={24} />
                     )}
@@ -104,12 +150,25 @@ export default function WalletScreen() {
                   <Pressable
                     style={[
                       styles.buyBtn,
-                      item.owned && styles.ownedBtn,
+                      item.is_equipped && styles.equippedBtn,
+                      item.owned && !item.is_equipped && styles.ownedBtn,
                       !item.owned && !canAfford && styles.disabledBtn,
                     ]}
-                    disabled
+                    disabled={buttonDisabled}
+                    onPress={() => item.owned ? handleEquip(item) : handlePurchase(item)}
                   >
-                    <Text style={styles.buyText}>{item.owned ? 'Comprado' : `${item.price}`}</Text>
+                    {isBusy ? (
+                      <ActivityIndicator color="#0f172a" size="small" />
+                    ) : (
+                      <Text style={[
+                        styles.buyText,
+                        item.owned && styles.ownedText,
+                        item.is_equipped && styles.equippedText,
+                        !item.owned && !canAfford && styles.disabledText,
+                      ]}>
+                        {buttonText}
+                      </Text>
+                    )}
                   </Pressable>
                 </View>
               );
@@ -119,6 +178,10 @@ export default function WalletScreen() {
       )}
     </ScreenLayout>
   );
+}
+
+function isEquippableItem(item: StoreItem) {
+  return item.category === 'squirrel_skin' || item.category === 'profile_frame' || item.category === 'badge_effect';
 }
 
 const styles = StyleSheet.create({
@@ -149,7 +212,11 @@ const styles = StyleSheet.create({
   itemDescription: { color: '#94a3b8', fontSize: 12, marginTop: 3 },
   itemCategory: { color: '#22c55e', fontSize: 11, fontWeight: '800', marginTop: 4 },
   buyBtn: { minWidth: 82, height: 38, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#facc15' },
-  ownedBtn: { backgroundColor: '#14532d' },
+  ownedBtn: { backgroundColor: '#22c55e' },
+  equippedBtn: { backgroundColor: '#14532d' },
   disabledBtn: { backgroundColor: '#334155' },
   buyText: { color: '#0f172a', fontWeight: '900' },
+  ownedText: { color: '#052e16' },
+  equippedText: { color: '#dcfce7' },
+  disabledText: { color: '#94a3b8' },
 });
