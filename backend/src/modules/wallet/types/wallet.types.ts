@@ -37,11 +37,22 @@ export interface StoreItem {
   price: number;
   category: string | null;
   owned: boolean;
+  is_equipped: boolean;
+  metadata?: Record<string, unknown> | null;
 }
 
 export interface WalletSummary {
   coins_balance: number;
   store_items: StoreItem[];
+}
+
+export interface StorePurchaseResult {
+  coins_balance: number;
+  item: StoreItem;
+}
+
+export interface StoreEquipResult {
+  item: StoreItem;
 }
 
 export class WalletValidationError extends Error {}
