@@ -3,6 +3,7 @@ import type { EndSessionDTO, StartSessionDTO, StudySession, StudySessionPause } 
 
 const VALID_MINUTES_THRESHOLD = 30;
 const ROOM_ACTIVITY_MINUTES_THRESHOLD = 30;
+const APP_TIMEZONE = 'America/Argentina/Buenos_Aires';
 
 export const sessionsRepository = {
   async userExists(userId: string): Promise<boolean> {
@@ -330,14 +331,25 @@ async function updateUserStreakAfterValidSession(client: any, userId: string, se
       WITH streak_state AS (
         SELECT
           EXISTS (
-            SELECT 1 FROM study_sessions
-            WHERE user_id = $1 AND id <> $2 AND status IN ('validated', 'pending')
-              AND (ended_at AT TIME ZONE 'UTC')::date = (NOW() AT TIME ZONE 'UTC')::date
+            SELECT 1
+            FROM study_sessions
+            WHERE user_id = $1
+              AND id <> $2
+              AND status IN ('validated', 'pending', 'completed')
+              AND (ended_at AT TIME ZONE $3)::date = (NOW() AT TIME ZONE $3)::date
           ) AS has_valid_today,
           EXISTS (
-            SELECT 1 FROM study_sessions
-            WHERE user_id = $1 AND status IN ('validated', 'pending')
-              AND (ended_at AT TIME ZONE 'UTC')::date = (NOW() AT TIME ZONE 'UTC')::date - INTERVAL '1 day'
+            SELECT 1
+            FROM study_sessions
+            WHERE user_id = $1
+              AND status IN ('validated', 'pending', 'completed')
+              AND (ended_at AT TIME ZONE $3)::date = (NOW() AT TIME ZONE $3)::date - INTERVAL '1 day'
+          ) OR EXISTS (
+            SELECT 1
+            FROM user_streak_protections
+            WHERE user_id = $1
+              AND protected_date = (NOW() AT TIME ZONE $3)::date - INTERVAL '1 day'
+              AND applied_at IS NOT NULL
           ) AS has_valid_yesterday
       )
       UPDATE profiles
@@ -351,7 +363,7 @@ async function updateUserStreakAfterValidSession(client: any, userId: string, se
       FROM streak_state
       WHERE profiles.id = $1;
     `,
-    [userId, sessionId]
+    [userId, sessionId, APP_TIMEZONE]
   );
 }
 
