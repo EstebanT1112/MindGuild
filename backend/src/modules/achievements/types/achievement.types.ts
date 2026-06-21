@@ -11,6 +11,7 @@ export interface Achievement {
   badge_icon?: string | null;
   type: AchievementEventType;
   target_value: number;
+  reward_coins?: number;
 }
 //Para queries parciales
 export interface AchievementId {
@@ -33,6 +34,8 @@ export interface AchievementStatus {
   target_value: number;
   unlocked: boolean;
   unlocked_at: string | null;
+  reward_coins?: number;
+  reward_claimed_at?: string | null;
 }
 
 export class AchievementValidationError extends Error {
