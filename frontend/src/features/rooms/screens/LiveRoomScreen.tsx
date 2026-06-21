@@ -309,7 +309,10 @@ export default function LiveRoomScreen() {
                 <RoomInfoModal
                     visible={infoVisible}
                     room={room}
+                    accessToken={accessToken}
+                    currentUserId={currentUserId}
                     onClose={() => setInfoVisible(false)}
+                    onRoomUpdated={handleRoomUpdated}
                 />
             )}
 

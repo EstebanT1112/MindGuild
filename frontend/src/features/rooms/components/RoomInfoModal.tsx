@@ -6,10 +6,13 @@ import RoomInfoPanel from './RoomInfoPanel';
 interface Props {
   visible: boolean;
   room: RoomDetails;
+  accessToken?: string | null;
+  currentUserId?: string;
   onClose: () => void;
+  onRoomUpdated?: (room: RoomDetails) => void;
 }
 
-export default function RoomInfoModal({ visible, room, onClose }: Props) {
+export default function RoomInfoModal({ visible, room, accessToken, currentUserId, onClose, onRoomUpdated }: Props) {
   // RF-06: muestra en modal los datos de sala ya cargados por la pantalla.
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -23,7 +26,12 @@ export default function RoomInfoModal({ visible, room, onClose }: Props) {
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false}>
-            <RoomInfoPanel room={room} />
+            <RoomInfoPanel
+              room={room}
+              accessToken={accessToken}
+              currentUserId={currentUserId}
+              onRoomUpdated={onRoomUpdated}
+            />
           </ScrollView>
         </View>
       </View>
