@@ -38,6 +38,8 @@ export const rankingsService = {
         avatar_url: item.avatar_url,
         value: value || 0,
         position: index + 1,
+        temporary_role: item.temporary_role ?? null,
+        is_boss: Boolean(item.is_boss),
       };
     });
 
@@ -109,6 +111,7 @@ export const rankingsService = {
     const results = [];
 
     for (const room of rooms) {
+      await rankingsRepository.deleteExpiredTemporaryRoles(room.id, weekYear);
       const candidate = await rankingsRepository.findWeeklyBossCandidate(room.id, weekYear, room.mode);
 
       if (!candidate) {

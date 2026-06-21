@@ -152,6 +152,8 @@ export const rankingsRepository = {
             p.id,
             p.username,
             p.avatar_url,
+            tr.role_label AS temporary_role,
+            COALESCE(bw.boss_user_id = p.id, false) AS is_boss,
             COALESCE(SUM(ru.total_minutes), 0)::int AS total_minutes,
             COALESCE(SUM(ru.quiz_score), 0)::int AS quiz_score,
             COALESCE(SUM(ru.academic_score), 0)::int AS academic_score,
@@ -161,13 +163,20 @@ export const rankingsRepository = {
           LEFT JOIN room_user_weekly_stats ru
             ON ru.room_id = rm.room_id
             AND ru.user_id = rm.user_id
+          LEFT JOIN boss_weeks bw
+            ON bw.room_id = rm.room_id
+            AND bw.week_year = $2
+          LEFT JOIN room_member_temporary_roles tr
+            ON tr.room_id = rm.room_id
+            AND tr.user_id = rm.user_id
+            AND tr.week_year = $2
           WHERE rm.room_id = $1
             AND rm.is_active = true
-          GROUP BY p.id, p.username, p.avatar_url
+          GROUP BY p.id, p.username, p.avatar_url, tr.role_label, bw.boss_user_id
           ORDER BY COALESCE(SUM(ru.${column}), 0) DESC, p.username ASC
           LIMIT 50;
         `,
-        [roomId]
+        [roomId, weekYears[0]]
       );
       return rows;
     }
@@ -178,6 +187,8 @@ export const rankingsRepository = {
           p.id,
           p.username,
           p.avatar_url,
+          tr.role_label AS temporary_role,
+          COALESCE(bw.boss_user_id = p.id, false) AS is_boss,
           COALESCE(SUM(ru.total_minutes), 0)::int AS total_minutes,
           COALESCE(SUM(ru.quiz_score), 0)::int AS quiz_score,
           COALESCE(SUM(ru.academic_score), 0)::int AS academic_score,
@@ -188,9 +199,16 @@ export const rankingsRepository = {
           ON ru.room_id = rm.room_id
           AND ru.user_id = rm.user_id
           AND ru.week_year = ANY($1::text[])
+        LEFT JOIN boss_weeks bw
+          ON bw.room_id = rm.room_id
+          AND bw.week_year = $3
+        LEFT JOIN room_member_temporary_roles tr
+          ON tr.room_id = rm.room_id
+          AND tr.user_id = rm.user_id
+          AND tr.week_year = $3
         WHERE rm.room_id = $2
           AND rm.is_active = true
-        GROUP BY p.id, p.username, p.avatar_url
+        GROUP BY p.id, p.username, p.avatar_url, tr.role_label, bw.boss_user_id
         ORDER BY COALESCE(SUM(ru.${column}), 0) DESC, p.username ASC
         LIMIT 50;
       `
@@ -210,7 +228,7 @@ export const rankingsRepository = {
         LIMIT 50;
       `;
 
-    const params = roomId ? [weekYears, roomId] : [weekYears];
+    const params = roomId ? [weekYears, roomId, weekYears[0]] : [weekYears];
     const { rows } = await pool.query(query, params);
     return rows;
   },
@@ -283,6 +301,17 @@ export const rankingsRepository = {
     );
 
     return rows[0] ?? null;
+  },
+
+  async deleteExpiredTemporaryRoles(roomId: string, activeWeekYear: string): Promise<void> {
+    await pool.query(
+      `
+        DELETE FROM room_member_temporary_roles
+        WHERE room_id = $1
+          AND week_year <> $2;
+      `,
+      [roomId, activeWeekYear]
+    );
   },
 
   async assignWeeklyBoss(roomId: string, weekYear: string, bossUserId: string) {
