@@ -1,16 +1,37 @@
 import { pool } from '../../../common/config/db.js';
+import { walletRepository } from '../../wallet/repository/wallet.repository.js';
 import type {
   Achievement,
   UserAchievement,
   AchievementId,
   AchievementStatus
 } from '../types/achievement.types.js';
+
+const DEFAULT_ACHIEVEMENT_REWARD_COINS = 3;
+
+const rewardCoinsSql = (alias?: string) => {
+  const column = alias ? `${alias}.reward_coins` : 'reward_coins';
+
+  return `
+    CASE
+      WHEN COALESCE(${column}, 0) > 0 THEN ${column}
+      ELSE ${DEFAULT_ACHIEVEMENT_REWARD_COINS}
+    END::int
+  `;
+};
+
 export const achievementRepository = {
   //Busca logros activos por evento Prompt 1-REQ13
   async getActiveAchievementsByType(type: string): Promise<Achievement[]> {
     const { rows } = await pool.query(
       `
-        SELECT id, name, description, type, target_value
+        SELECT
+          id,
+          name,
+          description,
+          type,
+          target_value,
+          ${rewardCoinsSql()} AS reward_coins
         FROM achievements
         WHERE type = $1
         AND is_active = true;
@@ -148,7 +169,8 @@ export const achievementRepository = {
           description,
           badge_icon,
           type,
-          target_value
+          target_value,
+          ${rewardCoinsSql()} AS reward_coins
         FROM achievements
         WHERE is_active = true;
       `
@@ -170,7 +192,9 @@ export const achievementRepository = {
           a.badge_icon,
           a.type,
           a.target_value,
-          ua.unlocked_at
+          ${rewardCoinsSql('a')} AS reward_coins,
+          ua.unlocked_at,
+          ua.reward_claimed_at
         FROM achievements a
         LEFT JOIN user_achievements ua
           ON ua.achievement_id = a.id
@@ -188,9 +212,83 @@ export const achievementRepository = {
       badge_icon: row.badge_icon,
       type: row.type,
       target_value: row.target_value,
+      reward_coins: row.reward_coins,
       //La linea de abajo convierte  null a false y date a true
       unlocked: !!row.unlocked_at,
       unlocked_at: row.unlocked_at ?? null,
+      reward_claimed_at: row.reward_claimed_at ?? null,
     }));
+  },
+
+  async claimAchievementReward(userId: string, achievementId: string) {
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      const { rows } = await client.query(
+        `
+          SELECT
+            ua.user_id,
+            ua.achievement_id,
+            ua.reward_claimed_at,
+            a.name,
+            ${rewardCoinsSql('a')} AS reward_coins
+          FROM user_achievements ua
+          INNER JOIN achievements a ON a.id = ua.achievement_id
+          WHERE ua.user_id = $1
+            AND ua.achievement_id = $2
+          FOR UPDATE OF ua;
+        `,
+        [userId, achievementId]
+      );
+
+      const achievement = rows[0];
+
+      if (!achievement) {
+        throw new Error('Logro no desbloqueado');
+      }
+
+      if (achievement.reward_claimed_at) {
+        throw new Error('La recompensa de este logro ya fue reclamada');
+      }
+
+      const rewardCoins = Number(achievement.reward_coins) || 0;
+
+      let coinsBalance = null;
+      if (rewardCoins > 0) {
+        coinsBalance = await walletRepository.creditCoins(client, {
+          userId,
+          amount: rewardCoins,
+          type: 'achievement_reward',
+          referenceType: 'achievement',
+          referenceId: achievementId,
+          description: `Recompensa de logro: ${achievement.name}`,
+        });
+      }
+
+      await client.query(
+        `
+          UPDATE user_achievements
+          SET reward_claimed_at = NOW()
+          WHERE user_id = $1
+            AND achievement_id = $2;
+        `,
+        [userId, achievementId]
+      );
+
+      await client.query('COMMIT');
+
+      return {
+        achievement_id: achievementId,
+        reward_coins: rewardCoins,
+        coins_balance: coinsBalance,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   },
 };

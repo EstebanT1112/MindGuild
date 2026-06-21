@@ -60,6 +60,37 @@ export const achievementController = {
       });
     }
   },
+
+  async claimAchievementReward(req: Request, res: Response) {
+    try {
+      const userId = await getAuthenticatedProfileId(req);
+      const achievementId = Array.isArray(req.params.achievementId)
+        ? req.params.achievementId[0]
+        : req.params.achievementId;
+
+      const result = await achievementService.claimAchievementReward(userId, achievementId);
+
+      return res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (error: any) {
+      if (
+        error instanceof AuthUnauthorizedError ||
+        error instanceof AuthNotFoundError
+      ) {
+        return res.status(401).json({
+          success: false,
+          error: error.message,
+        });
+      }
+
+      return res.status(400).json({
+        success: false,
+        error: error.message || 'No se pudo reclamar la recompensa',
+      });
+    }
+  },
 };
 
 

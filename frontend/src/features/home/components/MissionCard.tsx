@@ -7,6 +7,8 @@ type Mission = {
   title: string;
   progress: number;
   target: number;
+  reward_coins?: number;
+  claimed?: boolean;
 };
 
 export default function MissionCard({ mission, onPress }: { mission: Mission; onPress?: () => void }) {
@@ -40,8 +42,9 @@ export default function MissionCard({ mission, onPress }: { mission: Mission; on
               {mission.progress}/{mission.target}
             </Text>
             <View style={styles.reward}>
-              <Text style={styles.rewardText}>+50 H</Text>
+              <Text style={styles.rewardText}>+{mission.reward_coins ?? 0}</Text>
             </View>
+            {mission.claimed && <Text style={styles.claimedText}>Reclamada</Text>}
           </View>
         </View>
 
@@ -117,6 +120,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "bold",
   },
+  claimedText: { color: '#22c55e', fontSize: 11, fontWeight: '900' },
   checkBadge: {
     width: 28,
     height: 28,

@@ -9,6 +9,7 @@ import studyRoutes from '../modules/study/study.routes.js';
 import achievementRoutes from '../modules/achievements/achievements.routes.js';
 import sessionRoutes from '../modules/sessions/session.routes.js';
 import battleRoyaleRoutes from '../modules/battle-royale/battle-royale.routes.js';
+import walletRoutes from '../modules/wallet/wallet.routes.js';
 
 // --- INVITACIONES A SALAS ---
 import RoomInvitationsController from '../modules/room-invitations/controller/room-invitations.controller.js';
@@ -56,12 +57,16 @@ router.post('/ranking/recalculate-week', checkAuth, rankingsController.recalcula
 router.post('/ranking/close-week', checkAuth, rankingsController.closeWeek);
 router.get('/ranking', checkAuth, rankingsController.getRanking);
 
+// --- WALLET ---
+router.use('/wallet', checkAuth, walletRoutes);
+
 // --- ACHIEVEMENTS ---
 router.use('/achievements', achievementRoutes);
 
 // --- MISIONES (RF-12) PROTEGIDAS ---
 router.get('/missions', checkAuth, missionsController.getUserMissions);
 router.post('/missions/progress', checkAuth, missionsController.updateUserMissionProgress);
+router.post('/missions/:userMissionId/claim', checkAuth, missionsController.claimMissionReward);
 
 // --- INVITACIONES A SALAS (RF-05) PROTEGIDAS ---
 router.get('/room-invitations', checkAuth, RoomInvitationsController.getReceivedInvitations);

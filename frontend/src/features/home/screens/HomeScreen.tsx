@@ -10,6 +10,7 @@ import { type UserRoom } from '../../rooms/services/roomsService';
 import MissionCard from '../components/MissionCard';
 import MissionsModal from '../components/MissionsModal';
 import StreakCard from '../components/StreakCard';
+import { claimMissionReward } from '../services/missionsService';
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
@@ -25,6 +26,7 @@ export default function HomeScreen() {
   const loadMissions = useAppDataStore(state => state.loadMissions);
 
   const [missionsVisible, setMissionsVisible] = useState(false);
+  const [claimingMissionId, setClaimingMissionId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   useFocusEffect(useCallback(() => {
@@ -58,6 +60,23 @@ export default function HomeScreen() {
       screen: room.mode === 'battle_royale' ? 'BattleRoyale' : 'LiveRoom',
       params: { roomId: room.id, roomName: room.name },
     });
+  };
+
+  const handleClaimMission = async (missionId: string) => {
+    if (!accessToken || claimingMissionId) return;
+
+    setClaimingMissionId(missionId);
+    try {
+      await claimMissionReward(accessToken, missionId);
+      await Promise.all([
+        loadProfile(accessToken, { force: true }),
+        loadMissions(accessToken, { force: true }),
+      ]);
+    } catch (error) {
+      logLoadError('Error reclamando mision:', error);
+    } finally {
+      setClaimingMissionId(null);
+    }
   };
 
   return (
@@ -131,6 +150,8 @@ export default function HomeScreen() {
           visible={missionsVisible}
           onClose={() => setMissionsVisible(false)}
           missions={activeMissions}
+          onClaimMission={handleClaimMission}
+          claimingMissionId={claimingMissionId}
         />
       </ScrollView>
     </ScreenLayout>

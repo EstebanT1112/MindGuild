@@ -34,11 +34,14 @@ interface CacheEntry<T> {
 
 export interface MissionSummary {
   id: string;
+  mission_id?: string;
   title: string;
   progress: number;
   target: number;
   percentage: number;
   completed: boolean;
+  claimed: boolean;
+  reward_coins: number;
 }
 
 interface AppDataState {
@@ -497,6 +500,9 @@ function mapMissions(missions: any[]): MissionSummary[] {
       target: goalValue,
       percentage: calculatedPercentage,
       completed: mission.completed ?? false,
+      claimed: mission.claimed ?? false,
+      reward_coins: Number(mission.reward_coins) || 0,
+      mission_id: mission.mission_id,
     };
   });
 }

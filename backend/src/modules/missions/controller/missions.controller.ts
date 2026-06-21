@@ -82,5 +82,37 @@ export const missionsController = {
         error: error.message
       });
     }
+  },
+
+  async claimMissionReward(req: Request, res: Response): Promise<void> {
+    try {
+      const extendedReq = req as any;
+      const userId = extendedReq.user?.id;
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          message: 'No autorizado. No se pudo identificar al usuario.',
+        });
+        return;
+      }
+
+      const userMissionId = Array.isArray(req.params.userMissionId)
+        ? req.params.userMissionId[0]
+        : req.params.userMissionId;
+
+      const result = await missionsService.claimMissionReward(userId, userMissionId);
+
+      res.status(200).json({
+        success: true,
+        message: 'Recompensa de mision reclamada correctamente.',
+        data: result,
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        message: error.message ?? 'No se pudo reclamar la recompensa de la mision.',
+      });
+    }
   }
 };

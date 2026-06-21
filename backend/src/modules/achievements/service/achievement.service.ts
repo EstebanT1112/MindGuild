@@ -164,4 +164,16 @@ export const achievementService = {
   ): Promise<AchievementStatus[]> {
     return achievementRepository.getUserAchievements(userId);
   },
+
+  async claimAchievementReward(userId: string, achievementId: string) {
+    if (!userId) {
+      throw new Error('Usuario requerido');
+    }
+
+    if (!achievementId) {
+      throw new Error('achievementId es requerido');
+    }
+
+    return achievementRepository.claimAchievementReward(userId, achievementId);
+  },
 };
