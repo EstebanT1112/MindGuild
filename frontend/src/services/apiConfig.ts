@@ -29,6 +29,8 @@ export interface RankingEntry {
     avatar_url: string | null;
     value: number;
     position: number;
+    temporary_role?: string | null;
+    is_boss?: boolean;
 }
 
 export interface RankingResponse {

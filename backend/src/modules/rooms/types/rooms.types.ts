@@ -35,10 +35,24 @@ export interface RoomMember {
   username: string;
   avatar_url: string | null;
   role: string;
+  temporary_role?: string | null;
+  is_boss?: boolean;
 }
 
 export interface RoomDetails extends CreatedRoom {
   members: RoomMember[];
+}
+
+export interface RoomRolesResponse {
+  room_id: string;
+  week_year: string;
+  boss_user_id: string | null;
+  members: RoomMember[];
+}
+
+export interface AssignTemporaryRoleDTO {
+  target_user_id: string;
+  temporary_role: string;
 }
 
 export interface UpdateRoomDTO {

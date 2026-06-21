@@ -158,6 +158,86 @@ export const RoomsRepository = {
     return rows as RoomMember[];
   },
 
+  async getActiveMembersWithRoles(roomId: string, weekYear: string): Promise<RoomMember[]> {
+    const { rows } = await pool.query(
+      `
+        SELECT
+          p.id,
+          p.username,
+          p.avatar_url,
+          rm.role,
+          tr.role_label AS temporary_role,
+          COALESCE(bw.boss_user_id = p.id, false) AS is_boss
+        FROM room_members rm
+        JOIN profiles p ON p.id = rm.user_id
+        LEFT JOIN boss_weeks bw
+          ON bw.room_id = rm.room_id
+          AND bw.week_year = $2
+        LEFT JOIN room_member_temporary_roles tr
+          ON tr.room_id = rm.room_id
+          AND tr.user_id = rm.user_id
+          AND tr.week_year = $2
+        WHERE rm.room_id = $1
+          AND rm.is_active = true
+          AND p.is_active = true
+        ORDER BY
+          CASE WHEN rm.role = 'owner' THEN 0 ELSE 1 END,
+          COALESCE(bw.boss_user_id = p.id, false) DESC,
+          rm.joined_at ASC;
+      `,
+      [roomId, weekYear]
+    );
+
+    return rows as RoomMember[];
+  },
+
+  async findCurrentBoss(roomId: string, weekYear: string): Promise<{ boss_user_id: string } | null> {
+    const { rows } = await pool.query(
+      `
+        SELECT boss_user_id
+        FROM boss_weeks
+        WHERE room_id = $1
+          AND week_year = $2
+        LIMIT 1;
+      `,
+      [roomId, weekYear]
+    );
+
+    return (rows[0] as { boss_user_id: string } | undefined) ?? null;
+  },
+
+  async findTemporaryRole(roomId: string, userId: string, weekYear: string): Promise<{ id: string } | null> {
+    const { rows } = await pool.query(
+      `
+        SELECT id
+        FROM room_member_temporary_roles
+        WHERE room_id = $1
+          AND user_id = $2
+          AND week_year = $3
+        LIMIT 1;
+      `,
+      [roomId, userId, weekYear]
+    );
+
+    return (rows[0] as { id: string } | undefined) ?? null;
+  },
+
+  async assignTemporaryRole(
+    roomId: string,
+    targetUserId: string,
+    assignedBy: string,
+    weekYear: string,
+    roleLabel: string
+  ): Promise<void> {
+    await pool.query(
+      `
+        INSERT INTO room_member_temporary_roles (room_id, user_id, assigned_by, week_year, role_label)
+        VALUES ($1, $2, $3, $4, $5);
+      `,
+      [roomId, targetUserId, assignedBy, weekYear, roleLabel]
+    );
+  },
+
   async findActiveRoomByInviteCode(inviteCode: string): Promise<JoinableRoom | null> {
     // RF-05: resuelve la sala asociada al codigo ingresado por el usuario.
     const { rows } = await pool.query(

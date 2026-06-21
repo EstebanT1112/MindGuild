@@ -140,6 +140,16 @@ export default function RoomRanking({ roomId }: Props) {
               <View style={styles.info}>
                 <Text style={styles.name}>@{item.username}</Text>
                 <Text style={styles.sub}>{activeTab.itemLabel}</Text>
+                {(item.is_boss || item.temporary_role) && (
+                  <View style={styles.roleRow}>
+                    {item.is_boss && (
+                      <Text style={styles.bossLabel}>Jefe semanal</Text>
+                    )}
+                    {item.temporary_role && (
+                      <Text style={styles.roleLabel}>{item.temporary_role}</Text>
+                    )}
+                  </View>
+                )}
               </View>
 
               <View style={styles.stats}>
@@ -221,6 +231,9 @@ const styles = StyleSheet.create({
   info: { flex: 1 },
   name: { color: 'white', fontWeight: 'bold', fontSize: 15 },
   sub: { color: '#64748b', fontSize: 11 },
+  roleRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 4 },
+  bossLabel: { color: '#fef3c7', backgroundColor: '#422006', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2, fontSize: 10, fontWeight: '900' },
+  roleLabel: { color: '#bbf7d0', backgroundColor: '#052e16', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2, fontSize: 10, fontWeight: '900' },
   stats: { alignItems: 'flex-end' },
   mainStat: { color: '#22c55e', fontWeight: '900', fontSize: 18 },
   subStat: { color: '#64748b', fontSize: 10 },

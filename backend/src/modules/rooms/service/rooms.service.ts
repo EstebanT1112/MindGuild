@@ -1,9 +1,12 @@
 import { RoomsRepository } from '../repository/rooms.repository.js';
 import { achievementService } from '../../achievements/service/achievement.service.js';
+import { rankingsService } from '../../rankings/service/ranking.service.js';
 import { sessionsRepository } from '../../sessions/repository/session.repository.js';
 import {
+  type AssignTemporaryRoleDTO,
   RoomConflictError,
   RoomNotFoundError,
+  type RoomRolesResponse,
   RoomValidationError,
   type CreateRoomDTO,
   type CreatedRoom,
@@ -137,12 +140,83 @@ export const RoomsService = {
       throw new RoomNotFoundError('Sala no encontrada o inactiva');
     }
 
-    const members = await RoomsRepository.getActiveMembers(roomId);
+    const members = await RoomsRepository.getActiveMembersWithRoles(roomId, rankingsService.getCurrentWeekYear());
 
     return {
       ...room,
       members,
     };
+  },
+
+  async getRoomRoles(userId: string, roomId: string): Promise<RoomRolesResponse> {
+    await validateActiveRoomAccess(userId, roomId);
+
+    const weekYear = rankingsService.getCurrentWeekYear();
+    const boss = await RoomsRepository.findCurrentBoss(roomId, weekYear);
+    const members = await RoomsRepository.getActiveMembersWithRoles(roomId, weekYear);
+
+    return {
+      room_id: roomId,
+      week_year: weekYear,
+      boss_user_id: boss?.boss_user_id ?? null,
+      members,
+    };
+  },
+
+  async assignTemporaryRole(
+    userId: string,
+    roomId: string,
+    input: Partial<AssignTemporaryRoleDTO>
+  ): Promise<RoomRolesResponse> {
+    await validateActiveRoomAccess(userId, roomId);
+
+    const data = normalizeAssignTemporaryRoleInput(input);
+    validateAssignTemporaryRoleInput(data);
+
+    const weekYear = rankingsService.getCurrentWeekYear();
+    const boss = await RoomsRepository.findCurrentBoss(roomId, weekYear);
+
+    if (!boss) {
+      throw new RoomConflictError('Todavia no hay jefe semanal definido para esta sala');
+    }
+
+    if (boss.boss_user_id !== userId) {
+      throw new RoomConflictError('Solo el jefe semanal vigente puede asignar roles');
+    }
+
+    const targetMembership = await RoomsRepository.findMembership(roomId, data.target_user_id);
+
+    if (!targetMembership?.is_active) {
+      throw new RoomNotFoundError('El integrante no pertenece activamente a la sala');
+    }
+
+    const existingRole = await RoomsRepository.findTemporaryRole(roomId, data.target_user_id, weekYear);
+
+    if (existingRole) {
+      throw new RoomConflictError('Este integrante ya tiene un rol asignado esta semana');
+    }
+
+    try {
+      await RoomsRepository.assignTemporaryRole(
+        roomId,
+        data.target_user_id,
+        userId,
+        weekYear,
+        data.temporary_role
+      );
+    } catch (error: any) {
+      if (error?.code === '23505') {
+        throw new RoomConflictError('Este integrante ya tiene un rol asignado esta semana');
+      }
+
+      if (error?.code === '23514') {
+        throw new RoomValidationError('El rol debe tener entre 1 y 10 caracteres');
+      }
+
+      throw error;
+    }
+
+    return this.getRoomRoles(userId, roomId);
   },
 
   async getAdminRoomDetails(userId: string, roomId: string): Promise<RoomDetails> {
@@ -162,7 +236,7 @@ export const RoomsService = {
       throw new RoomNotFoundError('Sala no encontrada o inactiva');
     }
 
-    const members = await RoomsRepository.getActiveMembers(roomId);
+    const members = await RoomsRepository.getActiveMembersWithRoles(roomId, rankingsService.getCurrentWeekYear());
 
     return {
       ...updatedRoom,
@@ -337,6 +411,24 @@ async function validateOwnerAccess(userId: string, roomId: string) {
   }
 }
 
+async function validateActiveRoomAccess(userId: string, roomId: string) {
+  if (!roomId) {
+    throw new RoomValidationError('roomId es requerido');
+  }
+
+  const membership = await RoomsRepository.findMembership(roomId, userId);
+
+  if (!membership?.is_active) {
+    throw new RoomConflictError('No tenes acceso activo a esta sala');
+  }
+
+  const room = await RoomsRepository.findActiveRoomById(roomId);
+
+  if (!room || !room.is_active) {
+    throw new RoomNotFoundError('Sala no encontrada o inactiva');
+  }
+}
+
 async function validateJoinConditions(
   userId: string,
   roomId: string,
@@ -377,6 +469,27 @@ async function validateDailyRoomCreationLimit(ownerId: string) {
 function normalizeInviteCode(inviteCode: string): string {
   // Permite que el usuario ingrese el codigo con espacios o minusculas.
   return (inviteCode ?? '').trim().toUpperCase();
+}
+
+function normalizeAssignTemporaryRoleInput(input: Partial<AssignTemporaryRoleDTO>): AssignTemporaryRoleDTO {
+  return {
+    target_user_id: (input.target_user_id ?? '').trim(),
+    temporary_role: (input.temporary_role ?? '').trim(),
+  };
+}
+
+function validateAssignTemporaryRoleInput(input: AssignTemporaryRoleDTO) {
+  if (!input.target_user_id) {
+    throw new RoomValidationError('target_user_id es requerido');
+  }
+
+  if (!input.temporary_role) {
+    throw new RoomValidationError('temporary_role es requerido');
+  }
+
+  if (Array.from(input.temporary_role).length > 10) {
+    throw new RoomValidationError('El rol no puede superar 10 caracteres');
+  }
 }
 
 async function processRoomParticipationAchievements(userId: string) {

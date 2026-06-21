@@ -175,7 +175,10 @@ export default function BattleRoyaleScreen() {
                 <RoomInfoModal
                     visible={infoVisible}
                     room={room}
+                    accessToken={accessToken}
+                    currentUserId={currentUserId}
                     onClose={() => setInfoVisible(false)}
+                    onRoomUpdated={handleRoomUpdated}
                 />
             )}
             {room && accessToken && (

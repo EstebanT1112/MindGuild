@@ -27,6 +27,8 @@ export interface RoomMember {
   username: string;
   avatar_url: string | null;
   role: string;
+  temporary_role?: string | null;
+  is_boss?: boolean;
 }
 
 export interface RoomDetails extends CreatedRoom {
@@ -168,6 +170,38 @@ export async function removeRoomMember(
   return data;
 }
 
+export async function fetchRoomRoles(accessToken: string, roomId: string): Promise<RoomRolesResponse> {
+  const response = await authenticatedFetch(`${API_BASE_URL}/rooms/${roomId}/roles`, {}, accessToken);
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudieron cargar los roles de sala');
+  }
+
+  return data;
+}
+
+export async function assignTemporaryRoomRole(
+  accessToken: string,
+  roomId: string,
+  input: { target_user_id: string; temporary_role: string }
+): Promise<RoomRolesResponse> {
+  const response = await authenticatedFetch(`${API_BASE_URL}/rooms/${roomId}/roles/assign`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(input),
+  }, accessToken);
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo asignar el rol');
+  }
+
+  return data;
+}
+
 export async function fetchRoomTimeRanking(
   accessToken: string,
   roomId: string
@@ -181,6 +215,13 @@ export async function fetchRoomTimeRanking(
     avatar_url: item.avatar_url,
     total_minutes: item.value,
   }));
+}
+
+export interface RoomRolesResponse {
+  room_id: string;
+  week_year: string;
+  boss_user_id: string | null;
+  members: RoomMember[];
 }
 
 export async function leaveRoom(
