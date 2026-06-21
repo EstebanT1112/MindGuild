@@ -174,6 +174,7 @@ export const sessionsService = {
       const validated = await sessionsRepository.validateAndImpactSession(sessionId);
       try {
         await achievementService.handleAchievementEvent(session.user_id, 'session_completed');
+        await achievementService.handleAchievementEvent(session.user_id, 'study_minutes');
       } catch (achErr) {
         console.error('[sessionsService] Error al disparar logros de sesion validada:', achErr);
       }
