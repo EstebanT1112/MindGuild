@@ -135,17 +135,28 @@ export const BattleRoyaleService = {
     const answeredCount = await BattleRoyaleRepository.countAnsweredQuestions(quiz.id, userId, attempt?.id);
     const isOpen = isQuizOpen(quiz);
     const validationItems = await BattleRoyaleRepository.listValidationItems(roomId, userId);
+    const ownQuestionsCount = await BattleRoyaleRepository.countUserEligibleQuestions(roomId, userId, quiz.week_year);
+    const assignableQuestionsCount = await BattleRoyaleRepository.countAssignableQuestions(roomId, userId, quiz.week_year);
+    const hasCompletedAttempt = Boolean(attempt?.completed_at);
+    const hasEnoughOwnQuestions = ownQuestionsCount >= MIN_OWN_QUESTIONS_TO_PARTICIPATE;
+    const hasAssignedOrAssignableQuestions = assignedCount > 0 || assignableQuestionsCount > 0;
+    const canStart = isOpen && !hasCompletedAttempt && hasEnoughOwnQuestions && hasAssignedOrAssignableQuestions;
 
     return {
       quiz_id: quiz.id,
       status: quiz.status,
-      can_start: isOpen && !attempt?.completed_at,
+      can_start: canStart,
       must_validate: Boolean(attempt?.completed_at && validationItems.length > 0),
       assigned_questions_count: assignedCount,
       answered_questions_count: answeredCount,
       opens_at: quiz.opens_at,
       closes_at: quiz.closes_at,
-      reason: isOpen ? undefined : 'El cuestionario esta fuera de la ventana activa',
+      reason: getWeeklyQuizUnavailableReason({
+        isOpen,
+        hasCompletedAttempt,
+        ownQuestionsCount,
+        hasAssignedOrAssignableQuestions,
+      }),
     };
   },
 
@@ -631,6 +642,31 @@ function buildWeeklySchedule(weekday: string, startTime: string, durationMinutes
 function isQuizOpen(quiz: { opens_at: string; closes_at: string }) {
   const now = Date.now();
   return new Date(quiz.opens_at).getTime() <= now && now <= new Date(quiz.closes_at).getTime();
+}
+
+function getWeeklyQuizUnavailableReason(input: {
+  isOpen: boolean;
+  hasCompletedAttempt: boolean;
+  ownQuestionsCount: number;
+  hasAssignedOrAssignableQuestions: boolean;
+}) {
+  if (!input.isOpen) {
+    return 'El cuestionario esta fuera de la ventana activa';
+  }
+
+  if (input.hasCompletedAttempt) {
+    return 'Ya completaste este cuestionario semanal';
+  }
+
+  if (input.ownQuestionsCount < MIN_OWN_QUESTIONS_TO_PARTICIPATE) {
+    return `Debes cargar al menos ${MIN_OWN_QUESTIONS_TO_PARTICIPATE} preguntas propias para participar`;
+  }
+
+  if (!input.hasAssignedOrAssignableQuestions) {
+    return 'Todavia no hay preguntas de otros integrantes para responder';
+  }
+
+  return undefined;
 }
 
 function getCurrentWeekYear() {
