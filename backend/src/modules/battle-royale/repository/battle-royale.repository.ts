@@ -782,6 +782,8 @@ export const BattleRoyaleRepository = {
         `
           SELECT
             q.id,
+            q.author_id,
+            q.week_year,
             COUNT(qv.id)::int AS votes_count,
             COUNT(qv.id) FILTER (WHERE qv.vote = 1)::int AS positive_count,
             COUNT(qv.id) FILTER (WHERE qv.vote = -1)::int AS negative_count
@@ -801,7 +803,7 @@ export const BattleRoyaleRepository = {
       let validatedAnswers = 0;
       let rejectedAnswers = 0;
 
-      for (const row of rows as Array<{ id: string; votes_count: number; positive_count: number; negative_count: number }>) {
+      for (const row of rows as Array<{ id: string; author_id: string; week_year: string; votes_count: number; positive_count: number; negative_count: number }>) {
         const isValid = row.votes_count > 0 && row.positive_count >= row.negative_count;
 
         if (isValid) {
@@ -813,6 +815,7 @@ export const BattleRoyaleRepository = {
             `,
             [row.id]
           );
+          await upsertQuizStats(client, roomId, row.author_id, row.week_year, 1);
           validated += 1;
         } else {
           await client.query(

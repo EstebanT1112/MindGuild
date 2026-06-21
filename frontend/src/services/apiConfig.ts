@@ -41,16 +41,21 @@ export interface RankingResponse {
     };
 }
 
+export type RankingType = 'time' | 'qa' | 'academic' | 'boss' | 'semanal' | 'racha' | 'academico' | 'jefes';
+
 export async function fetchRanking(
-    type: 'semanal' | 'racha' | 'academico' | 'jefes',
-    token?: string // Opcional por si manejan tokens en el estado global
+    type: RankingType,
+    token?: string,
+    roomId?: string
 ): Promise<RankingResponse> {
     try {
-        const response = await fetch(`${API_BASE_URL}/ranking?type=${type}`, {
+        const query = new URLSearchParams({ type });
+        if (roomId) query.set('roomId', roomId);
+
+        const response = await fetch(`${API_BASE_URL}/ranking?${query.toString()}`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
-                // Mandamos el token si es que lo tenés guardado en el login
                 ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
             }
         });

@@ -13,19 +13,11 @@ export const rankingsController = {
   async getRanking(req: Request, res: Response) {
     try {
       const type = (req.query.type as RankingType) || 'semanal';
-      const roomId = req.query.roomId as string | undefined;
-      
-      // 1. Prioridad absoluta al usuario real de Auth0 que viaja en el token
-      // 2. Si no hay token (desarrollo local/postman rápido), cae al mock con email de Supabase
-      const userId = (req as any).user?.id || '00000000-0000-0000-0000-000000000000';
+      const roomId = (req.query.roomId || req.query.room_id) as string | undefined;
+      const userId = (req as any).user?.id;
 
-      // REACTIVAMOS LA PROTECCIÓN: 
-      // Si por alguna razón extraña no hay user real Y borraste el mock de Supabase, frena acá
       if (!userId) {
-        return res.status(401).json({ 
-          success: false, 
-          error: 'Usuario no autenticado o sesión inválida' 
-        });
+        return res.status(401).json({ success: false, error: 'Usuario no autenticado o sesion invalida' });
       }
 
       const result = await rankingsService.getRanking(type, userId, roomId);
@@ -40,6 +32,30 @@ export const rankingsController = {
         success: false,
         error: error.message
       });
+    }
+  },
+
+  async recalculateWeek(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) return res.status(401).json({ error: 'Usuario no autenticado' });
+
+      const result = await rankingsService.recalculateWeek(userId, req.body ?? {});
+      return res.status(200).json(result);
+    } catch (error: any) {
+      return handleRankingError(error, res, 'Error interno al recalcular ranking semanal');
+    }
+  },
+
+  async closeWeek(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) return res.status(401).json({ error: 'Usuario no autenticado' });
+
+      const result = await rankingsService.closeWeek(userId, req.body ?? {});
+      return res.status(200).json(result);
+    } catch (error: any) {
+      return handleRankingError(error, res, 'Error interno al cerrar semana');
     }
   },
 
@@ -77,6 +93,28 @@ export const rankingsController = {
     }
   },
 };
+
+function handleRankingError(error: any, res: Response, fallbackMessage: string) {
+  if (error instanceof RankingValidationError) {
+    return res.status(400).json({ error: error.message });
+  }
+
+  if (error instanceof RankingNotFoundError) {
+    return res.status(404).json({ error: error.message });
+  }
+
+  if (error instanceof RankingForbiddenError) {
+    return res.status(403).json({ error: error.message });
+  }
+
+  console.error(fallbackMessage, {
+    message: error?.message,
+    code: error?.code,
+    detail: error?.detail,
+  });
+
+  return res.status(500).json({ error: fallbackMessage });
+}
 
 async function getAuthenticatedProfile(req: Request) {
   const authorization = req.headers.authorization;

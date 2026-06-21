@@ -3,6 +3,7 @@ import {
   RankingForbiddenError,
   RankingNotFoundError,
   RankingValidationError,
+  type CloseWeekInput,
   type RankingEntry,
   type RankingType,
   type RoomTimeRankingEntry,
@@ -10,6 +11,8 @@ import {
 
 export const rankingsService = {
   async getRanking(type: RankingType, userId: string, roomId?: string) {
+    const normalizedType = normalizeRankingType(type);
+
     if (roomId) {
       const member = await rankingsRepository.getMemberStatus(roomId, userId);
       if (!member || !member.is_active) {
@@ -19,14 +22,15 @@ export const rankingsService = {
     // FIX: Cambiamos "this" por el nombre del objeto para fijar el contexto puro
     const weekYear = rankingsService.getCurrentWeekYear();
     const legacyWeekYear = rankingsService.getLegacyWeekYear();
-    const rawData = await rankingsRepository.getRankingData(type, [weekYear, legacyWeekYear], roomId);
+    const rawData = await rankingsRepository.getRankingData(normalizedType, [weekYear, legacyWeekYear], roomId);
 
     const formattedRanking: RankingEntry[] = rawData.map((item, index) => {
       let value = 0;
-      if (type === 'racha') value = item.streak_days;
-      else if (type === 'semanal') value = parseInt(item.total_minutes);
-      else if (type === 'academico') value = item.academic_score;
-      else if (type === 'jefes') value = item.bosses_count;
+      if (normalizedType === 'racha') value = item.streak_days;
+      else if (normalizedType === 'time') value = parseInt(item.total_minutes);
+      else if (normalizedType === 'qa') value = parseInt(item.quiz_score);
+      else if (normalizedType === 'academic') value = parseInt(item.academic_score);
+      else if (normalizedType === 'boss') value = parseInt(item.bosses_count);
 
       return {
         user_id: item.id || item.user_id,
@@ -38,7 +42,7 @@ export const rankingsService = {
     });
 
     return {
-      type,
+      type: normalizedType,
       scope: roomId ? 'room' : 'global',
       week: weekYear,
       data: formattedRanking,
@@ -72,6 +76,61 @@ export const rankingsService = {
     }));
   },
 
+  async recalculateWeek(userId: string, input: CloseWeekInput) {
+    if (input.room_id) {
+      const member = await rankingsRepository.getMemberStatus(input.room_id, userId);
+      if (!member?.is_active) {
+        throw new RankingForbiddenError('No tienes acceso al ranking de esta sala');
+      }
+    }
+
+    const weekYear = input.week_year || rankingsService.getCurrentWeekYear();
+    await rankingsRepository.recalculateAcademicScores(weekYear, input.room_id);
+
+    return {
+      success: true,
+      week_year: weekYear,
+      room_id: input.room_id ?? null,
+    };
+  },
+
+  async closeWeek(userId: string, input: CloseWeekInput) {
+    if (input.room_id) {
+      const member = await rankingsRepository.getMemberStatus(input.room_id, userId);
+      if (!member?.is_active) {
+        throw new RankingForbiddenError('No tienes acceso al cierre de esta sala');
+      }
+    }
+
+    const weekYear = input.week_year || rankingsService.getCurrentWeekYear();
+    await rankingsRepository.recalculateAcademicScores(weekYear, input.room_id);
+
+    const rooms = await rankingsRepository.findRoomsForWeeklyClose(input.room_id);
+    const results = [];
+
+    for (const room of rooms) {
+      const candidate = await rankingsRepository.findWeeklyBossCandidate(room.id, weekYear, room.mode);
+
+      if (!candidate) {
+        results.push({ room_id: room.id, week_year: weekYear, boss_user_id: null, assigned: false });
+        continue;
+      }
+
+      const assignment = await rankingsRepository.assignWeeklyBoss(room.id, weekYear, candidate.user_id);
+      results.push({
+        room_id: room.id,
+        week_year: weekYear,
+        boss_user_id: assignment.boss_user_id,
+        assigned: assignment.assigned,
+      });
+    }
+
+    return {
+      week_year: weekYear,
+      results,
+    };
+  },
+
   getCurrentWeekYear(): string {
     const now = new Date();
     const current = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
@@ -96,3 +155,13 @@ export const rankingsService = {
     return `${weekNumber}-${now.getFullYear()}`;
   },
 };
+
+function normalizeRankingType(type: RankingType): RankingType {
+  const map: Record<string, RankingType> = {
+    semanal: 'time',
+    academico: 'academic',
+    jefes: 'boss',
+  };
+
+  return map[type] ?? type;
+}

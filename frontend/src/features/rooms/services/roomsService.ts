@@ -1,4 +1,4 @@
-import { API_BASE_URL } from '../../../services/apiConfig';
+import { API_BASE_URL, fetchRanking } from '../../../services/apiConfig';
 import { authenticatedFetch } from '../../../services/authenticatedFetch';
 
 export type RoomMode = 'survival' | 'battle_royale';
@@ -172,15 +172,15 @@ export async function fetchRoomTimeRanking(
   accessToken: string,
   roomId: string
 ): Promise<RoomTimeRankingEntry[]> {
-  const response = await authenticatedFetch(`${API_BASE_URL}/rooms/${roomId}/rankings/time`, {}, accessToken);
+  const response = await fetchRanking('time', accessToken, roomId);
+  const ranking = Array.isArray(response?.data?.data) ? response.data.data : [];
 
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error ?? 'No se pudo cargar el ranking');
-  }
-
-  return data;
+  return ranking.map(item => ({
+    user_id: item.user_id,
+    username: item.username,
+    avatar_url: item.avatar_url,
+    total_minutes: item.value,
+  }));
 }
 
 export async function leaveRoom(
