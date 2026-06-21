@@ -13,3 +13,16 @@ export async function claimMissionReward(accessToken: string, userMissionId: str
 
   return data.data;
 }
+
+export async function fetchMissionDetail(accessToken: string, userMissionId: string) {
+  const response = await authenticatedFetch(`${API_BASE_URL}/missions/${userMissionId}`, {
+    method: 'GET',
+  }, accessToken);
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message ?? data.error ?? 'No se pudo cargar el detalle de la mision');
+  }
+
+  return data.data;
+}
