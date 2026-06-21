@@ -181,7 +181,10 @@ export default function ProfileScreen() {
 
         setClaimingAchievementId(achievementId);
         try {
-            await claimAchievementReward(accessToken, achievementId);
+            const result = await claimAchievementReward(accessToken, achievementId);
+            if (profile && typeof result?.coins_balance === 'number') {
+                setProfileInStore({ ...profile, coins_balance: result.coins_balance });
+            }
             await Promise.all([
                 loadProfileFromStore(accessToken, { force: true }),
                 loadAchievementsFromStore(accessToken, { force: true }),

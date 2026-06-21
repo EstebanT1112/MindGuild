@@ -24,6 +24,7 @@ export default function HomeScreen() {
   const loadProfile = useAppDataStore(state => state.loadProfile);
   const loadRooms = useAppDataStore(state => state.loadRooms);
   const loadMissions = useAppDataStore(state => state.loadMissions);
+  const setProfile = useAppDataStore(state => state.setProfile);
 
   const [missionsVisible, setMissionsVisible] = useState(false);
   const [claimingMissionId, setClaimingMissionId] = useState<string | null>(null);
@@ -67,7 +68,10 @@ export default function HomeScreen() {
 
     setClaimingMissionId(missionId);
     try {
-      await claimMissionReward(accessToken, missionId);
+      const result = await claimMissionReward(accessToken, missionId);
+      if (profile && typeof result?.coins_balance === 'number') {
+        setProfile({ ...profile, coins_balance: result.coins_balance });
+      }
       await Promise.all([
         loadProfile(accessToken, { force: true }),
         loadMissions(accessToken, { force: true }),
