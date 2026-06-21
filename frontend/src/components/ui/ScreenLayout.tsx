@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Brain, Users, Crown, Users2, UserCircle } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useAppDataStore } from '../../store/appDataStore';
 
 interface Props {
   children: React.ReactNode;
@@ -14,6 +15,7 @@ interface Props {
 
 export default function ScreenLayout({ children, title, type = 'rooms', icon, rightAction }: Props) {
   const navigation = useNavigation<any>();
+  const coinsBalance = useAppDataStore(state => state.profile.data?.coins_balance ?? 0);
 
   // Configuración del botón izquierdo (Avatar o Volver)
   const renderLeftButton = () => {
@@ -72,10 +74,10 @@ export default function ScreenLayout({ children, title, type = 'rooms', icon, ri
           </View>
 
           {rightAction ?? (
-            <View style={styles.coinBadge}>
+            <Pressable style={styles.coinBadge} onPress={() => navigation.navigate('Wallet')}>
               <View style={styles.hCoin}><Brain color="#0f172a" size={20} strokeWidth={2.2} /></View>
-              <Text style={styles.coinAmount}>1,250</Text>
-            </View>
+              <Text style={styles.coinAmount}>{coinsBalance}</Text>
+            </Pressable>
           )}
         </View>
 
