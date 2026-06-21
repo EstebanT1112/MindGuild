@@ -1,56 +1,100 @@
-import { missionsRepository, type Mission } from '../repository/missions.repository.js';
 import { pool } from '../../../common/config/db.js';
 import { walletRepository } from '../../wallet/repository/wallet.repository.js';
+import {
+  missionsRepository,
+  type Mission,
+  type MissionFrequency,
+  type MissionPeriod,
+  type UserMissionRow,
+} from '../repository/missions.repository.js';
+
+const DAILY_MISSION_LIMIT = 2;
+const DAILY_MISSION_MIN = 1;
+const WEEKLY_MISSION_LIMIT = 3;
+const APP_TIMEZONE = 'America/Argentina/Buenos_Aires';
+
+export interface GroupedMissions {
+  daily: UserMissionRow[];
+  weekly: UserMissionRow[];
+  expired: UserMissionRow[];
+}
 
 export const missionsService = {
-  /**
-   * Orquesta la asignación y obtención de misiones diarias para un usuario.
-   * Cumple con el Prompt 1.
-   */
-  async getAndAssignDailyMissions(userId: string): Promise<any[]> {
+  async getAndAssignMissions(userId: string, frequency: 'daily' | 'weekly' | 'all' = 'all'): Promise<GroupedMissions> {
     if (!userId) {
       throw new Error('El ID de usuario es requerido para procesar misiones.');
     }
 
-    // 1. Consultar en la tabla base todas las misiones marcadas como active = true
-    const activeMissions = await missionsRepository.getActiveMissions();
+    const periods = getCurrentMissionPeriods();
 
-    // Si no hay misiones configuradas en el sistema, retornamos lista vacía de una
-    if (activeMissions.length === 0) {
-      return [];
+    if (frequency === 'all' || frequency === 'daily') {
+      const dailyMissions = await missionsRepository.getActiveMissions('daily');
+      await missionsRepository.assignMissionsToUserForPeriod(
+        userId,
+        selectMissions(dailyMissions, DAILY_MISSION_LIMIT, DAILY_MISSION_MIN),
+        periods.daily.key,
+        periods.daily.expiresAt
+      );
     }
 
-    // Mapeamos solo los IDs para la inserción masiva
-    const activeMissionIds = activeMissions.map((mission: Mission) => mission.id);
+    if (frequency === 'all' || frequency === 'weekly') {
+      const weeklyMissions = await missionsRepository.getActiveMissions('weekly');
+      await missionsRepository.assignMissionsToUserForPeriod(
+        userId,
+        selectMissions(weeklyMissions, WEEKLY_MISSION_LIMIT),
+        periods.weekly.key,
+        periods.weekly.expiresAt
+      );
+    }
 
-    // 2. Intentar crear el registro en user_missions para las misiones que no existan aún
-    await missionsRepository.assignMissionsToUser(userId, activeMissionIds);
-
-    // 3. Retornar el estado actual de las misiones del usuario con todos sus detalles (título, recompensas, etc.)
-    const userMissions = await missionsRepository.getUserMissionsWithDetails(userId);
-    
-    return userMissions;
+    return groupMissions(
+      await missionsRepository.getUserMissionsForPeriods(userId, [
+        periods.daily.key,
+        periods.weekly.key,
+      ]),
+      frequency
+    );
   },
 
-  /**
-   * PROMPT 2: Registra e incrementa el progreso de un tipo específico de misión para el usuario.
-   */
-  async updateProgress(userId: string, missionType: string, incrementValue: number): Promise<any[]> {
+  async getMissionDetail(userId: string, userMissionId: string): Promise<UserMissionRow> {
+    if (!userId) {
+      throw new Error('El ID de usuario es requerido para consultar la mision.');
+    }
+
+    if (!userMissionId) {
+      throw new Error('El ID de mision de usuario es requerido.');
+    }
+
+    const mission = await missionsRepository.getUserMissionById(userId, userMissionId);
+
+    if (!mission) {
+      throw new Error('Mision no encontrada');
+    }
+
+    return mission;
+  },
+
+  async updateProgress(userId: string, missionType: string, incrementValue: number): Promise<GroupedMissions> {
     if (!userId) {
       throw new Error('El ID de usuario es requerido para actualizar el progreso.');
     }
     if (!missionType) {
-      throw new Error('El tipo de misión es requerido para procesar el incremento.');
+      throw new Error('El tipo de mision es requerido para procesar el incremento.');
     }
     if (incrementValue <= 0) {
       throw new Error('El valor de incremento debe ser mayor a cero.');
     }
 
-    // 1. Mandamos a actualizar de forma masiva el progreso en la BD para ese tipo de misión
-    await missionsRepository.updateMissionProgress(userId, missionType, incrementValue);
+    const periods = getCurrentMissionPeriods();
 
-    // 2. Retornamos el estado actualizado de todas sus misiones para refrescar la UI del celular
-    return await missionsRepository.getUserMissionsWithDetails(userId);
+    await missionsRepository.updateMissionProgressForCurrentPeriods(
+      userId,
+      missionType,
+      incrementValue,
+      [periods.daily.key, periods.weekly.key]
+    );
+
+    return this.getAndAssignMissions(userId);
   },
 
   async claimMissionReward(userId: string, userMissionId: string) {
@@ -72,7 +116,8 @@ export const missionsService = {
           SELECT
             um.id AS user_mission_id,
             um.completed,
-            um.claimed,
+            COALESCE(um.claimed, false) AS claimed,
+            um.expires_at,
             m.id AS mission_id,
             m.title,
             m.reward_coins
@@ -113,13 +158,14 @@ export const missionsService = {
         });
       }
 
-      await client.query(
+      const { rows: updatedRows } = await client.query(
         `
           UPDATE user_missions
           SET claimed = true,
               claimed_at = NOW()
           WHERE id = $1
-            AND user_id = $2;
+            AND user_id = $2
+          RETURNING claimed_at;
         `,
         [userMissionId, userId]
       );
@@ -130,6 +176,7 @@ export const missionsService = {
         user_mission_id: userMissionId,
         reward_coins: rewardCoins,
         coins_balance: coinsBalance,
+        claimed_at: updatedRows[0]?.claimed_at ?? null,
       };
     } catch (error) {
       await client.query('ROLLBACK');
@@ -139,18 +186,95 @@ export const missionsService = {
     }
   },
 
-  /**
-   * PROMPT 3: Ejecuta la limpieza masiva diaria de misiones en todo el sistema.
-   * Diseñado para ser invocado por procesos automáticos o crons.
-   */
+  async expireOldMissions(): Promise<void> {
+    await missionsRepository.expireOldMissions();
+  },
+
   async resetAllUserMissions(): Promise<void> {
-    try {
-      console.log('⏳ Iniciando reseteo masivo diario de misiones...');
-      await missionsRepository.resetDailyMissions();
-      console.log('✅ Reseteo masivo diario de misiones completado con éxito.');
-    } catch (error: any) {
-      console.error('❌ Error en el proceso masivo missionsService.resetAllUserMissions:', error);
-      throw new Error(`Falló la actualización masiva diaria: ${error.message}`);
-    }
-  }
+    await this.expireOldMissions();
+  },
 };
+
+function selectMissions(missions: Mission[], limit: number, minimum = 0): Mission[] {
+  if (missions.length < minimum) {
+    throw new Error(`No hay suficientes misiones activas para asignar el minimo requerido (${minimum}).`);
+  }
+
+  return missions.slice(0, limit);
+}
+
+function groupMissions(missions: UserMissionRow[], frequency: 'daily' | 'weekly' | 'all'): GroupedMissions {
+  const visible = frequency === 'all'
+    ? missions
+    : missions.filter(mission => mission.frequency === frequency || mission.expired);
+
+  return {
+    daily: visible
+      .filter(mission => !mission.expired && mission.frequency === 'daily')
+      .slice(0, DAILY_MISSION_LIMIT),
+    weekly: visible
+      .filter(mission => !mission.expired && mission.frequency === 'weekly')
+      .slice(0, WEEKLY_MISSION_LIMIT),
+    expired: visible.filter(mission => mission.expired),
+  };
+}
+
+function getCurrentMissionPeriods(now = new Date()): MissionPeriod {
+  const local = getArgentinaDateParts(now);
+  const dailyKey = local.dateKey;
+  const nextDayStartUtc = argentinaLocalDateStartUtc(local.year, local.month, local.day + 1);
+
+  const week = getIsoWeek(local.year, local.month, local.day);
+  const weekStartUtc = argentinaLocalDateStartUtc(local.year, local.month, local.day - (week.weekday - 1));
+  const nextWeekStartUtc = new Date(weekStartUtc.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  return {
+    daily: {
+      key: dailyKey,
+      expiresAt: nextDayStartUtc,
+    },
+    weekly: {
+      key: `${week.year}-W${String(week.week).padStart(2, '0')}`,
+      expiresAt: nextWeekStartUtc,
+    },
+  };
+}
+
+function getArgentinaDateParts(date: Date) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: APP_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+
+  const year = Number(parts.find(part => part.type === 'year')?.value);
+  const month = Number(parts.find(part => part.type === 'month')?.value);
+  const day = Number(parts.find(part => part.type === 'day')?.value);
+
+  return {
+    year,
+    month,
+    day,
+    dateKey: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+  };
+}
+
+function argentinaLocalDateStartUtc(year: number, month: number, day: number): Date {
+  return new Date(Date.UTC(year, month - 1, day, 3, 0, 0, 0));
+}
+
+function getIsoWeek(year: number, month: number, day: number) {
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const weekday = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - weekday);
+  const weekYear = date.getUTCFullYear();
+  const yearStart = new Date(Date.UTC(weekYear, 0, 1));
+  const week = Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+
+  return {
+    year: weekYear,
+    week,
+    weekday,
+  };
+}

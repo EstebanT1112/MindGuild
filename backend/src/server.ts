@@ -18,10 +18,10 @@ const PORT = process.env.PORT || 3000;
 // ⚡ REPARADO: Un solo listen explícito en '0.0.0.0' para evitar colisiones de puertos
 app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`🚀 Servidor de MindGuild corriendo en cualquier interfaz en el puerto ${PORT}`);
-    setupDailyMissionsReset();
+    setupDailyMissionsExpiration();
 });
 
-function setupDailyMissionsReset() {
+function setupDailyMissionsExpiration() {
     const ahora = new Date();
     const mañana = new Date(ahora);
 
@@ -33,14 +33,14 @@ function setupDailyMissionsReset() {
 
     setTimeout(async () => {
         try {
-            await missionsService.resetAllUserMissions();
+            await missionsService.expireOldMissions();
         } catch (error) {
             console.error('❌ Falló el reset automático inicial a medianoche:', error);
         }
 
         setInterval(async () => {
             try {
-                await missionsService.resetAllUserMissions();
+                await missionsService.expireOldMissions();
             } catch (error) {
                 console.error('❌ Falló el reset automático en el intervalo diario:', error);
             }
