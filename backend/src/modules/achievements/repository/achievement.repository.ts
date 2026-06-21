@@ -20,6 +20,17 @@ const rewardCoinsSql = (alias?: string) => {
   `;
 };
 
+const medalTierSql = (alias?: string) => {
+  const column = alias ? `${alias}.medal_tier` : 'medal_tier';
+
+  return `
+    CASE
+      WHEN ${column} IN ('bronze', 'silver', 'gold') THEN ${column}
+      ELSE 'bronze'
+    END
+  `;
+};
+
 export const achievementRepository = {
   //Busca logros activos por evento Prompt 1-REQ13
   async getActiveAchievementsByType(type: string): Promise<Achievement[]> {
@@ -31,7 +42,9 @@ export const achievementRepository = {
           description,
           type,
           target_value,
-          ${rewardCoinsSql()} AS reward_coins
+          ${rewardCoinsSql()} AS reward_coins,
+          benefit_description,
+          ${medalTierSql()} AS medal_tier
         FROM achievements
         WHERE type = $1
         AND is_active = true;
@@ -98,6 +111,20 @@ export const achievementRepository = {
     );
 
     return rows[0]?.streak_days ?? 0;
+  },
+
+  async getTotalStudyMinutes(userId: string): Promise<number> {
+    const { rows } = await pool.query(
+      `
+        SELECT COALESCE(total_study_minutes, 0)::int AS total
+        FROM profiles
+        WHERE id = $1
+        LIMIT 1;
+      `,
+      [userId]
+    );
+
+    return Number(rows[0]?.total) || 0;
   },
 
   async countActiveRoomMemberships(userId: string): Promise<number> {
@@ -170,7 +197,9 @@ export const achievementRepository = {
           badge_icon,
           type,
           target_value,
-          ${rewardCoinsSql()} AS reward_coins
+          ${rewardCoinsSql()} AS reward_coins,
+          benefit_description,
+          ${medalTierSql()} AS medal_tier
         FROM achievements
         WHERE is_active = true;
       `
@@ -193,6 +222,39 @@ export const achievementRepository = {
           a.type,
           a.target_value,
           ${rewardCoinsSql('a')} AS reward_coins,
+          a.benefit_description,
+          ${medalTierSql('a')} AS medal_tier,
+          CASE
+            WHEN a.type = 'session_completed' THEN (
+              SELECT COUNT(*)::int
+              FROM study_sessions ss
+              WHERE ss.user_id = $1
+                AND ss.status = 'completed'
+                AND ss.valid = true
+                AND ss.duration_minutes >= 60
+            )
+            WHEN a.type = 'streak_updated' THEN (
+              SELECT COALESCE(p.streak_days, 0)::int
+              FROM profiles p
+              WHERE p.id = $1
+              LIMIT 1
+            )
+            WHEN a.type = 'room_participation' THEN (
+              SELECT COUNT(*)::int
+              FROM room_members rm
+              JOIN rooms r ON r.id = rm.room_id
+              WHERE rm.user_id = $1
+                AND rm.is_active = true
+                AND r.is_active = true
+            )
+            WHEN a.type = 'study_minutes' THEN (
+              SELECT COALESCE(p.total_study_minutes, 0)::int
+              FROM profiles p
+              WHERE p.id = $1
+              LIMIT 1
+            )
+            ELSE 0
+          END AS progress_value,
           ua.unlocked_at,
           ua.reward_claimed_at
         FROM achievements a
@@ -213,6 +275,13 @@ export const achievementRepository = {
       type: row.type,
       target_value: row.target_value,
       reward_coins: row.reward_coins,
+      benefit_description: row.benefit_description ?? null,
+      medal_tier: row.medal_tier ?? 'bronze',
+      progress_value: Number(row.progress_value) || 0,
+      progress_percentage: Math.min(
+        100,
+        Math.floor(((Number(row.progress_value) || 0) / Math.max(Number(row.target_value) || 1, 1)) * 100)
+      ),
       //La linea de abajo convierte  null a false y date a true
       unlocked: !!row.unlocked_at,
       unlocked_at: row.unlocked_at ?? null,
@@ -249,15 +318,10 @@ export const achievementRepository = {
         throw new Error('Logro no desbloqueado');
       }
 
-      if (achievement.reward_claimed_at) {
-        throw new Error('La recompensa de este logro ya fue reclamada');
-      }
-
       const rewardCoins = Number(achievement.reward_coins) || 0;
 
-      let coinsBalance = null;
       if (rewardCoins > 0) {
-        coinsBalance = await walletRepository.creditCoins(client, {
+        await walletRepository.creditCoins(client, {
           userId,
           amount: rewardCoins,
           type: 'achievement_reward',
@@ -267,15 +331,19 @@ export const achievementRepository = {
         });
       }
 
-      await client.query(
-        `
-          UPDATE user_achievements
-          SET reward_claimed_at = NOW()
-          WHERE user_id = $1
-            AND achievement_id = $2;
-        `,
-        [userId, achievementId]
-      );
+      if (!achievement.reward_claimed_at) {
+        await client.query(
+          `
+            UPDATE user_achievements
+            SET reward_claimed_at = NOW()
+            WHERE user_id = $1
+              AND achievement_id = $2;
+          `,
+          [userId, achievementId]
+        );
+      }
+
+      const coinsBalance = await getProfileCoinsBalance(client, userId);
 
       await client.query('COMMIT');
 
@@ -283,6 +351,7 @@ export const achievementRepository = {
         achievement_id: achievementId,
         reward_coins: rewardCoins,
         coins_balance: coinsBalance,
+        already_claimed: Boolean(achievement.reward_claimed_at),
       };
     } catch (error) {
       await client.query('ROLLBACK');
@@ -292,3 +361,17 @@ export const achievementRepository = {
     }
   },
 };
+
+async function getProfileCoinsBalance(client: { query: (text: string, params?: any[]) => Promise<any> }, userId: string): Promise<number> {
+  const { rows } = await client.query(
+    `
+      SELECT COALESCE(coins_balance, 0)::int AS coins_balance
+      FROM profiles
+      WHERE id = $1
+      LIMIT 1;
+    `,
+    [userId]
+  );
+
+  return Number(rows[0]?.coins_balance) || 0;
+}
