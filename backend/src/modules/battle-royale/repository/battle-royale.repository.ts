@@ -6,6 +6,7 @@ import type {
   BattleRoom,
   QuestionOptionInput,
   AssignedQuizQuestion,
+  PracticeQuestion,
   ValidationItem,
   WeeklyQuiz,
   WeeklyQuizResult,
@@ -1141,6 +1142,82 @@ export const BattleRoyaleRepository = {
     } finally {
       client.release();
     }
+  },
+
+  async listPracticeQuestions(input: {
+    roomId: string;
+    limit: number;
+    types: string[];
+  }): Promise<PracticeQuestion[]> {
+    const { rows } = await pool.query(
+      `
+        SELECT
+          q.id,
+          q.room_id,
+          q.type,
+          q.question_text,
+          NULL::text AS expected_answer,
+          COALESCE(
+            json_agg(
+              json_build_object(
+                'id', qo.id,
+                'option_text', qo.option_text
+              )
+              ORDER BY qo.sort_order ASC
+            ) FILTER (WHERE qo.id IS NOT NULL),
+            '[]'
+          ) AS options
+        FROM questions q
+        JOIN rooms r ON r.id = q.room_id
+        LEFT JOIN question_options qo ON qo.question_id = q.id
+        WHERE q.room_id = $1
+          AND q.status = 'validated'
+          AND q.type = ANY($2::text[])
+          AND r.is_active = true
+        GROUP BY q.id
+        ORDER BY random()
+        LIMIT $3;
+      `,
+      [input.roomId, input.types, input.limit]
+    );
+
+    return rows as PracticeQuestion[];
+  },
+
+  async findPracticeQuestion(questionId: string): Promise<{
+    id: string;
+    room_id: string;
+    type: 'multiple_choice' | 'open';
+    expected_answer: string | null;
+  } | null> {
+    const { rows } = await pool.query(
+      `
+        SELECT id, room_id, type, expected_answer
+        FROM questions
+        WHERE id = $1
+          AND status = 'validated'
+        LIMIT 1;
+      `,
+      [questionId]
+    );
+
+    return rows[0] ?? null;
+  },
+
+  async findCorrectOption(questionId: string): Promise<{ id: string; option_text: string } | null> {
+    const { rows } = await pool.query(
+      `
+        SELECT id, option_text
+        FROM question_options
+        WHERE question_id = $1
+          AND is_correct = true
+        ORDER BY sort_order ASC
+        LIMIT 1;
+      `,
+      [questionId]
+    );
+
+    return rows[0] ?? null;
   },
 };
 

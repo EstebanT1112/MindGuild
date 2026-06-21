@@ -5,7 +5,9 @@ import {
   BattleRoyaleNotFoundError,
   BattleRoyaleValidationError,
   type BattleQuestionType,
+  type CheckPracticeAnswerInput,
   type CreateQuestionInput,
+  type GeneratePracticeInput,
   type SaveAnswerInput,
   type VoteInput,
   type WeeklyQuizInput,
@@ -16,6 +18,8 @@ const DEFAULT_QUIZ_DURATION_MINUTES = 1440;
 const EDITABLE_QUIZ_STATUSES = ['draft', 'scheduled'];
 const MIN_OWN_QUESTIONS_TO_PARTICIPATE = 3;
 const MAX_ASSIGNED_QUESTIONS = 8;
+const DEFAULT_PRACTICE_LIMIT = 10;
+const MAX_PRACTICE_LIMIT = 20;
 
 export const BattleRoyaleService = {
   async getConfig(userId: string, roomId: string) {
@@ -382,6 +386,67 @@ export const BattleRoyaleService = {
     const quiz = await getCurrentQuiz(roomId);
     return BattleRoyaleRepository.resetWeeklyQuiz(roomId, quiz.id, quiz.week_year);
   },
+
+  async generatePracticeQuiz(userId: string, input: GeneratePracticeInput) {
+    const roomId = String(input.room_id ?? '').trim();
+
+    if (!roomId) {
+      throw new BattleRoyaleValidationError('room_id es requerido');
+    }
+
+    await assertBattleRoyaleAccess(userId, roomId);
+
+    const limit = normalizePracticeLimit(input.limit);
+    const types = normalizePracticeTypes(input.types);
+
+    return {
+      questions: await BattleRoyaleRepository.listPracticeQuestions({
+        roomId,
+        limit,
+        types,
+      }),
+    };
+  },
+
+  async checkPracticeAnswer(userId: string, input: CheckPracticeAnswerInput) {
+    const questionId = String(input.question_id ?? '').trim();
+
+    if (!questionId) {
+      throw new BattleRoyaleValidationError('question_id es requerido');
+    }
+
+    const question = await BattleRoyaleRepository.findPracticeQuestion(questionId);
+
+    if (!question) {
+      throw new BattleRoyaleNotFoundError('Pregunta de practica no encontrada');
+    }
+
+    await assertBattleRoyaleAccess(userId, question.room_id);
+
+    if (question.type === 'multiple_choice') {
+      const selectedOptionId = String(input.selected_option_id ?? '').trim();
+
+      if (!selectedOptionId) {
+        throw new BattleRoyaleValidationError('selected_option_id es requerido');
+      }
+
+      const correctOption = await BattleRoyaleRepository.findCorrectOption(questionId);
+
+      if (!correctOption) {
+        throw new BattleRoyaleConflictError('La pregunta no tiene opcion correcta configurada');
+      }
+
+      return {
+        is_correct: correctOption.id === selectedOptionId,
+        correct_option_id: correctOption.id,
+        correct_option_text: correctOption.option_text,
+      };
+    }
+
+    return {
+      expected_answer: question.expected_answer ?? '',
+    };
+  },
 };
 
 async function getCurrentQuizOrNull(roomId: string) {
@@ -518,6 +583,27 @@ function normalizeQuestionInput(input: CreateQuestionInput = {}) {
     expectedAnswer: null,
     options,
   };
+}
+
+function normalizePracticeLimit(limit?: number) {
+  const parsedLimit = Number(limit ?? DEFAULT_PRACTICE_LIMIT);
+
+  if (!Number.isInteger(parsedLimit) || parsedLimit <= 0) {
+    throw new BattleRoyaleValidationError('limit debe ser un entero mayor a 0');
+  }
+
+  return Math.min(parsedLimit, MAX_PRACTICE_LIMIT);
+}
+
+function normalizePracticeTypes(types?: BattleQuestionType[]) {
+  const selectedTypes = Array.isArray(types) && types.length > 0 ? types : ['multiple_choice', 'open'];
+  const normalizedTypes = selectedTypes.map(type => String(type).trim());
+
+  if (normalizedTypes.some(type => !['multiple_choice', 'open'].includes(type))) {
+    throw new BattleRoyaleValidationError('types solo puede incluir multiple_choice u open');
+  }
+
+  return normalizedTypes;
 }
 
 function buildWeeklySchedule(weekday: string, startTime: string, durationMinutes: number) {

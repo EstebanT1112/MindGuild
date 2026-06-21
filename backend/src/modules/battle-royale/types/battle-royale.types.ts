@@ -188,6 +188,30 @@ export interface VoteInput {
   vote?: 'positive' | 'negative';
 }
 
+export interface PracticeQuestion {
+  id: string;
+  room_id: string;
+  type: BattleQuestionType;
+  question_text: string;
+  expected_answer?: string | null;
+  options: Array<{
+    id: string;
+    option_text: string;
+  }>;
+}
+
+export interface GeneratePracticeInput {
+  room_id?: string;
+  limit?: number;
+  types?: BattleQuestionType[];
+}
+
+export interface CheckPracticeAnswerInput {
+  question_id?: string;
+  selected_option_id?: string;
+  answer_text?: string;
+}
+
 export class BattleRoyaleValidationError extends Error {
   constructor(message: string) {
     super(message);

@@ -155,6 +155,18 @@ export interface WeeklyQuizResult {
   };
 }
 
+export interface PracticeQuestion {
+  id: string;
+  room_id: string;
+  type: BattleQuestionType;
+  question_text: string;
+  expected_answer?: string | null;
+  options: Array<{
+    id: string;
+    option_text: string;
+  }>;
+}
+
 export async function fetchBattleRoyaleConfig(
   accessToken: string,
   roomId: string
@@ -450,6 +462,57 @@ export async function resetWeeklyQuiz(
 
   if (!response.ok) {
     throw new Error(data.error ?? 'No se pudo reiniciar el cuestionario');
+  }
+
+  return data;
+}
+
+export async function generatePracticeQuiz(
+  accessToken: string,
+  input: { room_id: string; limit?: number; types?: BattleQuestionType[] }
+): Promise<{ questions: PracticeQuestion[] }> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/battle-royale/practice/generate`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+    accessToken
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo generar la practica');
+  }
+
+  return data;
+}
+
+export async function checkPracticeAnswer(
+  accessToken: string,
+  input: { question_id: string; selected_option_id?: string; answer_text?: string }
+): Promise<{
+  is_correct?: boolean;
+  correct_option_id?: string;
+  correct_option_text?: string;
+  expected_answer?: string;
+}> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/battle-royale/practice/check-answer`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+    accessToken
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo corregir la respuesta');
   }
 
   return data;
