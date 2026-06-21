@@ -364,6 +364,24 @@ export const BattleRoyaleService = {
     const quiz = await getCurrentQuiz(roomId);
     return BattleRoyaleRepository.resolveQuestionVotes(roomId, quiz.id);
   },
+
+  async getWeeklyQuizResult(userId: string, roomId: string) {
+    await assertBattleRoyaleAccess(userId, roomId);
+    const quiz = await getCurrentQuiz(roomId);
+    const result = await BattleRoyaleRepository.getWeeklyQuizResult(roomId, quiz.id, userId);
+
+    if (!result) {
+      throw new BattleRoyaleNotFoundError('No hay resultado para este usuario');
+    }
+
+    return result;
+  },
+
+  async resetWeeklyQuiz(userId: string, roomId: string) {
+    await assertBattleRoyaleAccess(userId, roomId, { ownerOnly: true });
+    const quiz = await getCurrentQuiz(roomId);
+    return BattleRoyaleRepository.resetWeeklyQuiz(roomId, quiz.id, quiz.week_year);
+  },
 };
 
 async function getCurrentQuizOrNull(roomId: string) {

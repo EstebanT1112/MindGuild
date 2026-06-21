@@ -108,6 +108,49 @@ export interface WeeklyQuizAttempt {
   questions: AssignedQuizQuestion[];
 }
 
+export interface WeeklyQuizResultDetail {
+  question_id: string;
+  question_text: string;
+  question_type: BattleQuestionType;
+  answer_text: string | null;
+  expected_answer: string | null;
+  validation_status: string;
+  is_correct: boolean;
+}
+
+export interface WeeklyQuizProposedQuestionResult {
+  question_id: string;
+  question_text: string;
+  question_type: BattleQuestionType;
+  status: 'validated' | 'rejected';
+}
+
+export interface WeeklyQuizResult {
+  status: 'pending_validation' | 'validated';
+  quiz: {
+    id: string;
+    title: string;
+  };
+  room: {
+    id: string;
+    name: string;
+  };
+  summary: {
+    score: number;
+    total_questions: number;
+    correct_count: number;
+    incorrect_count: number;
+    accuracy_percentage: number;
+    duration_seconds: number | null;
+  } | null;
+  details: WeeklyQuizResultDetail[];
+  proposed_questions: {
+    validated_count: number;
+    rejected_count: number | null;
+    items: WeeklyQuizProposedQuestionResult[];
+  };
+}
+
 export interface SaveAnswerInput {
   question_id?: string;
   selected_option_id?: string;

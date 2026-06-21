@@ -15,5 +15,7 @@ router.post('/weekly-quiz/:attemptId/complete', BattleRoyaleController.completeW
 router.get('/rooms/:roomId/weekly-quiz/validation', BattleRoyaleController.getValidationItems);
 router.post('/weekly-quiz/validation/vote', BattleRoyaleController.voteValidationItem);
 router.post('/rooms/:roomId/weekly-quiz/resolve', BattleRoyaleController.resolveWeeklyQuiz);
+router.get('/rooms/:roomId/weekly-quiz/result', BattleRoyaleController.getWeeklyQuizResult);
+router.post('/rooms/:roomId/weekly-quiz/reset', BattleRoyaleController.resetWeeklyQuiz);
 
 export default router;

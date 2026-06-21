@@ -8,6 +8,7 @@ import type {
   AssignedQuizQuestion,
   ValidationItem,
   WeeklyQuiz,
+  WeeklyQuizResult,
 } from '../types/battle-royale.types.js';
 
 export const BattleRoyaleRepository = {
@@ -311,6 +312,7 @@ export const BattleRoyaleRepository = {
         LEFT JOIN question_options qo ON qo.question_id = q.id
         WHERE q.room_id = $1
           AND q.author_id = $2
+          AND q.status IN ('pending', 'answered', 'in_validation')
         GROUP BY q.id, p.id
         ORDER BY q.created_at DESC;
       `,
@@ -585,13 +587,34 @@ export const BattleRoyaleRepository = {
     responderUserId: string;
     answerText: string;
   }): Promise<void> {
-    await pool.query(
-      `
-        INSERT INTO question_responses (question_id, responder_user_id, attempt_id, answer_text, status)
-        VALUES ($1, $2, $3, $4, 'pending');
-      `,
-      [input.questionId, input.responderUserId, input.attemptId, input.answerText]
-    );
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      await client.query(
+        `
+          INSERT INTO quiz_answers (attempt_id, question_id, answer_text, is_correct, validation_status)
+          VALUES ($1, $2, $3, false, 'pending');
+        `,
+        [input.attemptId, input.questionId, input.answerText]
+      );
+
+      await client.query(
+        `
+          INSERT INTO question_responses (question_id, responder_user_id, attempt_id, answer_text, status)
+          VALUES ($1, $2, $3, $4, 'pending');
+        `,
+        [input.questionId, input.responderUserId, input.attemptId, input.answerText]
+      );
+
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   },
 
   async completeAttempt(attemptId: string): Promise<void> {
@@ -748,7 +771,7 @@ export const BattleRoyaleRepository = {
     );
   },
 
-  async resolveQuestionVotes(roomId: string, quizId: string): Promise<{ validated_questions: number; deleted_questions: number }> {
+  async resolveQuestionVotes(roomId: string, quizId: string): Promise<{ validated_questions: number; rejected_questions: number; validated_answers: number; rejected_answers: number }> {
     const client = await pool.connect();
 
     try {
@@ -773,7 +796,9 @@ export const BattleRoyaleRepository = {
       );
 
       let validated = 0;
-      let deleted = 0;
+      let rejected = 0;
+      let validatedAnswers = 0;
+      let rejectedAnswers = 0;
 
       for (const row of rows as Array<{ id: string; votes_count: number; positive_count: number; negative_count: number }>) {
         const isValid = row.votes_count > 0 && row.positive_count >= row.negative_count;
@@ -789,10 +814,125 @@ export const BattleRoyaleRepository = {
           );
           validated += 1;
         } else {
-          await deleteQuestionCascade(client, row.id);
-          deleted += 1;
+          await client.query(
+            `
+              UPDATE questions
+              SET status = 'rejected'
+              WHERE id = $1;
+            `,
+            [row.id]
+          );
+          rejected += 1;
         }
       }
+
+      const responseResult = await client.query(
+        `
+          SELECT
+            qr.id,
+            qr.attempt_id,
+            qr.question_id,
+            COUNT(qrv.id)::int AS votes_count,
+            COUNT(qrv.id) FILTER (WHERE qrv.vote = 'positive')::int AS positive_count,
+            COUNT(qrv.id) FILTER (WHERE qrv.vote = 'negative')::int AS negative_count
+          FROM question_responses qr
+          JOIN questions q ON q.id = qr.question_id
+          JOIN quiz_question_assignments qqa ON qqa.question_id = q.id
+          LEFT JOIN question_reviews qrv ON qrv.response_id = qr.id
+          WHERE q.room_id = $1
+            AND qqa.quiz_id = $2
+            AND q.status = 'validated'
+            AND qr.status = 'pending'
+          GROUP BY qr.id;
+        `,
+        [roomId, quizId]
+      );
+
+      for (const row of responseResult.rows as Array<{ id: string; attempt_id: string; question_id: string; votes_count: number; positive_count: number; negative_count: number }>) {
+        const isCorrect = row.votes_count > 0 && row.positive_count >= row.negative_count;
+        const status = isCorrect ? 'validated' : 'rejected';
+
+        await client.query(
+          `
+            UPDATE question_responses
+            SET status = $2, reviewed_at = NOW()
+            WHERE id = $1;
+          `,
+          [row.id, status]
+        );
+
+        await client.query(
+          `
+            UPDATE quiz_answers
+            SET validation_status = $3, is_correct = $4
+            WHERE attempt_id = $1
+              AND question_id = $2;
+          `,
+          [row.attempt_id, row.question_id, status, isCorrect]
+        );
+
+        if (isCorrect) {
+          validatedAnswers += 1;
+        } else {
+          rejectedAnswers += 1;
+        }
+      }
+
+      const attemptResult = await client.query(
+        `
+          WITH attempt_scores AS (
+            SELECT
+              qa.id AS attempt_id,
+              qa.user_id,
+              COUNT(q.id)::int AS total_questions,
+              COUNT(qr.id) FILTER (WHERE qr.status = 'validated')::int AS correct_count,
+              COUNT(qr.id) FILTER (WHERE qr.status = 'rejected')::int AS incorrect_count
+            FROM quiz_attempts qa
+            JOIN quiz_question_assignments qqa
+              ON qqa.quiz_id = qa.quiz_id
+              AND qqa.assigned_to_user_id = qa.user_id
+            JOIN questions q
+              ON q.id = qqa.question_id
+              AND q.status = 'validated'
+            LEFT JOIN question_responses qr
+              ON qr.attempt_id = qa.id
+              AND qr.question_id = q.id
+            WHERE qa.quiz_id = $1
+              AND qa.completed_at IS NOT NULL
+              AND qa.validation_status <> 'validated'
+            GROUP BY qa.id, qa.user_id
+          )
+          UPDATE quiz_attempts qa
+          SET
+            total_questions = attempt_scores.total_questions,
+            correct_count = attempt_scores.correct_count,
+            incorrect_count = attempt_scores.incorrect_count,
+            score = attempt_scores.correct_count,
+            validation_status = 'validated'
+          FROM attempt_scores
+          WHERE qa.id = attempt_scores.attempt_id
+          RETURNING qa.user_id, qa.score;
+        `,
+        [quizId]
+      );
+
+      for (const row of attemptResult.rows as Array<{ user_id: string; score: number | string }>) {
+        await upsertQuizStats(client, roomId, row.user_id, null, Number(row.score));
+      }
+
+      await client.query(
+        `
+          DELETE FROM question_reviews
+          WHERE response_id IN (
+            SELECT id
+            FROM question_responses
+            WHERE attempt_id IN (SELECT id FROM quiz_attempts WHERE quiz_id = $1)
+          );
+        `,
+        [quizId]
+      );
+
+      await client.query('DELETE FROM question_responses WHERE attempt_id IN (SELECT id FROM quiz_attempts WHERE quiz_id = $1);', [quizId]);
 
       await client.query(
         `
@@ -804,7 +944,197 @@ export const BattleRoyaleRepository = {
       );
 
       await client.query('COMMIT');
-      return { validated_questions: validated, deleted_questions: deleted };
+      return {
+        validated_questions: validated,
+        rejected_questions: rejected,
+        validated_answers: validatedAnswers,
+        rejected_answers: rejectedAnswers,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
+  async getWeeklyQuizResult(roomId: string, quizId: string, userId: string): Promise<WeeklyQuizResult | null> {
+    const { rows: attemptRows } = await pool.query(
+      `
+        SELECT
+          qa.id,
+          qa.score,
+          qa.correct_count,
+          qa.incorrect_count,
+          qa.total_questions,
+          qa.duration_seconds,
+          qa.validation_status,
+          q.title AS quiz_title,
+          q.status AS quiz_status,
+          r.name AS room_name
+        FROM quiz_attempts qa
+        JOIN quizzes q ON q.id = qa.quiz_id
+        JOIN rooms r ON r.id = q.room_id
+        WHERE qa.quiz_id = $1
+          AND qa.user_id = $2
+          AND q.room_id = $3
+          AND qa.completed_at IS NOT NULL
+        LIMIT 1;
+      `,
+      [quizId, userId, roomId]
+    );
+
+    const attempt = attemptRows[0] as
+      | {
+          id: string;
+          score: number | null;
+          correct_count: number | null;
+          incorrect_count: number | null;
+          total_questions: number | null;
+          duration_seconds: number | null;
+          validation_status: string;
+          quiz_title: string;
+          quiz_status: string;
+          room_name: string;
+        }
+      | undefined;
+
+    if (!attempt) {
+      return null;
+    }
+
+    const isValidated = attempt.quiz_status === 'validated' && attempt.validation_status === 'validated';
+
+    if (!isValidated) {
+      return {
+        status: 'pending_validation',
+        quiz: { id: quizId, title: attempt.quiz_title },
+        room: { id: roomId, name: attempt.room_name },
+        summary: null,
+        details: [],
+        proposed_questions: {
+          validated_count: 0,
+          rejected_count: null,
+          items: [],
+        },
+      };
+    }
+
+    const { rows: detailRows } = await pool.query(
+      `
+        SELECT
+          q.id AS question_id,
+          q.question_text,
+          q.type AS question_type,
+          COALESCE(qa.answer_text, qa.selected_option) AS answer_text,
+          COALESCE(
+            q.expected_answer,
+            (
+              SELECT qo.option_text
+              FROM question_options qo
+              WHERE qo.question_id = q.id
+                AND qo.is_correct = true
+              ORDER BY qo.sort_order ASC
+              LIMIT 1
+            )
+          ) AS expected_answer,
+          COALESCE(qa.validation_status, 'pending') AS validation_status,
+          COALESCE(qa.is_correct, false) AS is_correct
+        FROM quiz_answers qa
+        JOIN questions q ON q.id = qa.question_id
+        WHERE qa.attempt_id = $1
+          AND q.status = 'validated'
+        ORDER BY q.created_at ASC;
+      `,
+      [attempt.id]
+    );
+
+    const { rows: proposedRows } = await pool.query(
+      `
+        SELECT
+          q.id AS question_id,
+          q.question_text,
+          q.type AS question_type,
+          q.status
+        FROM questions q
+        WHERE q.room_id = $1
+          AND q.author_id = $2
+          AND q.week_year = (SELECT week_year FROM quizzes WHERE id = $3)
+          AND q.status IN ('validated', 'rejected')
+        ORDER BY q.created_at ASC;
+      `,
+      [roomId, userId, quizId]
+    );
+
+    const totalQuestions = Number(attempt.total_questions ?? 0);
+    const correctCount = Number(attempt.correct_count ?? 0);
+    const incorrectCount = Number(attempt.incorrect_count ?? Math.max(totalQuestions - correctCount, 0));
+
+    return {
+      status: 'validated',
+      quiz: { id: quizId, title: attempt.quiz_title },
+      room: { id: roomId, name: attempt.room_name },
+      summary: {
+        score: Number(attempt.score ?? correctCount),
+        total_questions: totalQuestions,
+        correct_count: correctCount,
+        incorrect_count: incorrectCount,
+        accuracy_percentage: totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0,
+        duration_seconds: attempt.duration_seconds,
+      },
+      details: detailRows as WeeklyQuizResult['details'],
+      proposed_questions: {
+        validated_count: proposedRows.filter(row => row.status === 'validated').length,
+        rejected_count: proposedRows.filter(row => row.status === 'rejected').length,
+        items: proposedRows as WeeklyQuizResult['proposed_questions']['items'],
+      },
+    };
+  },
+
+  async resetWeeklyQuiz(roomId: string, quizId: string, weekYear: string): Promise<{ success: true; deleted_questions: number }> {
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      const { rows: questionRows } = await client.query(
+        `
+          SELECT id
+          FROM questions
+          WHERE room_id = $1
+            AND week_year = $2
+            AND status IN ('pending', 'answered', 'in_validation', 'rejected');
+        `,
+        [roomId, weekYear]
+      );
+      const questionIds = questionRows.map(row => row.id as string);
+
+      await client.query(
+        `
+          DELETE FROM question_reviews
+          WHERE question_id = ANY($1::uuid[])
+             OR response_id IN (
+               SELECT id
+               FROM question_responses
+               WHERE question_id = ANY($1::uuid[])
+                  OR attempt_id IN (SELECT id FROM quiz_attempts WHERE quiz_id = $2)
+             );
+        `,
+        [questionIds, quizId]
+      );
+
+      await client.query('DELETE FROM question_votes WHERE question_id = ANY($1::uuid[]);', [questionIds]);
+      await client.query('DELETE FROM quiz_answers WHERE attempt_id IN (SELECT id FROM quiz_attempts WHERE quiz_id = $1) OR question_id = ANY($2::uuid[]);', [quizId, questionIds]);
+      await client.query('DELETE FROM question_responses WHERE attempt_id IN (SELECT id FROM quiz_attempts WHERE quiz_id = $1) OR question_id = ANY($2::uuid[]);', [quizId, questionIds]);
+      await client.query('DELETE FROM quiz_question_assignments WHERE quiz_id = $1 OR question_id = ANY($2::uuid[]);', [quizId, questionIds]);
+      await client.query('DELETE FROM quiz_questions WHERE quiz_id = $1 OR question_id = ANY($2::uuid[]);', [quizId, questionIds]);
+      await client.query('DELETE FROM question_options WHERE question_id = ANY($1::uuid[]);', [questionIds]);
+      await client.query('DELETE FROM questions WHERE id = ANY($1::uuid[]);', [questionIds]);
+      await client.query('DELETE FROM quiz_attempts WHERE quiz_id = $1;', [quizId]);
+      await client.query('DELETE FROM quizzes WHERE id = $1;', [quizId]);
+
+      await client.query('COMMIT');
+      return { success: true, deleted_questions: questionIds.length };
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -823,4 +1153,45 @@ async function deleteQuestionCascade(client: any, questionId: string) {
   await client.query('DELETE FROM quiz_questions WHERE question_id = $1;', [questionId]);
   await client.query('DELETE FROM question_options WHERE question_id = $1;', [questionId]);
   await client.query('DELETE FROM questions WHERE id = $1;', [questionId]);
+}
+
+async function upsertQuizStats(client: any, roomId: string, userId: string, weekYear: string | null, score: number) {
+  const resolvedWeekYear = weekYear ?? getCurrentWeekYear();
+  const normalizedScore = Math.trunc(Number.isFinite(score) ? score : 0);
+
+  await client.query(
+    `
+      INSERT INTO room_user_weekly_stats (room_id, user_id, week_year, quiz_score, academic_score)
+      VALUES ($1, $2, $3, $4, 0)
+      ON CONFLICT (room_id, user_id, week_year)
+      DO UPDATE SET
+        quiz_score = room_user_weekly_stats.quiz_score + EXCLUDED.quiz_score,
+        academic_score = FLOOR((room_user_weekly_stats.total_minutes * (room_user_weekly_stats.quiz_score + EXCLUDED.quiz_score)) / 60.0)::int,
+        updated_at = NOW();
+    `,
+    [roomId, userId, resolvedWeekYear, normalizedScore]
+  );
+
+  await client.query(
+    `
+      INSERT INTO user_weekly_stats (user_id, week_year, academic_score)
+      VALUES ($1, $2, 0)
+      ON CONFLICT (user_id, week_year)
+      DO UPDATE SET
+        academic_score = user_weekly_stats.academic_score + FLOOR((user_weekly_stats.total_minutes * $3) / 60.0)::int,
+        updated_at = NOW();
+    `,
+    [userId, resolvedWeekYear, normalizedScore]
+  );
+}
+
+function getCurrentWeekYear() {
+  const date = new Date();
+  const target = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNumber = target.getUTCDay() || 7;
+  target.setUTCDate(target.getUTCDate() + 4 - dayNumber);
+  const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
+  const weekNumber = Math.ceil((((target.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+
+  return `${target.getUTCFullYear()}-W${String(weekNumber).padStart(2, '0')}`;
 }

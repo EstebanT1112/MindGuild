@@ -139,6 +139,28 @@ export const BattleRoyaleController = {
       return handleBattleRoyaleError(error, res, 'Error interno al resolver validacion');
     }
   },
+
+  async getWeeklyQuizResult(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      const roomId = getParam(req, 'roomId');
+      const result = await BattleRoyaleService.getWeeklyQuizResult(userId, roomId);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      return handleBattleRoyaleError(error, res, 'Error interno al obtener resultado del quiz');
+    }
+  },
+
+  async resetWeeklyQuiz(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      const roomId = getParam(req, 'roomId');
+      const result = await BattleRoyaleService.resetWeeklyQuiz(userId, roomId);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      return handleBattleRoyaleError(error, res, 'Error interno al reiniciar cuestionario');
+    }
+  },
 };
 
 function getUserId(req: Request) {
