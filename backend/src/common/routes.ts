@@ -61,7 +61,7 @@ router.get('/ranking', checkAuth, rankingsController.getRanking);
 router.use('/wallet', checkAuth, walletRoutes);
 
 // --- ACHIEVEMENTS ---
-router.use('/achievements', achievementRoutes);
+router.use('/achievements', checkAuth, achievementRoutes);
 
 // --- MISIONES (RF-12) PROTEGIDAS ---
 router.get('/missions', checkAuth, missionsController.getUserMissions);

@@ -1,8 +1,6 @@
 import type { Request, Response } from 'express';
 import { achievementService } 
 from '../service/achievement.service.js';
-import { AuthService }
-  from '../../auth/service/auth.service.js';
 import {
   AuthNotFoundError,
   AuthUnauthorizedError
@@ -99,21 +97,13 @@ async function getAuthenticatedProfileId(
     req: Request
 ): Promise<string> {
 
-  const authorization =
-    req.headers.authorization;
+  const userId = (req as any).user?.id;
 
-  if (!authorization?.startsWith('Bearer ')) {
+  if (!userId) {
     throw new AuthUnauthorizedError(
-      'Authorization Bearer token requerido'
+      'Usuario no autenticado'
     );
   }
 
-  const profile =
-    await AuthService.getProfileFromAccessToken(
-      authorization
-        .replace('Bearer ', '')
-        .trim()
-    );
-
-  return profile.id;
+  return userId;
 }; 

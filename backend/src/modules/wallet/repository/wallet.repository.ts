@@ -223,6 +223,11 @@ export const walletRepository = {
       throw new WalletValidationError('El monto a acreditar debe ser mayor a cero');
     }
 
+    const alreadyCreditedBalance = await findExistingCreditBalance(client, input);
+    if (alreadyCreditedBalance !== null) {
+      return alreadyCreditedBalance;
+    }
+
     const balanceBefore = await lockUserBalance(client, input.userId);
     const balanceAfter = balanceBefore + input.amount;
 
@@ -426,6 +431,36 @@ async function lockUserBalance(client: DbClient, userId: string): Promise<number
 
   if (!rows[0]) {
     throw new WalletNotFoundError('Usuario no encontrado');
+  }
+
+  return Number(rows[0].coins_balance) || 0;
+}
+
+async function findExistingCreditBalance(
+  client: DbClient,
+  input: CreditCoinsInput
+): Promise<number | null> {
+  if (!input.referenceType || !input.referenceId) {
+    return null;
+  }
+
+  const { rows } = await client.query(
+    `
+      SELECT p.coins_balance
+      FROM wallet_movements wm
+      INNER JOIN profiles p ON p.id = wm.user_id
+      WHERE wm.user_id = $1
+        AND wm.type = $2
+        AND wm.reference_type = $3
+        AND wm.reference_id = $4
+      ORDER BY wm.created_at DESC
+      LIMIT 1;
+    `,
+    [input.userId, input.type, input.referenceType, input.referenceId]
+  );
+
+  if (!rows[0]) {
+    return null;
   }
 
   return Number(rows[0].coins_balance) || 0;
