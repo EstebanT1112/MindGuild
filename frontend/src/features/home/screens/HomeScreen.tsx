@@ -100,6 +100,8 @@ export default function HomeScreen() {
         <StreakCard
           currentStreak={profile?.streak_days ?? 0}
           active={Boolean(profile?.streak_completed_today)}
+          status={profile?.streak_status}
+          shieldUntil={profile?.streak_shield_until}
           loading={profileLoading}
         />
 

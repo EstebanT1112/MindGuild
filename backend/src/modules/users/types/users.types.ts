@@ -22,10 +22,20 @@ export interface VillageState {
   village_level: number;
 }
 
+export type StreakStatus = 'inactive' | 'pending' | 'active' | 'shielded';
+
+export interface StreakProtectionState {
+  active: boolean;
+  protected_until: string | null;
+}
+
 export interface FullProfile extends BasicProfile {
   weekly_stats: WeeklyStats;
   village: VillageState;
   streak_completed_today: boolean;
+  streak_shield_active: boolean;
+  streak_shield_until: string | null;
+  streak_status: StreakStatus;
   auth_providers: string[];
 }
 
