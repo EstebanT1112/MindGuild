@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { BrainCircuit, CalendarClock, ChevronRight, Info, PlayCircle, Settings, Swords } from 'lucide-react-native';
+import { BrainCircuit, CalendarClock, ChevronRight, Info, MessageCircle, PlayCircle, Settings, Swords } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
@@ -9,6 +9,7 @@ import LeaveRoomButton from '../components/LeaveRoomButton';
 import RoomAdminModal from '../components/RoomAdminModal';
 import RoomInfoModal from '../components/RoomInfoModal';
 import RoomRanking from '../components/RoomRanking';
+import RoomChatModal from '../components/RoomChatModal';
 import SessionConfigModal from '../components/SessionConfigModal';
 import { type RoomDetails } from '../services/roomsService';
 
@@ -25,6 +26,7 @@ export default function BattleRoyaleScreen() {
     const [configVisible, setConfigVisible] = useState(false);
     const [adminVisible, setAdminVisible] = useState(false);
     const [infoVisible, setInfoVisible] = useState(false);
+    const [chatVisible, setChatVisible] = useState(false);
     const [room, setRoom] = useState<RoomDetails | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -103,6 +105,9 @@ export default function BattleRoyaleScreen() {
                                 <Settings color="#a855f7" size={20} />
                             </Pressable>
                         )}
+                        <Pressable style={styles.infoBtn} onPress={() => setChatVisible(true)}>
+                            <MessageCircle color="#a855f7" size={20} />
+                        </Pressable>
                         <Pressable style={styles.infoBtn} onPress={() => setInfoVisible(true)}>
                             <Info color="#a855f7" size={20} />
                         </Pressable>
@@ -189,6 +194,15 @@ export default function BattleRoyaleScreen() {
                     currentUserId={currentUserId}
                     onClose={() => setAdminVisible(false)}
                     onRoomUpdated={handleRoomUpdated}
+                />
+            )}
+            {room && (
+                <RoomChatModal
+                    visible={chatVisible}
+                    roomId={room.id}
+                    roomName={room.name}
+                    accentColor="#a855f7"
+                    onClose={() => setChatVisible(false)}
                 />
             )}
         </ScreenLayout>
