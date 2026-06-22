@@ -52,6 +52,12 @@ export const achievementService = {
           await achievementRepository
             .countActiveRoomMemberships(userId);
         break;
+
+      case 'study_minutes':
+        progress =
+          await achievementRepository
+            .getTotalStudyMinutes(userId);
+        break;
     }
     const achievementsToUnlock: Achievement[] = [];
     //Evaluo el cumplimiento de que

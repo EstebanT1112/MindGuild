@@ -2,7 +2,8 @@
 export type AchievementEventType =
   | 'session_completed'
   | 'streak_updated'
-  | 'room_participation';
+  | 'room_participation'
+  | 'study_minutes';
 
 export interface Achievement {
   id: string;
@@ -12,6 +13,8 @@ export interface Achievement {
   type: AchievementEventType;
   target_value: number;
   reward_coins?: number;
+  benefit_description?: string | null;
+  medal_tier?: 'bronze' | 'silver' | 'gold';
 }
 //Para queries parciales
 export interface AchievementId {
@@ -35,6 +38,10 @@ export interface AchievementStatus {
   unlocked: boolean;
   unlocked_at: string | null;
   reward_coins?: number;
+  benefit_description?: string | null;
+  medal_tier?: 'bronze' | 'silver' | 'gold';
+  progress_value?: number;
+  progress_percentage?: number;
   reward_claimed_at?: string | null;
 }
 

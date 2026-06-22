@@ -11,6 +11,10 @@ export interface Achievement {
   unlocked: boolean;
   unlocked_at?: string | null;
   reward_coins?: number;
+  benefit_description?: string | null;
+  medal_tier?: 'bronze' | 'silver' | 'gold';
+  progress_value?: number;
+  progress_percentage?: number;
   reward_claimed_at?: string | null;
 }
 
