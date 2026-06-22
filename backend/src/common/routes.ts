@@ -10,6 +10,7 @@ import achievementRoutes from '../modules/achievements/achievements.routes.js';
 import sessionRoutes from '../modules/sessions/session.routes.js';
 import battleRoyaleRoutes from '../modules/battle-royale/battle-royale.routes.js';
 import walletRoutes from '../modules/wallet/wallet.routes.js';
+import chatRoutes from '../modules/chat/chat.routes.js';
 
 // --- INVITACIONES A SALAS ---
 import RoomInvitationsController from '../modules/room-invitations/controller/room-invitations.controller.js';
@@ -40,6 +41,7 @@ router.post('/rooms/:roomId/members/:memberId/remove', RoomsController.removeMem
 router.post('/rooms/:roomId/favorite', RoomsController.markFavorite);
 router.delete('/rooms/:roomId/favorite', RoomsController.unmarkFavorite);
 router.get('/rooms/:roomId/rankings/time', rankingsController.getRoomTimeRanking);
+router.use('/', checkAuth, chatRoutes);
 router.get('/rooms/:roomId', RoomsController.getRoomDetails);
 
 // --- STUDY (Modulos externos) ---
