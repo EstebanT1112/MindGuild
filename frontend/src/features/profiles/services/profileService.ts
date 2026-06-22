@@ -11,6 +11,9 @@ export interface FullProfile {
   total_study_minutes: number;
   coins_balance: number;
   streak_completed_today: boolean;
+  streak_shield_active: boolean;
+  streak_shield_until: string | null;
+  streak_status: 'inactive' | 'pending' | 'active' | 'shielded';
   auth_providers: string[];
   weekly_stats: {
     total_minutes: number;
