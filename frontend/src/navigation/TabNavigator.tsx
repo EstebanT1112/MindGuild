@@ -1,6 +1,6 @@
 import React from 'react';
-import { Alert } from 'react-native';
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { Alert, View } from 'react-native';
+import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { Home, Trophy, Users, UsersRound } from 'lucide-react-native';
 import HomeScreen from "../features/home/screens/HomeScreen";
 import FriendsScreen from "../features/friends/screens/FriendsScreen";
@@ -8,15 +8,17 @@ import RankingScreen from "../features/rankings/screens/RankingScreen";
 import RoomsStack from "./RoomsStack";
 import { useAppDataStore } from '../store/appDataStore';
 
-const Tab = createBottomTabNavigator();
+const Tab = createMaterialTopTabNavigator();
 
 export default function TabNavigator() {
   const activeStudySession = useAppDataStore(state => state.activeStudySession);
 
   return (
     <Tab.Navigator
+      tabBarPosition="bottom"
+      initialRouteName="Home"
       screenListeners={{
-        tabPress: event => {
+        tabPress: (event: any) => {
           if (!activeStudySession) return;
 
           event.preventDefault();
@@ -27,48 +29,77 @@ export default function TabNavigator() {
         },
       }}
       screenOptions={{
-        headerShown: false,
+        // 🚀 LA SOLUCIÓN: swipeEnabled va ACÁ adentro según el tipado oficial de MaterialTopTabs
+        swipeEnabled: !activeStudySession,
+        tabBarIndicatorStyle: { opacity: 0 }, 
         tabBarStyle: {
-          backgroundColor: "#111", // Mantenemos tu estilo oscuro
+          backgroundColor: "#111", 
           borderTopColor: "#222",
-          height: 70, // Un poquito más de altura para que respiren los iconos
-          paddingBottom: 12,
-          paddingTop: 8,
+          borderTopWidth: 1,
+          height: 65, 
         },
-        tabBarActiveTintColor: "#22c55e", // El verde de MindGuild
+        tabBarActiveTintColor: "#22c55e", 
         tabBarInactiveTintColor: "#888",
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: '600',
-        }
+          textTransform: 'none', 
+        },
+        tabBarItemStyle: {
+          justifyContent: 'center',
+          alignItems: 'center',
+          paddingBottom: 4, 
+          paddingTop: 4,
+        },
+        tabBarShowIcon: true,
       }}
     >
       <Tab.Screen
         name="Home"
         component={HomeScreen}
         options={{
-          tabBarIcon: ({ color, size }) => <Home color={color} size={size} />,
+          tabBarLabel: 'Home',
+          tabBarIcon: ({ color }) => (
+            <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 2 }}>
+              <Home color={color} size={22} />
+            </View>
+          ),
         }}
       />
       <Tab.Screen
         name="Salas"
         component={RoomsStack}
         options={{
-          tabBarIcon: ({ color, size }) => <Users color={color} size={size} />,
+          tabBarLabel: 'Salas',
+          tabBarIcon: ({ color }) => (
+            <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 2 }}>
+              <Users color={color} size={22} />
+            </View>
+          ),
         }}
       />
       <Tab.Screen
         name="Ranking"
         component={RankingScreen}
         options={{
-          tabBarIcon: ({ color, size }) => <Trophy color={color} size={size} />,
+          tabBarLabel: 'Ranking',
+          tabBarIcon: ({ color }) => (
+            <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 2 }}>
+              <Trophy color={color} size={22} />
+            </View>
+          ),
         }}
       />
       <Tab.Screen
         name="Amigos"
         component={FriendsScreen}
         options={{
-          tabBarIcon: ({ color, size }) => <UsersRound color={color} size={size} />,
+          tabBarLabel: 'Amigos',
+          tabBarIcon: ({ color }) => (
+            <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 2 }}>
+              <UsersRound color={color} size={22} />
+            </View>
+          ),
         }}
       />
     </Tab.Navigator>
