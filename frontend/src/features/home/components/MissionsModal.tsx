@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Check, Inbox, Target, X } from 'lucide-react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import MissionDetailModal from './MissionDetailModal';
 
 type Mission = {
     id: string | number;
@@ -19,6 +20,10 @@ type Mission = {
     completed: boolean;
     claimed?: boolean;
     reward_coins?: number;
+    description?: string | null;
+    frequency?: 'daily' | 'weekly';
+    expires_at?: string | null;
+    expired?: boolean;
 };
 
 interface MissionsModalProps {
@@ -36,11 +41,16 @@ export default function MissionsModal({
     onClaimMission,
     claimingMissionId,
 }: MissionsModalProps) {
+    const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
+
     const active = missions
-        .filter(m => !m.completed)
+        .filter(m => !m.completed && !m.expired)
         .sort((a, b) => b.percentage - a.percentage);
 
-    const completed = missions.filter(m => m.completed);
+    const daily = active.filter(m => m.frequency !== 'weekly');
+    const weekly = active.filter(m => m.frequency === 'weekly');
+    const completed = missions.filter(m => m.completed && !m.expired);
+    const expired = missions.filter(m => m.expired);
 
     return (
         <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -60,14 +70,25 @@ export default function MissionsModal({
                 </View>
 
                 <ScrollView showsVerticalScrollIndicator={false} style={styles.scroll}>
-                    <Text style={styles.sectionLabel}>EN PROGRESO ({active.length})</Text>
-                    {active.length === 0 && !completed.length ? (
+                    <Text style={styles.sectionLabel}>DIARIAS ({daily.length})</Text>
+                    {daily.length === 0 && weekly.length === 0 && !completed.length && !expired.length ? (
                         <View style={styles.emptyState}>
                             <Inbox color="#64748b" size={28} />
                             <Text style={styles.emptyText}>No hay misiones disponibles.</Text>
                         </View>
                     ) : (
-                        active.map(m => <MissionRow key={m.id} mission={m} done={false} />)
+                        daily.map(m => <MissionRow key={m.id} mission={m} done={false} onPress={() => setSelectedMission(m)} />)
+                    )}
+
+                    {weekly.length > 0 && (
+                        <>
+                            <Text style={[styles.sectionLabel, styles.sectionLabelWeekly]}>
+                                SEMANALES ({weekly.length})
+                            </Text>
+                            {weekly.map(m => (
+                                <MissionRow key={m.id} mission={m} done={false} onPress={() => setSelectedMission(m)} />
+                            ))}
+                        </>
                     )}
 
                     {completed.length > 0 && (
@@ -82,7 +103,19 @@ export default function MissionsModal({
                                     done
                                     onClaimMission={onClaimMission}
                                     claiming={claimingMissionId === String(m.id)}
+                                    onPress={() => setSelectedMission(m)}
                                 />
+                            ))}
+                        </>
+                    )}
+
+                    {expired.length > 0 && (
+                        <>
+                            <Text style={[styles.sectionLabel, styles.sectionLabelExpired]}>
+                                EXPIRADAS ({expired.length})
+                            </Text>
+                            {expired.map(m => (
+                                <MissionRow key={m.id} mission={m} done={m.completed} expired onPress={() => setSelectedMission(m)} />
                             ))}
                         </>
                     )}
@@ -90,6 +123,14 @@ export default function MissionsModal({
                     <View style={{ height: 40 }} />
                 </ScrollView>
             </View>
+
+            <MissionDetailModal
+                visible={Boolean(selectedMission)}
+                mission={selectedMission as any}
+                onClose={() => setSelectedMission(null)}
+                onClaimMission={onClaimMission}
+                claiming={selectedMission ? claimingMissionId === String(selectedMission.id) : false}
+            />
         </Modal>
     );
 }
@@ -99,11 +140,15 @@ function MissionRow({
     done,
     onClaimMission,
     claiming,
+    onPress,
+    expired,
 }: {
     mission: Mission;
     done: boolean;
     onClaimMission?: (missionId: string) => void;
     claiming?: boolean;
+    onPress?: () => void;
+    expired?: boolean;
 }) {
     const animatedProgress = useSharedValue(0);
 
@@ -119,11 +164,12 @@ function MissionRow({
     }));
 
     return (
-        <View style={[styles.card, done && styles.cardDone]}>
+        <Pressable style={[styles.card, done && styles.cardDone, expired && styles.cardExpired]} onPress={onPress}>
             <View style={styles.cardHeader}>
                 <View style={{ flex: 1 }}>
                     <Text style={[styles.cardTitle, done && styles.cardTitleDone]}>{mission.title}</Text>
                     <View style={styles.metaRow}>
+                        <Text style={styles.frequencyText}>{mission.frequency === 'weekly' ? 'Semanal' : 'Diaria'}</Text>
                         <Text style={styles.metaText}>{mission.progress}/{mission.target}</Text>
                         <View style={styles.rewardBadge}>
                             <Text style={styles.rewardText}>+{mission.reward_coins ?? 0}</Text>
@@ -161,7 +207,7 @@ function MissionRow({
                     </Text>
                 </Pressable>
             )}
-        </View>
+        </Pressable>
     );
 }
 
@@ -175,14 +221,18 @@ const styles = StyleSheet.create({
     closeBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#222533', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#2e3245' },
     scroll: { flex: 1 },
     sectionLabel: { color: '#64748b', fontSize: 11, fontWeight: '900', letterSpacing: 1, marginBottom: 12, marginTop: 4 },
+    sectionLabelWeekly: { marginTop: 20, color: '#38bdf899' },
     sectionLabelDone: { marginTop: 24, color: '#22c55e99' },
+    sectionLabelExpired: { marginTop: 24, color: '#f9731699' },
     card: { backgroundColor: '#222533', borderRadius: 16, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: '#2e3245' },
     cardDone: { borderColor: '#22c55e33', backgroundColor: '#22c55e0a' },
+    cardExpired: { borderColor: '#f9731633', opacity: 0.65 },
     cardHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
     cardTitle: { color: '#ffffff', fontWeight: 'bold', fontSize: 14, marginBottom: 6 },
     cardTitleDone: { color: '#a1a1aa' },
     metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     metaText: { color: '#71717a', fontSize: 12 },
+    frequencyText: { color: '#38bdf8', fontSize: 11, fontWeight: '900' },
     rewardBadge: { backgroundColor: '#facc1520', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
     rewardText: { color: '#facc15', fontSize: 11, fontWeight: 'bold' },
     checkBadge: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#22c55e22', alignItems: 'center', justifyContent: 'center', marginLeft: 8 },

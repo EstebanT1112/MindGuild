@@ -66,6 +66,7 @@ router.use('/achievements', checkAuth, achievementRoutes);
 // --- MISIONES (RF-12) PROTEGIDAS ---
 router.get('/missions', checkAuth, missionsController.getUserMissions);
 router.post('/missions/progress', checkAuth, missionsController.updateUserMissionProgress);
+router.get('/missions/:userMissionId', checkAuth, missionsController.getMissionDetail);
 router.post('/missions/:userMissionId/claim', checkAuth, missionsController.claimMissionReward);
 
 // --- INVITACIONES A SALAS (RF-05) PROTEGIDAS ---

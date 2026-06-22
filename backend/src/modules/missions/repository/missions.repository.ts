@@ -1,139 +1,254 @@
 import { pool } from '../../../common/config/db.js';
 
+export type MissionFrequency = 'daily' | 'weekly';
+
 export interface Mission {
   id: string;
   title: string;
-  description: string;
+  description: string | null;
   type: string;
+  frequency: MissionFrequency;
   target_value: number;
   reward_coins: number;
   active: boolean;
   sort_order: number;
 }
 
-export interface UserMission {
-  id: string;
-  user_id: string;
-  mission_id: string;
-  progress: number;
-  completed: boolean;
-  completed_at: Date | null;
-  claimed: boolean;
-  claimed_at: Date | null;
+export interface MissionPeriod {
+  daily: {
+    key: string;
+    expiresAt: Date;
+  };
+  weekly: {
+    key: string;
+    expiresAt: Date;
+  };
 }
 
+export interface UserMissionRow {
+  user_mission_id: string;
+  mission_id: string;
+  title: string;
+  description: string | null;
+  type: string;
+  frequency: MissionFrequency;
+  period_key: string;
+  progress: number;
+  target_value: number;
+  completed: boolean;
+  completed_at: string | null;
+  claimed: boolean;
+  claimed_at: string | null;
+  reward_coins: number;
+  expires_at: string | null;
+  expired: boolean;
+}
+
+const VISIBLE_EXPIRED_DAYS = 2;
+
 export const missionsRepository = {
-  /**
-   * 1. Consulta todas las misiones activas en el sistema.
-   */
-  async getActiveMissions(): Promise<Mission[]> {
-    const query = `
-      SELECT id, title, description, type, target_value, reward_coins, active, sort_order
-      FROM missions
-      WHERE active = true
-      ORDER BY sort_order ASC;
-    `;
-    const { rows } = await pool.query(query);
+  async getActiveMissions(frequency?: MissionFrequency): Promise<Mission[]> {
+    const params: any[] = [];
+    const frequencyFilter = frequency ? `AND COALESCE(frequency, 'daily') = $1` : '';
+    if (frequency) params.push(frequency);
+
+    const { rows } = await pool.query(
+      `
+        SELECT
+          id,
+          title,
+          description,
+          type,
+          COALESCE(frequency, 'daily') AS frequency,
+          target_value,
+          reward_coins,
+          active,
+          sort_order
+        FROM missions
+        WHERE COALESCE(active, true) = true
+          ${frequencyFilter}
+        ORDER BY sort_order ASC, title ASC;
+      `,
+      params
+    );
+
     return rows as Mission[];
   },
 
-  /**
-   * 2. Asigna una lista de misiones a un usuario específico de forma segura e individual.
-   * CORREGIDO: Evita fallos de conflictos masivos si la constraint única compuesta no está idéntica en PostgreSQL.
-   */
-  async assignMissionsToUser(userId: string, missionIds: string[]): Promise<void> {
-    if (missionIds.length === 0) return;
+  async assignMissionsToUserForPeriod(
+    userId: string,
+    missions: Mission[],
+    periodKey: string,
+    expiresAt: Date
+  ): Promise<void> {
+    if (missions.length === 0) return;
 
-    // Ejecutamos inserts individuales controlados para asegurar que cada fila se cree de forma independiente
-    for (const missionId of missionIds) {
-      try {
-        const query = `
-          INSERT INTO user_missions (user_id, mission_id, progress, completed)
-          VALUES ($1, $2, 0, false)
-          ON CONFLICT DO NOTHING;
-        `;
-        await pool.query(query, [userId, missionId]);
-      } catch (innerError) {
-        // Fallback secundario si la base de datos no tiene declarada la clave explícita de conflicto compuesto
-        try {
-          const checkQuery = `SELECT id FROM user_missions WHERE user_id = $1 AND mission_id = $2;`;
-          const { rowCount } = await pool.query(checkQuery, [userId, missionId]);
-          
-          if (rowCount === 0) {
-            const insertQuery = `INSERT INTO user_missions (user_id, mission_id, progress, completed) VALUES ($1, $2, 0, false);`;
-            await pool.query(insertQuery, [userId, missionId]);
-          }
-        } catch (err) {
-          console.error(`❌ No se pudo auto-asignar la misión ${missionId} al usuario ${userId}:`, err);
-        }
-      }
+    for (const mission of missions) {
+      await pool.query(
+        `
+          INSERT INTO user_missions (
+            user_id,
+            mission_id,
+            period_key,
+            expires_at,
+            progress,
+            completed,
+            claimed
+          )
+          VALUES ($1, $2, $3, $4, 0, false, false)
+          ON CONFLICT (user_id, mission_id, period_key) DO NOTHING;
+        `,
+        [userId, mission.id, periodKey, expiresAt]
+      );
     }
   },
 
-  /**
-   * 3. Obtiene el listado de misiones del usuario con el detalle global cruzado.
-   */
-  async getUserMissionsWithDetails(userId: string): Promise<any[]> {
-    const query = `
-      SELECT 
-        um.id as user_mission_id,
-        um.progress,
-        um.completed,
-        um.claimed,
-        m.id as mission_id,
-        m.title,
-        m.description,
-        m.type,
-        m.target_value,
-        m.reward_coins
-      FROM user_missions um
-      INNER JOIN missions m ON um.mission_id = m.id
-      WHERE um.user_id = $1
-      ORDER BY m.sort_order ASC;
-    `;
-    const { rows } = await pool.query(query, [userId]);
-    return rows;
+  async getUserMissionsForPeriods(
+    userId: string,
+    periodKeys: string[]
+  ): Promise<UserMissionRow[]> {
+    const { rows } = await pool.query(
+      `
+        SELECT
+          um.id AS user_mission_id,
+          m.id AS mission_id,
+          m.title,
+          m.description,
+          m.type,
+          COALESCE(m.frequency, 'daily') AS frequency,
+          um.period_key,
+          um.progress,
+          m.target_value,
+          um.completed,
+          um.completed_at,
+          COALESCE(um.claimed, false) AS claimed,
+          um.claimed_at,
+          m.reward_coins,
+          um.expires_at,
+          CASE
+            WHEN um.expires_at IS NOT NULL AND um.expires_at <= NOW() THEN true
+            ELSE false
+          END AS expired
+        FROM user_missions um
+        INNER JOIN missions m ON m.id = um.mission_id
+        WHERE um.user_id = $1
+          AND (
+            um.period_key = ANY($2)
+            OR (
+              um.expires_at IS NOT NULL
+              AND um.expires_at <= NOW()
+              AND um.expires_at >= NOW() - ($3::int * INTERVAL '1 day')
+            )
+          )
+        ORDER BY
+          expired ASC,
+          COALESCE(m.frequency, 'daily') ASC,
+          um.completed ASC,
+          m.sort_order ASC,
+          m.title ASC;
+      `,
+      [userId, periodKeys, VISIBLE_EXPIRED_DAYS]
+    );
+
+    return rows.map(mapUserMissionRow);
   },
 
-  /**
-   * 4. PROMPT 2: Incrementa el progreso de las misiones.
-   */
-  async updateMissionProgress(userId: string, missionType: string, incrementValue: number): Promise<void> {
-    const query = `
-      UPDATE user_missions um
-      SET 
-        progress = um.progress + $3,
-        completed = CASE 
-          WHEN (um.progress + $3) >= m.target_value THEN true 
-          ELSE um.completed 
-        END,
-        completed_at = CASE 
-          WHEN (um.progress + $3) >= m.target_value AND um.completed = false THEN NOW() 
-          ELSE um.completed_at 
-        END
-      FROM missions m
-      WHERE um.mission_id = m.id
-        AND um.user_id = $1
-        AND m.type = $2
-        AND um.completed = false;
-    `;
-    
-    await pool.query(query, [userId, missionType, incrementValue]);
+  async getUserMissionById(userId: string, userMissionId: string): Promise<UserMissionRow | null> {
+    const { rows } = await pool.query(
+      `
+        SELECT
+          um.id AS user_mission_id,
+          m.id AS mission_id,
+          m.title,
+          m.description,
+          m.type,
+          COALESCE(m.frequency, 'daily') AS frequency,
+          um.period_key,
+          um.progress,
+          m.target_value,
+          um.completed,
+          um.completed_at,
+          COALESCE(um.claimed, false) AS claimed,
+          um.claimed_at,
+          m.reward_coins,
+          um.expires_at,
+          CASE
+            WHEN um.expires_at IS NOT NULL AND um.expires_at <= NOW() THEN true
+            ELSE false
+          END AS expired
+        FROM user_missions um
+        INNER JOIN missions m ON m.id = um.mission_id
+        WHERE um.user_id = $1
+          AND um.id = $2
+        LIMIT 1;
+      `,
+      [userId, userMissionId]
+    );
+
+    return rows[0] ? mapUserMissionRow(rows[0]) : null;
   },
 
-  /**
-   * 5. PROMPT 3: Reset diario global de misiones.
-   */
-  async resetDailyMissions(): Promise<void> {
-    const query = `
-      UPDATE user_missions
-      SET 
-        progress = 0,
-        completed = false,
-        completed_at = NULL,
-        claimed = false,
-        claimed_at = NULL;
-    `;
-    await pool.query(query);
-  }
+  async updateMissionProgressForCurrentPeriods(
+    userId: string,
+    missionType: string,
+    incrementValue: number,
+    periodKeys: string[]
+  ): Promise<void> {
+    await pool.query(
+      `
+        UPDATE user_missions um
+        SET
+          progress = LEAST(m.target_value, um.progress + $3),
+          completed = CASE
+            WHEN (um.progress + $3) >= m.target_value THEN true
+            ELSE um.completed
+          END,
+          completed_at = CASE
+            WHEN (um.progress + $3) >= m.target_value AND um.completed = false THEN NOW()
+            ELSE um.completed_at
+          END
+        FROM missions m
+        WHERE um.mission_id = m.id
+          AND um.user_id = $1
+          AND m.type = $2
+          AND um.period_key = ANY($4)
+          AND um.completed = false
+          AND (um.expires_at IS NULL OR um.expires_at > NOW());
+      `,
+      [userId, missionType, incrementValue, periodKeys]
+    );
+  },
+
+  async expireOldMissions(): Promise<void> {
+    await pool.query(
+      `
+        UPDATE user_missions
+        SET completed = false
+        WHERE completed = false
+          AND expires_at IS NOT NULL
+          AND expires_at <= NOW();
+      `
+    );
+  },
 };
+
+function mapUserMissionRow(row: any): UserMissionRow {
+  return {
+    user_mission_id: row.user_mission_id,
+    mission_id: row.mission_id,
+    title: row.title,
+    description: row.description ?? null,
+    type: row.type,
+    frequency: row.frequency,
+    period_key: row.period_key,
+    progress: Number(row.progress) || 0,
+    target_value: Number(row.target_value) || 1,
+    completed: Boolean(row.completed),
+    completed_at: row.completed_at ?? null,
+    claimed: Boolean(row.claimed),
+    claimed_at: row.claimed_at ?? null,
+    reward_coins: Number(row.reward_coins) || 0,
+    expires_at: row.expires_at ?? null,
+    expired: Boolean(row.expired),
+  };
+}

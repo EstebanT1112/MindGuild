@@ -36,6 +36,11 @@ export interface MissionSummary {
   id: string;
   mission_id?: string;
   title: string;
+  description?: string | null;
+  frequency?: 'daily' | 'weekly';
+  period_key?: string;
+  expires_at?: string | null;
+  expired?: boolean;
   progress: number;
   target: number;
   percentage: number;
@@ -487,7 +492,15 @@ export const useAppDataStore = create<AppDataState>((set, get) => ({
     }),
 }));
 
-function mapMissions(missions: any[]): MissionSummary[] {
+function mapMissions(payload: any): MissionSummary[] {
+  const missions = Array.isArray(payload)
+    ? payload
+    : [
+        ...(payload?.daily ?? []),
+        ...(payload?.weekly ?? []),
+        ...(payload?.expired ?? []),
+      ];
+
   return missions.map((mission: any) => {
     const currentProgress = mission.progress ?? 0;
     const goalValue = mission.target_value ?? 1;
@@ -496,6 +509,11 @@ function mapMissions(missions: any[]): MissionSummary[] {
     return {
       id: mission.id || mission.user_mission_id,
       title: mission.title || mission.missions?.title || 'Mision Diaria',
+      description: mission.description ?? null,
+      frequency: mission.frequency,
+      period_key: mission.period_key,
+      expires_at: mission.expires_at ?? null,
+      expired: Boolean(mission.expired),
       progress: currentProgress,
       target: goalValue,
       percentage: calculatedPercentage,

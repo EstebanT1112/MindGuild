@@ -9,6 +9,8 @@ type Mission = {
   target: number;
   reward_coins?: number;
   claimed?: boolean;
+  frequency?: 'daily' | 'weekly';
+  expired?: boolean;
 };
 
 export default function MissionCard({ mission, onPress }: { mission: Mission; onPress?: () => void }) {
@@ -29,7 +31,7 @@ export default function MissionCard({ mission, onPress }: { mission: Mission; on
   }));
 
   return (
-    <Pressable style={[styles.card, isCompleted && styles.completed]} onPress={onPress}>
+    <Pressable style={[styles.card, isCompleted && styles.completed, mission.expired && styles.expired]} onPress={onPress}>
       <View style={styles.header}>
         <View style={styles.iconBox}>
           <Target color={isCompleted ? '#22c55e' : '#3b82f6'} size={18} />
@@ -38,12 +40,16 @@ export default function MissionCard({ mission, onPress }: { mission: Mission; on
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>{mission.title}</Text>
           <View style={styles.metaRow}>
+            <Text style={styles.frequency}>
+              {mission.frequency === 'weekly' ? 'Semanal' : 'Diaria'}
+            </Text>
             <Text style={styles.meta}>
               {mission.progress}/{mission.target}
             </Text>
             <View style={styles.reward}>
               <Text style={styles.rewardText}>+{mission.reward_coins ?? 0}</Text>
             </View>
+            {mission.expired && <Text style={styles.expiredText}>Expirada</Text>}
             {mission.claimed && <Text style={styles.claimedText}>Reclamada</Text>}
           </View>
         </View>
@@ -81,6 +87,10 @@ const styles = StyleSheet.create({
     borderColor: "#22c55e",
     backgroundColor: "#22c55e11",
   },
+  expired: {
+    opacity: 0.65,
+    borderColor: '#f9731633',
+  },
   header: {
     flexDirection: "row",
     alignItems: 'center',
@@ -109,6 +119,7 @@ const styles = StyleSheet.create({
     color: "#aaa",
     fontSize: 12,
   },
+  frequency: { color: '#38bdf8', fontSize: 11, fontWeight: '900' },
   reward: {
     backgroundColor: "#facc1522",
     paddingHorizontal: 6,
@@ -121,6 +132,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   claimedText: { color: '#22c55e', fontSize: 11, fontWeight: '900' },
+  expiredText: { color: '#f97316', fontSize: 11, fontWeight: '900' },
   checkBadge: {
     width: 28,
     height: 28,
