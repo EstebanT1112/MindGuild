@@ -182,6 +182,8 @@ export default function LiveRoomScreen() {
             title={room?.name ?? 'SALA EN VIVO'}
             type="rooms"
             icon={<Users color="#22c55e" size={22} />}
+            hideBackButton={isEnfocused}
+            hideRightAction={isEnfocused}
             rightAction={
                 room && !isEnfocused ? (
                     <View style={styles.headerActions}>
