@@ -9,6 +9,7 @@ import {
 
 const MAX_MESSAGE_LENGTH = 50;
 const DEFAULT_MESSAGE_LIMIT = 50;
+const DAILY_MESSAGE_LIMIT_PER_ROOM = 30;
 
 export class ChatService {
   static async listRoomMessages(input: ListRoomMessagesInput): Promise<RoomMessage[]> {
@@ -40,6 +41,7 @@ export class ChatService {
     }
 
     await ensureUserCanAccessRoom(input.roomId, input.userId);
+    await ensureDailyMessageLimit(input.roomId, input.userId);
 
     return ChatRepository.createRoomMessage({
       roomId: input.roomId,
@@ -50,6 +52,17 @@ export class ChatService {
 
   static async deleteExpiredMessages(): Promise<number> {
     return ChatRepository.deleteMessagesOlderThan(7);
+  }
+}
+
+async function ensureDailyMessageLimit(roomId: string, userId: string): Promise<void> {
+  const sentToday = await ChatRepository.countTodayMessagesByUserInRoom({
+    roomId,
+    senderId: userId,
+  });
+
+  if (sentToday >= DAILY_MESSAGE_LIMIT_PER_ROOM) {
+    throw new ChatValidationError('Alcanzaste el limite diario de 30 mensajes para esta sala.');
   }
 }
 

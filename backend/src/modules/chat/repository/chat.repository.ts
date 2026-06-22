@@ -92,6 +92,25 @@ export class ChatRepository {
     return rows[0];
   }
 
+  static async countTodayMessagesByUserInRoom(input: {
+    roomId: string;
+    senderId: string;
+  }): Promise<number> {
+    const { rows } = await pool.query<{ total: string }>(
+      `
+        SELECT COUNT(*)::text AS total
+        FROM room_messages
+        WHERE room_id = $1
+          AND sender_id = $2
+          AND created_at >= (date_trunc('day', now() AT TIME ZONE 'America/Argentina/Buenos_Aires') AT TIME ZONE 'America/Argentina/Buenos_Aires')
+          AND created_at < (date_trunc('day', now() AT TIME ZONE 'America/Argentina/Buenos_Aires') AT TIME ZONE 'America/Argentina/Buenos_Aires') + interval '1 day';
+      `,
+      [input.roomId, input.senderId]
+    );
+
+    return Number(rows[0]?.total ?? 0);
+  }
+
   static async deleteMessagesOlderThan(days: number): Promise<number> {
     const { rowCount } = await pool.query(
       `
