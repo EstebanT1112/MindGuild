@@ -1,5 +1,5 @@
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { X } from 'lucide-react-native';
+import { Settings, X } from 'lucide-react-native';
 import type { RoomDetails } from '../services/roomsService';
 import RoomInfoPanel from './RoomInfoPanel';
 
@@ -10,9 +10,20 @@ interface Props {
   currentUserId?: string;
   onClose: () => void;
   onRoomUpdated?: (room: RoomDetails) => void;
+  canConfigure?: boolean;
+  onOpenAdmin?: () => void;
 }
 
-export default function RoomInfoModal({ visible, room, accessToken, currentUserId, onClose, onRoomUpdated }: Props) {
+export default function RoomInfoModal({
+  visible,
+  room,
+  accessToken,
+  currentUserId,
+  onClose,
+  onRoomUpdated,
+  canConfigure,
+  onOpenAdmin,
+}: Props) {
   // RF-06: muestra en modal los datos de sala ya cargados por la pantalla.
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -32,6 +43,13 @@ export default function RoomInfoModal({ visible, room, accessToken, currentUserI
               currentUserId={currentUserId}
               onRoomUpdated={onRoomUpdated}
             />
+
+            {canConfigure && onOpenAdmin && (
+              <Pressable style={styles.configureBtn} onPress={onOpenAdmin}>
+                <Settings color="white" size={18} />
+                <Text style={styles.configureText}>Configurar sala</Text>
+              </Pressable>
+            )}
           </ScrollView>
         </View>
       </View>
@@ -69,4 +87,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  configureBtn: {
+    height: 50,
+    borderRadius: 16,
+    backgroundColor: '#22c55e',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 16,
+  },
+  configureText: { color: 'white', fontWeight: '900', fontSize: 15 },
 });

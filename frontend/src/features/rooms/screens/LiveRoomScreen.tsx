@@ -185,11 +185,6 @@ export default function LiveRoomScreen() {
             rightAction={
                 room && !isEnfocused ? (
                     <View style={styles.headerActions}>
-                        {isOwner && (
-                            <Pressable style={styles.infoBtn} onPress={() => setAdminVisible(true)}>
-                                <Settings color="#22c55e" size={20} />
-                            </Pressable>
-                        )}
                         <Pressable style={styles.infoBtn} onPress={() => setChatVisible(true)}>
                             <MessageCircle color="#22c55e" size={20} />
                         </Pressable>
@@ -203,7 +198,8 @@ export default function LiveRoomScreen() {
             {/* ⚡ CORRECCIÓN: Un único ScrollView principal unificado */}
             <ScrollView
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
+                scrollEnabled={!isEnfocused}
+                contentContainerStyle={[styles.scrollContent, isEnfocused && styles.focusScrollContent]}
                 refreshControl={
                     <RefreshControl
                         refreshing={refreshing}
@@ -214,13 +210,6 @@ export default function LiveRoomScreen() {
                     />
                 }
             >
-                {!isEnfocused && (
-                    <Pressable style={styles.inviteFriendsMainBtn} onPress={() => setInviteFriendsVisible(true)}>
-                        <UserPlus color="white" size={22} />
-                        <Text style={styles.inviteFriendsBtnText}>Invitar Amigos a la Sala</Text>
-                    </Pressable>
-                )}
-
                 {!isEnfocused && (
                     <Pressable style={styles.configCard} onPress={() => setConfigVisible(true)}>
                         <View style={styles.configIconBox}>
@@ -236,20 +225,7 @@ export default function LiveRoomScreen() {
                     </Pressable>
                 )}
 
-                {!isEnfocused && (
-                    <Pressable style={[styles.configCard, { marginTop: 12, borderColor: '#16a34a' }]} onPress={() => setReviewPeersVisible(true)}>
-                        <View style={[styles.configIconBox, { backgroundColor: '#14532d' }]}>
-                            <Users color="#22c55e" size={24} />
-                        </View>
-                        <View style={styles.configInfo}>
-                            <Text style={styles.configTitle}>Validar Compañeros</Text>
-                            <Text style={styles.configSub}>Panel de verificación social de apuntes y evidencias</Text>
-                        </View>
-                        <ChevronRight color="#4b5563" size={20} />
-                    </Pressable>
-                )}
-
-                <View style={styles.timerSection}>
+                <View style={[styles.timerSection, isEnfocused && styles.focusTimerSection]}>
                     <TimerProgressRing
                         isPomodoro={sessionType === 'pomodoro'}
                         remainingRatio={durationMinutes > 0 ? displaySeconds / (durationMinutes * 60) : 0}
@@ -265,7 +241,7 @@ export default function LiveRoomScreen() {
                     </TimerProgressRing>
                 </View>
 
-                <View style={styles.controlsContainer}>
+                <View style={[styles.controlsContainer, isEnfocused && styles.focusControlsContainer]}>
                     {status === 'idle' && (
                         <Pressable onPress={startSession} style={styles.startBtn}>
                             <Text style={styles.btnText}>COMENZAR SESION</Text>
@@ -298,6 +274,22 @@ export default function LiveRoomScreen() {
                 {!isEnfocused && (
                     <>
                         <RoomRanking roomId={room?.id} />
+                        <Pressable style={[styles.configCard, styles.reviewCard]} onPress={() => setReviewPeersVisible(true)}>
+                            <View style={[styles.configIconBox, { backgroundColor: '#14532d' }]}>
+                                <Users color="#22c55e" size={24} />
+                            </View>
+                            <View style={styles.configInfo}>
+                                <Text style={styles.configTitle}>Validar Companeros</Text>
+                                <Text style={styles.configSub}>Panel de verificacion social de apuntes y evidencias</Text>
+                            </View>
+                            <ChevronRight color="#4b5563" size={20} />
+                        </Pressable>
+
+                        <Pressable style={styles.inviteFriendsMainBtn} onPress={() => setInviteFriendsVisible(true)}>
+                            <UserPlus color="white" size={22} />
+                            <Text style={styles.inviteFriendsBtnText}>Invitar Amigos a la Sala</Text>
+                        </Pressable>
+
                         {room?.teams_enabled && <TeamsSection />}
                         <LeaveRoomButton roomId={room?.id} />
                     </>
@@ -318,12 +310,17 @@ export default function LiveRoomScreen() {
                     currentUserId={currentUserId}
                     onClose={() => setInfoVisible(false)}
                     onRoomUpdated={handleRoomUpdated}
+                    canConfigure={isOwner && !isEnfocused}
+                    onOpenAdmin={() => {
+                        setInfoVisible(false);
+                        setAdminVisible(true);
+                    }}
                 />
             )}
 
             {room && accessToken && (
                 <RoomAdminModal
-                    visible={adminVisible}
+                    visible={adminVisible && !isEnfocused}
                     room={room}
                     accessToken={accessToken}
                     currentUserId={currentUserId}
@@ -445,7 +442,7 @@ function TimerTick({
         opacity: opacity.value,
         transform: [
             { rotate: `${angle}deg` },
-            { translateY: -116 },
+            { translateY: -136 },
             { scale: scale.value },
         ],
     }));
@@ -457,24 +454,28 @@ const styles = StyleSheet.create({
     loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
     loadingText: { color: '#94a3b8', fontWeight: 'bold' },
     scrollContent: { paddingBottom: 100, paddingVertical: 10 },
+    focusScrollContent: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingBottom: 24, paddingVertical: 24 },
     headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     infoBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#1e293b', borderWidth: 1, borderColor: '#334155', alignItems: 'center', justifyContent: 'center' },
-    inviteFriendsMainBtn: { backgroundColor: '#3b82f6', height: 52, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 14, marginTop: 5 },
+    inviteFriendsMainBtn: { backgroundColor: '#3b82f6', height: 52, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 14, marginTop: 12 },
     inviteFriendsBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
     configCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1e293b', padding: 15, borderRadius: 20, borderWidth: 1, borderColor: '#334155' },
+    reviewCard: { marginTop: 12, borderColor: '#16a34a' },
     configIconBox: { width: 48, height: 48, borderRadius: 12, backgroundColor: '#0f172a', alignItems: 'center', justifyContent: 'center' },
     configInfo: { flex: 1, marginLeft: 15 },
     configTitle: { color: 'white', fontSize: 16, fontWeight: 'bold' },
     configSub: { color: '#64748b', fontSize: 13, marginTop: 2 },
     timerSection: { alignItems: 'center', marginVertical: 30 },
-    timerCircle: { width: 240, height: 240, borderRadius: 120, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a' },
+    focusTimerSection: { marginVertical: 0, marginBottom: 30 },
+    timerCircle: { width: 280, height: 280, borderRadius: 140, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a' },
     freeTimerCircle: { borderWidth: 8, borderColor: '#06b6d4' },
-    tickLayer: { position: 'absolute', width: 240, height: 240, alignItems: 'center', justifyContent: 'center' },
-    timerTick: { position: 'absolute', width: 5, height: 16, borderRadius: 999, backgroundColor: '#22c55e' },
-    timerInner: { width: 200, height: 200, borderRadius: 100, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a', borderWidth: 1, borderColor: '#1e293b', gap: 6 },
-    timerValue: { color: 'white', fontSize: 56, fontWeight: '900' },
+    tickLayer: { position: 'absolute', width: 280, height: 280, alignItems: 'center', justifyContent: 'center' },
+    timerTick: { position: 'absolute', width: 6, height: 18, borderRadius: 999, backgroundColor: '#22c55e' },
+    timerInner: { width: 232, height: 232, borderRadius: 116, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a', borderWidth: 1, borderColor: '#1e293b', gap: 6 },
+    timerValue: { color: 'white', fontSize: 64, fontWeight: '900' },
     timerCycles: { color: '#64748b', fontSize: 16, fontWeight: 'bold' },
     controlsContainer: { marginBottom: 20 },
+    focusControlsContainer: { marginTop: 8, marginBottom: 0, width: '100%' },
     startBtn: { backgroundColor: '#22c55e', height: 64, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
     rowControls: { flexDirection: 'row', gap: 12, width: '100%' },
     controlBtn: { flex: 1, height: 64, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
