@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRoute } from '@react-navigation/native';
-import { ChevronRight, Info, Settings, UserPlus, Users } from 'lucide-react-native';
+import { ChevronRight, Info, MessageCircle, Settings, UserPlus, Users } from 'lucide-react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { useAppDataStore } from '../../../store/appDataStore';
@@ -18,6 +18,7 @@ import { type RoomDetails } from '../services/roomsService';
 
 import EvidenceUploadModal from '../components/EvidenceUploadModal';
 import ReviewPeerSessionsModal from '../components/ReviewPeerSessionsModal';
+import RoomChatModal from '../components/RoomChatModal';
 
 export default function LiveRoomScreen() {
     const route = useRoute<any>();
@@ -35,6 +36,7 @@ export default function LiveRoomScreen() {
     const [configVisible, setConfigVisible] = useState(false);
     const [adminVisible, setAdminVisible] = useState(false);
     const [infoVisible, setInfoVisible] = useState(false);
+    const [chatVisible, setChatVisible] = useState(false);
     const [inviteFriendsVisible, setInviteFriendsVisible] = useState(false);
     
     const [evidenceVisible, setEvidenceVisible] = useState(false);
@@ -188,6 +190,9 @@ export default function LiveRoomScreen() {
                                 <Settings color="#22c55e" size={20} />
                             </Pressable>
                         )}
+                        <Pressable style={styles.infoBtn} onPress={() => setChatVisible(true)}>
+                            <MessageCircle color="#22c55e" size={20} />
+                        </Pressable>
                         <Pressable style={styles.infoBtn} onPress={() => setInfoVisible(true)}>
                             <Info color="#22c55e" size={20} />
                         </Pressable>
@@ -372,6 +377,16 @@ export default function LiveRoomScreen() {
                     }
                 }}
             />
+
+            {room && (
+                <RoomChatModal
+                    visible={chatVisible}
+                    roomId={room.id}
+                    roomName={room.name}
+                    accentColor="#22c55e"
+                    onClose={() => setChatVisible(false)}
+                />
+            )}
         </ScreenLayout>
     );
 }

@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import cors from 'cors'; 
 import router from './common/routes.js';
 import { missionsService } from './modules/missions/service/missions.service.js';
+import { ChatService } from './modules/chat/service/chat.service.js';
 
 dotenv.config({ override: true });
 
@@ -19,6 +20,7 @@ const PORT = process.env.PORT || 3000;
 app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`🚀 Servidor de MindGuild corriendo en cualquier interfaz en el puerto ${PORT}`);
     setupDailyMissionsExpiration();
+    setupDailyChatCleanup();
 });
 
 function setupDailyMissionsExpiration() {
@@ -46,5 +48,34 @@ function setupDailyMissionsExpiration() {
             }
         }, 24 * 60 * 60 * 1000);
 
+    }, tiempoParaMedianoche);
+}
+
+function setupDailyChatCleanup() {
+    const ahora = new Date();
+    const manana = new Date(ahora);
+
+    manana.setDate(ahora.getDate() + 1);
+    manana.setHours(0, 0, 0, 0);
+
+    const tiempoParaMedianoche = manana.getTime() - ahora.getTime();
+    console.log(`💬 Programador de chat activo. Proxima limpieza en: ${(tiempoParaMedianoche / 1000 / 60 / 60).toFixed(2)} horas.`);
+
+    setTimeout(async () => {
+        try {
+            const deleted = await ChatService.deleteExpiredMessages();
+            console.log(`🧹 Limpieza de chat ejecutada. Mensajes eliminados: ${deleted}.`);
+        } catch (error) {
+            console.error('❌ Fallo la limpieza automatica inicial de chat:', error);
+        }
+
+        setInterval(async () => {
+            try {
+                const deleted = await ChatService.deleteExpiredMessages();
+                console.log(`🧹 Limpieza diaria de chat ejecutada. Mensajes eliminados: ${deleted}.`);
+            } catch (error) {
+                console.error('❌ Fallo la limpieza automatica diaria de chat:', error);
+            }
+        }, 24 * 60 * 60 * 1000);
     }, tiempoParaMedianoche);
 }
