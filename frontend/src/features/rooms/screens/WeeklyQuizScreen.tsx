@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRoute } from '@react-navigation/native';
-import { CalendarClock, Plus } from 'lucide-react-native';
+import { BarChart3, CalendarClock, Plus, Trash2, X } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
@@ -19,6 +19,7 @@ import {
   resolveWeeklyQuiz,
   fetchWeeklyQuizResult,
   resetWeeklyQuiz,
+  deleteRoomQuestion,
   type BattleQuestion,
   type AssignedQuizQuestion,
   type ValidationItem,
@@ -49,6 +50,7 @@ export default function WeeklyQuizScreen() {
   const [mode, setMode] = useState<'overview' | 'answering' | 'validation'>('overview');
   const [configVisible, setConfigVisible] = useState(false);
   const [questionVisible, setQuestionVisible] = useState(false);
+  const [resultVisible, setResultVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -83,9 +85,7 @@ export default function WeeklyQuizScreen() {
       setValidationPhase(resolveValidationPhase(validationData.items));
       setValidationIndex(0);
 
-      if (statusData.must_validate) {
-        setMode('validation');
-      } else if (mode === 'validation') {
+      if (mode === 'validation' && !statusData.must_validate) {
         setMode('overview');
       }
     } catch (error: any) {
@@ -109,6 +109,12 @@ export default function WeeklyQuizScreen() {
   const currentQuestion = attempt?.questions[currentQuestionIndex] ?? null;
   const currentValidationItems = validationItems.filter(item => item.type === validationPhase);
   const currentValidationItem = currentValidationItems[validationIndex] ?? currentValidationItems[0] ?? null;
+  const hasCompletedQuiz = Boolean(quizStatus?.has_completed)
+    || (Boolean(quizStatus?.assigned_questions_count) && quizStatus?.answered_questions_count === quizStatus?.assigned_questions_count);
+  const proposedCount = quizStatus?.proposed_count ?? questions.length;
+  const canStartQuiz = Boolean(quizStatus?.can_start && !hasCompletedQuiz);
+  const canValidateQuiz = Boolean(quizStatus?.must_validate);
+  const canResolveQuiz = Boolean(isOwner && quizStatus?.can_resolve);
 
   const handleStartQuiz = async () => {
     if (!accessToken || !roomId) return;
@@ -156,17 +162,10 @@ export default function WeeklyQuizScreen() {
         return;
       }
 
-      const result = await completeWeeklyQuiz(accessToken, attempt.attempt_id);
-
-      if (result.must_validate && roomId) {
-        const validationData = await fetchWeeklyQuizValidationItems(accessToken, roomId);
-        setValidationItems(validationData.items);
-        setValidationPhase(resolveValidationPhase(validationData.items));
-        setValidationIndex(0);
-        setMode('validation');
-      } else {
-        setMode('overview');
-      }
+      await completeWeeklyQuiz(accessToken, attempt.attempt_id);
+      setAttempt(null);
+      setMode('overview');
+      await loadData({ showLoading: false });
     } catch (error: any) {
       Alert.alert('No se pudo guardar', error.message ?? 'Intenta nuevamente.');
     } finally {
@@ -250,6 +249,33 @@ export default function WeeklyQuizScreen() {
               setConfigVisible(true);
             } catch (error: any) {
               Alert.alert('No se pudo reiniciar', error.message ?? 'Intenta nuevamente.');
+            } finally {
+              setActionLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteQuestion = (question: BattleQuestion) => {
+    if (!accessToken || !roomId) return;
+
+    Alert.alert(
+      'Eliminar pregunta',
+      'La pregunta se va a borrar fisicamente si todavia no fue tomada por el quiz.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            setActionLoading(true);
+            try {
+              await deleteRoomQuestion(accessToken, roomId, question.id);
+              await loadData({ showLoading: false });
+            } catch (error: any) {
+              Alert.alert('No se pudo eliminar', error.message ?? 'Intenta nuevamente.');
             } finally {
               setActionLoading(false);
             }
@@ -434,93 +460,65 @@ export default function WeeklyQuizScreen() {
         {quizStatus && (
           <View style={styles.statusCard}>
             <Text style={styles.statusCardTitle}>Estado del quiz</Text>
-            <Text style={styles.statusCardText}>{quizStatus.status}</Text>
-            <Text style={styles.statusCardText}>
-              Respondidas: {quizStatus.answered_questions_count}/{quizStatus.assigned_questions_count}
-            </Text>
+            <View style={styles.statusGrid}>
+              <View style={styles.statusMetric}>
+                <Text style={styles.statusMetricValue}>{hasCompletedQuiz ? 'Si' : 'No'}</Text>
+                <Text style={styles.statusMetricLabel}>Completado</Text>
+              </View>
+              <View style={styles.statusMetric}>
+                <Text style={styles.statusMetricValue}>{quizStatus.can_start ? 'Si' : 'No'}</Text>
+                <Text style={styles.statusMetricLabel}>Habilitado</Text>
+              </View>
+            </View>
+            <Text style={styles.statusCardText}>Respondidas: {quizStatus.answered_questions_count}/{quizStatus.assigned_questions_count}</Text>
+            <Text style={styles.statusCardText}>Propuestas: {proposedCount}</Text>
             {quizStatus.reason && <Text style={styles.statusReason}>{quizStatus.reason}</Text>}
           </View>
         )}
 
         {quizResult ? (
-          quizResult.status === 'validated' && quizResult.summary ? (
-            <View style={styles.resultCard}>
-              <Text style={styles.resultTitle}>Resultado del quiz semanal</Text>
-              <Text style={styles.resultSubtitle}>Resultado calculado con las preguntas validadas por el grupo.</Text>
-
-              <View style={styles.resultGrid}>
-                <View style={styles.resultMetric}>
-                  <Text style={styles.resultMetricValue}>{quizResult.summary.score}/{quizResult.summary.total_questions}</Text>
-                  <Text style={styles.resultMetricLabel}>Puntaje</Text>
-                </View>
-                <View style={styles.resultMetric}>
-                  <Text style={styles.resultMetricValue}>{quizResult.summary.accuracy_percentage}%</Text>
-                  <Text style={styles.resultMetricLabel}>Acierto</Text>
-                </View>
-              </View>
-
-              <View style={styles.resultCounts}>
-                <Text style={styles.resultCorrect}>Correctas: {quizResult.summary.correct_count}</Text>
-                <Text style={styles.resultIncorrect}>Incorrectas: {quizResult.summary.incorrect_count}</Text>
-              </View>
-
-              <Text style={styles.resultDetailTitle}>Resultados de tus preguntas propuestas</Text>
-              <View style={styles.resultDetailCard}>
-                <Text style={styles.resultAnswer}>Aceptadas: {quizResult.proposed_questions.validated_count}</Text>
-                <Text style={styles.resultAnswer}>Rechazadas: {quizResult.proposed_questions.rejected_count ?? 0}</Text>
-                <Text style={styles.resultExpected}>Las rechazadas se muestran en este resultado y se eliminan cuando el owner reinicia o cambia el cuestionario.</Text>
-              </View>
-              {quizResult.proposed_questions.items.map(item => (
-                <View key={item.question_id} style={styles.resultDetailCard}>
-                  <Text style={styles.resultQuestion}>{item.question_text}</Text>
-                  <Text style={[styles.resultStatus, item.status === 'validated' ? styles.resultStatusOk : styles.resultStatusBad]}>
-                    {item.status === 'validated' ? 'Pregunta validada' : 'Pregunta rechazada'}
-                  </Text>
-                </View>
-              ))}
-
-              <Text style={styles.resultDetailTitle}>Resultados de las preguntas respondidas</Text>
-              {quizResult.details.map(detail => (
-                <View key={detail.question_id} style={styles.resultDetailCard}>
-                  <Text style={styles.resultQuestion}>{detail.question_text}</Text>
-                  <Text style={styles.resultAnswer}>Tu respuesta: {detail.answer_text ?? 'Sin respuesta'}</Text>
-                  <Text style={styles.resultExpected}>Esperada: {detail.expected_answer ?? 'No disponible'}</Text>
-                  <Text style={[styles.resultStatus, detail.is_correct ? styles.resultStatusOk : styles.resultStatusBad]}>
-                    {detail.is_correct ? 'Hiciste bien esta respuesta' : 'Te equivocaste en esta respuesta'}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          ) : (
-            <View style={styles.pendingResultCard}>
-              <Text style={styles.emptyTitle}>Resultado pendiente</Text>
-              <Text style={styles.emptyText}>Ya completaste el quiz. El resultado se muestra cuando termine la validacion grupal y el owner genere los resultados.</Text>
-            </View>
-          )
+          <Pressable style={styles.resultOpenBtn} onPress={() => setResultVisible(true)}>
+            <BarChart3 color="white" size={22} />
+            <Text style={styles.primaryBtnText}>Ver resultados</Text>
+          </Pressable>
+        ) : hasCompletedQuiz ? (
+          <View style={styles.pendingResultCard}>
+            <Text style={styles.emptyTitle}>Resultado pendiente</Text>
+            <Text style={styles.emptyText}>El resultado aparece cuando termine la validacion grupal y el owner lo genere.</Text>
+          </View>
         ) : null}
 
         <Pressable
-          style={[styles.startQuizBtn, (!quizStatus?.can_start || actionLoading) && styles.disabledBtn]}
+          style={[styles.startQuizBtn, (!canStartQuiz || actionLoading) && styles.disabledBtn]}
           onPress={handleStartQuiz}
-          disabled={!quizStatus?.can_start || actionLoading}
+          disabled={!canStartQuiz || actionLoading}
         >
           {actionLoading ? <ActivityIndicator color="white" /> : <Text style={styles.startQuizText}>Comenzar Quiz Semanal</Text>}
         </Pressable>
 
+        {canValidateQuiz && (
+          <Pressable style={styles.validateQuizBtn} onPress={() => setMode('validation')}>
+            <Text style={styles.startQuizText}>Validacion de quiz</Text>
+          </Pressable>
+        )}
+
         {isOwner && (
           <>
             <Pressable
-              style={[styles.resolveBtn, actionLoading && styles.disabledBtn]}
+              style={[styles.resolveBtn, (!canResolveQuiz || actionLoading) && styles.disabledBtn]}
               onPress={handleResolve}
-              disabled={actionLoading}
+              disabled={!canResolveQuiz || actionLoading}
             >
               <Text style={styles.resolveText}>Generar resultados</Text>
             </Pressable>
+            {quizStatus?.result_available_at && !canResolveQuiz ? (
+              <Text style={styles.hintText}>Resultados disponibles desde: {formatDateTime(quizStatus.result_available_at)}</Text>
+            ) : null}
             {weeklyQuiz ? (
               <Pressable
-                style={[styles.resetBtn, actionLoading && styles.disabledBtn]}
+                style={[styles.resetBtn, (!quizResult || quizResult.status !== 'validated' || actionLoading) && styles.disabledBtn]}
                 onPress={handleResetQuiz}
-                disabled={actionLoading}
+                disabled={!quizResult || quizResult.status !== 'validated' || actionLoading}
               >
                 <Text style={styles.resetText}>Reiniciar cuestionario semanal</Text>
               </Pressable>
@@ -567,6 +565,16 @@ export default function WeeklyQuizScreen() {
                 <View style={styles.statusBadge}><Text style={styles.statusText}>{question.status}</Text></View>
                 <Text style={styles.weekText}>{question.week_year}</Text>
               </View>
+              {['pending', 'draft'].includes(question.status) && (
+                <Pressable
+                  style={[styles.deleteQuestionBtn, actionLoading && styles.disabledBtn]}
+                  onPress={() => handleDeleteQuestion(question)}
+                  disabled={actionLoading}
+                >
+                  <Trash2 color="#fca5a5" size={16} />
+                  <Text style={styles.deleteQuestionText}>Eliminar pregunta</Text>
+                </Pressable>
+              )}
             </View>
           ))
         )}
@@ -590,6 +598,75 @@ export default function WeeklyQuizScreen() {
         roomId={roomId}
         onCreated={() => loadData({ showLoading: false })}
       />
+      <Modal visible={resultVisible} transparent animationType="fade" onRequestClose={() => setResultVisible(false)}>
+        <View style={styles.resultModalBackdrop}>
+          <View style={styles.resultModal}>
+            <View style={styles.resultModalHeader}>
+              <Text style={styles.resultTitle}>Resultados del quiz</Text>
+              <Pressable style={styles.resultCloseBtn} onPress={() => setResultVisible(false)}>
+                <X color="#94a3b8" size={20} />
+              </Pressable>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {quizResult?.status === 'validated' && quizResult.summary ? (
+                <>
+                  <Text style={styles.resultSubtitle}>Resultado general</Text>
+                  <View style={styles.resultGrid}>
+                    <View style={styles.resultMetric}>
+                      <Text style={styles.resultMetricValue}>{quizResult.summary.score}/{quizResult.summary.total_questions}</Text>
+                      <Text style={styles.resultMetricLabel}>Puntaje</Text>
+                    </View>
+                    <View style={styles.resultMetric}>
+                      <Text style={styles.resultMetricValue}>{quizResult.summary.accuracy_percentage}%</Text>
+                      <Text style={styles.resultMetricLabel}>Acierto</Text>
+                    </View>
+                  </View>
+                  <View style={styles.resultCounts}>
+                    <Text style={styles.resultCorrect}>Respuestas aceptadas: {quizResult.summary.correct_count}</Text>
+                    <Text style={styles.resultIncorrect}>Respuestas rechazadas: {quizResult.summary.incorrect_count}</Text>
+                  </View>
+                  <View style={styles.resultDetailCard}>
+                    <Text style={styles.resultAnswer}>Preguntas propuestas aceptadas: {quizResult.proposed_questions.validated_count}</Text>
+                    <Text style={styles.resultAnswer}>Preguntas propuestas rechazadas: {quizResult.proposed_questions.rejected_count ?? 0}</Text>
+                  </View>
+
+                  <Text style={styles.resultDetailTitle}>Preguntas respondidas</Text>
+                  {quizResult.details.length === 0 ? (
+                    <Text style={styles.emptyText}>No hay respuestas validadas para mostrar.</Text>
+                  ) : quizResult.details.map(detail => (
+                    <View key={detail.question_id} style={styles.resultDetailCard}>
+                      <Text style={styles.resultQuestion}>{detail.question_text}</Text>
+                      <Text style={styles.resultAnswer}>Tu respuesta: {detail.answer_text ?? 'Sin respuesta'}</Text>
+                      <Text style={styles.resultExpected}>Esperada: {detail.expected_answer ?? 'No disponible'}</Text>
+                      <Text style={[styles.resultStatus, detail.is_correct ? styles.resultStatusOk : styles.resultStatusBad]}>
+                        {detail.is_correct ? 'Aceptada' : 'Rechazada'}
+                      </Text>
+                    </View>
+                  ))}
+
+                  <Text style={styles.resultDetailTitle}>Preguntas propuestas</Text>
+                  {quizResult.proposed_questions.items.length === 0 ? (
+                    <Text style={styles.emptyText}>No hay preguntas propuestas validadas o rechazadas para mostrar.</Text>
+                  ) : quizResult.proposed_questions.items.map(item => (
+                    <View key={item.question_id} style={styles.resultDetailCard}>
+                      <Text style={styles.resultQuestion}>{item.question_text}</Text>
+                      <Text style={[styles.resultStatus, item.status === 'validated' ? styles.resultStatusOk : styles.resultStatusBad]}>
+                        {item.status === 'validated' ? 'Aceptada' : 'Rechazada'}
+                      </Text>
+                    </View>
+                  ))}
+                </>
+              ) : (
+                <View style={styles.pendingResultCard}>
+                  <Text style={styles.emptyTitle}>Resultado pendiente</Text>
+                  <Text style={styles.emptyText}>El resultado se muestra cuando termine la validacion grupal y el owner lo genere.</Text>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </ScreenLayout>
   );
 }
@@ -606,6 +683,18 @@ function formatWeekday(weekday: string) {
   };
 
   return labels[weekday] ?? weekday;
+}
+
+function formatDateTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function resolveValidationPhase(items: ValidationItem[]): 'question' | 'response' {
@@ -637,6 +726,8 @@ const styles = StyleSheet.create({
   correctOption: { color: '#22c55e', fontWeight: 'bold' },
   expectedPreview: { color: '#94a3b8', fontSize: 13, lineHeight: 19, marginBottom: 14 },
   questionFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  deleteQuestionBtn: { height: 42, borderRadius: 14, borderWidth: 1, borderColor: '#7f1d1d', backgroundColor: '#450a0a55', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12 },
+  deleteQuestionText: { color: '#fca5a5', fontWeight: '900', fontSize: 13 },
   statusBadge: { backgroundColor: '#facc1515', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: '#facc1544' },
   statusText: { color: '#facc15', fontSize: 12, fontWeight: 'bold' },
   weekText: { color: '#64748b', fontSize: 12 },
@@ -669,10 +760,20 @@ const styles = StyleSheet.create({
   resetText: { color: 'white', fontWeight: '900' },
   statusCard: { backgroundColor: '#1e293b', borderRadius: 18, padding: 14, borderWidth: 1, borderColor: '#334155', marginTop: 12 },
   statusCardTitle: { color: 'white', fontWeight: 'bold', marginBottom: 6 },
+  statusGrid: { flexDirection: 'row', gap: 10, marginBottom: 8 },
+  statusMetric: { flex: 1, backgroundColor: '#0f172a', borderRadius: 14, borderWidth: 1, borderColor: '#334155', padding: 12 },
+  statusMetricValue: { color: 'white', fontWeight: '900', fontSize: 18 },
+  statusMetricLabel: { color: '#94a3b8', fontSize: 12, marginTop: 2 },
   statusCardText: { color: '#94a3b8', fontSize: 13, marginTop: 3 },
   statusReason: { color: '#facc15', fontSize: 12, marginTop: 8, lineHeight: 18 },
   startQuizBtn: { backgroundColor: '#a855f7', height: 54, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
+  validateQuizBtn: { backgroundColor: '#2563eb', height: 54, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
   startQuizText: { color: 'white', fontWeight: '900', fontSize: 16 },
+  resultOpenBtn: { backgroundColor: '#16a34a', padding: 18, borderRadius: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 12 },
+  resultModalBackdrop: { flex: 1, backgroundColor: '#020617cc', justifyContent: 'center', padding: 20 },
+  resultModal: { maxHeight: '86%', backgroundColor: '#0f172a', borderRadius: 24, borderWidth: 1, borderColor: '#334155', padding: 16 },
+  resultModalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  resultCloseBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#1e293b', alignItems: 'center', justifyContent: 'center' },
   resultCard: { backgroundColor: '#0f172a', borderRadius: 22, padding: 18, borderWidth: 1, borderColor: '#22c55e55', marginTop: 12 },
   pendingResultCard: { backgroundColor: '#1e293b', borderRadius: 20, padding: 18, borderWidth: 1, borderColor: '#facc1544', marginTop: 12 },
   resultTitle: { color: 'white', fontWeight: '900', fontSize: 18, marginBottom: 6 },
