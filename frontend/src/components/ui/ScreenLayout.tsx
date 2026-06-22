@@ -11,14 +11,20 @@ interface Props {
   type?: 'home' | 'rooms' | 'rankings' | 'friends' | 'profiles' | 'auth' ;
   icon?: React.ReactNode;
   rightAction?: React.ReactNode;
+  hideBackButton?: boolean;
+  hideRightAction?: boolean;
 }
 
-export default function ScreenLayout({ children, title, type = 'rooms', icon, rightAction }: Props) {
+export default function ScreenLayout({ children, title, type = 'rooms', icon, rightAction, hideBackButton, hideRightAction }: Props) {
   const navigation = useNavigation<any>();
   const coinsBalance = useAppDataStore(state => state.profile.data?.coins_balance ?? 0);
 
   // Configuración del botón izquierdo (Avatar o Volver)
   const renderLeftButton = () => {
+    if (hideBackButton) {
+      return <View style={styles.headerSpacer} />;
+    }
+
     if (type === 'home') {
       return (
         <Pressable 
@@ -73,12 +79,14 @@ export default function ScreenLayout({ children, title, type = 'rooms', icon, ri
             <Text style={[styles.headerText, type === 'home' && styles.headerText]}>{title}</Text>
           </View>
 
-          {rightAction ?? (
-            <Pressable style={styles.coinBadge} onPress={() => navigation.navigate('Wallet')}>
-              <View style={styles.hCoin}><Brain color="#0f172a" size={20} strokeWidth={2.2} /></View>
-              <Text style={styles.coinAmount}>{coinsBalance}</Text>
-            </Pressable>
-          )}
+          {hideRightAction ? (
+            <View style={styles.headerSpacer} />
+          ) : rightAction ?? (
+              <Pressable style={styles.coinBadge} onPress={() => navigation.navigate('Wallet')}>
+                <View style={styles.hCoin}><Brain color="#0f172a" size={20} strokeWidth={2.2} /></View>
+                <Text style={styles.coinAmount}>{coinsBalance}</Text>
+              </Pressable>
+            )}
         </View>
 
         {/* CONTENIDO (Con el padding que te gusta) */}
@@ -109,6 +117,7 @@ const styles = StyleSheet.create({
     width: 40, height: 40, borderRadius: 20,
     backgroundColor: '#1e293b', alignItems: 'center', justifyContent: 'center'
   },
+  headerSpacer: { width: 40, height: 40 },
   titleGroup: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   homeTitleGroup: { position: 'absolute', left: 0, right: 0, justifyContent: 'center' },
   headerText: { 
