@@ -254,6 +254,7 @@ export function useStudyTimer({
       duration_minutes: finalMinutes,
       session_id: currentSessionId
     });
+    setActiveStudySession(null);
 
     try {
       if (finalStatus === 'invalid') {
