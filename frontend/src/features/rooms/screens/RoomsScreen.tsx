@@ -153,16 +153,6 @@ export default function RoomsScreen() {
             icon={<Users color="#22c55e" size={22} />}
         >
             {/* --- BOTÓN DE INVITACIONES PENDIENTES CON NOTIFICADOR DINÁMICO --- */}
-            <Pressable 
-                style={[styles.invitationsMainBtn, pendingCount > 0 && styles.invitationsMainBtnActive]} 
-                onPress={() => setInvitationsVisible(true)}
-            >
-                <Mail color={pendingCount > 0 ? '#ffffff' : '#94a3b8'} size={20} />
-                <Text style={[styles.invitationsBtnText, pendingCount > 0 && styles.invitationsBtnTextActive]}>
-                    {pendingCount > 0 ? `Invitaciones Pendientes (${pendingCount})` : 'Ver Invitaciones de Salas'}
-                </Text>
-            </Pressable>
-
             <Pressable style={styles.createMainBtn} onPress={() => setCreateVisible(true)}>
                 <Plus color="white" size={24} />
                 <Text style={styles.createBtnText}>Crear Nueva Sala</Text>
@@ -171,6 +161,16 @@ export default function RoomsScreen() {
             <Pressable style={styles.joinMainBtn} onPress={() => setJoinVisible(true)}>
                 <LogIn color="#3b82f6" size={22} />
                 <Text style={styles.joinBtnText}>Unirse con Codigo</Text>
+            </Pressable>
+
+            <Pressable 
+                style={[styles.invitationsMainBtn, pendingCount > 0 && styles.invitationsMainBtnActive]} 
+                onPress={() => setInvitationsVisible(true)}
+            >
+                <Mail color="#ffffff" size={20} />
+                <Text style={styles.invitationsBtnText}>
+                    {pendingCount > 0 ? `Invitaciones Pendientes (${pendingCount})` : 'Ver Invitaciones de Salas'}
+                </Text>
             </Pressable>
 
             <ScrollView
@@ -253,7 +253,7 @@ function mapUserRoomToCard(room: UserRoom): RoomCardData {
 const styles = StyleSheet.create({
     // Estilos del botón de invitaciones del RF-05
     invitationsMainBtn: {
-        backgroundColor: '#1e293b',
+        backgroundColor: '#4f46e5',
         height: 48,
         borderRadius: 16,
         flexDirection: 'row',
@@ -261,16 +261,14 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         gap: 10,
         borderWidth: 1,
-        borderColor: '#334155',
+        borderColor: '#6366f1',
         marginBottom: 10,
-        marginTop: 5
     },
     invitationsMainBtnActive: {
         backgroundColor: '#2563eb',
-        borderColor: '#3b82f6',
+        borderColor: '#60a5fa',
     },
-    invitationsBtnText: { color: '#94a3b8', fontWeight: 'bold', fontSize: 15 },
-    invitationsBtnTextActive: { color: '#ffffff' },
+    invitationsBtnText: { color: '#ffffff', fontWeight: 'bold', fontSize: 15 },
 
     createMainBtn: {
         backgroundColor: '#22c55e',

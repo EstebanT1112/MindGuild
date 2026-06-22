@@ -126,9 +126,9 @@ export default function RoomChatModal({
     }
   };
 
-  const subtitle = useMemo(() => {
-    if (roomName) return roomName;
-    return 'Sala';
+  const title = useMemo(() => {
+    if (roomName?.trim()) return `Chat de ${roomName.trim()}`;
+    return 'Chat de sala';
   }, [roomName]);
 
   return (
@@ -140,8 +140,7 @@ export default function RoomChatModal({
         <View style={styles.modalCard}>
           <View style={styles.header}>
             <View style={styles.headerTextBox}>
-              <Text style={styles.title}>Chat de sala</Text>
-              <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text>
+              <Text style={styles.title} numberOfLines={1}>{title}</Text>
             </View>
             <Pressable style={styles.closeBtn} onPress={onClose}>
               <X color="#cbd5e1" size={20} />
