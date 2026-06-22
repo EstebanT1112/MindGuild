@@ -112,6 +112,29 @@ export const BattleRoyaleService = {
     });
   },
 
+  async deleteQuestion(userId: string, roomId: string, questionId: string) {
+    await assertBattleRoyaleAccess(userId, roomId);
+
+    const question = await BattleRoyaleRepository.findQuestionOwnership(questionId);
+    if (!question || question.room_id !== roomId) {
+      throw new BattleRoyaleNotFoundError('Pregunta no encontrada');
+    }
+
+    if (question.author_id !== userId) {
+      throw new BattleRoyaleForbiddenError('Solo podes eliminar tus propias preguntas');
+    }
+
+    if (!['pending', 'draft'].includes(question.status)) {
+      throw new BattleRoyaleConflictError('No se puede eliminar una pregunta que ya fue tomada por el quiz');
+    }
+
+    if (Number(question.used_count) > 0) {
+      throw new BattleRoyaleConflictError('No se puede eliminar una pregunta que ya fue asignada o respondida');
+    }
+
+    return BattleRoyaleRepository.deleteOwnUnusedQuestion(questionId);
+  },
+
   async getWeeklyQuizStatus(userId: string, roomId: string) {
     await assertBattleRoyaleAccess(userId, roomId);
     const quiz = await getCurrentQuizOrNull(roomId);
@@ -121,11 +144,15 @@ export const BattleRoyaleService = {
         quiz_id: null,
         status: 'not_configured',
         can_start: false,
+        can_resolve: false,
         must_validate: false,
+        has_completed: false,
         assigned_questions_count: 0,
         answered_questions_count: 0,
+        proposed_count: 0,
         opens_at: null,
         closes_at: null,
+        result_available_at: null,
         reason: 'El cuestionario semanal no esta configurado',
       };
     }
@@ -134,6 +161,8 @@ export const BattleRoyaleService = {
     const assignedCount = await BattleRoyaleRepository.countAssignedQuestions(quiz.id, userId);
     const answeredCount = await BattleRoyaleRepository.countAnsweredQuestions(quiz.id, userId, attempt?.id);
     const isOpen = isQuizOpen(quiz);
+    const isClosed = isQuizClosed(quiz);
+    const resultAvailableAt = getResultAvailableAt(quiz);
     const validationItems = await BattleRoyaleRepository.listValidationItems(roomId, userId);
     const ownQuestionsCount = await BattleRoyaleRepository.countUserEligibleQuestions(roomId, userId, quiz.week_year);
     const assignableQuestionsCount = await BattleRoyaleRepository.countAssignableQuestions(roomId, userId, quiz.week_year);
@@ -146,11 +175,15 @@ export const BattleRoyaleService = {
       quiz_id: quiz.id,
       status: quiz.status,
       can_start: canStart,
-      must_validate: Boolean(attempt?.completed_at && validationItems.length > 0),
+      can_resolve: Date.now() >= resultAvailableAt.getTime(),
+      must_validate: Boolean(isClosed && validationItems.length > 0),
+      has_completed: hasCompletedAttempt,
       assigned_questions_count: assignedCount,
       answered_questions_count: answeredCount,
+      proposed_count: ownQuestionsCount,
       opens_at: quiz.opens_at,
       closes_at: quiz.closes_at,
+      result_available_at: resultAvailableAt.toISOString(),
       reason: getWeeklyQuizUnavailableReason({
         isOpen,
         hasCompletedAttempt,
@@ -377,6 +410,9 @@ export const BattleRoyaleService = {
   async resolveWeeklyQuiz(userId: string, roomId: string) {
     await assertBattleRoyaleAccess(userId, roomId, { ownerOnly: true });
     const quiz = await getCurrentQuiz(roomId);
+    if (Date.now() < getResultAvailableAt(quiz).getTime()) {
+      throw new BattleRoyaleConflictError('Los resultados se pueden generar 24 horas despues del cierre del quiz');
+    }
     return BattleRoyaleRepository.resolveQuestionVotes(roomId, quiz.id);
   },
 
@@ -642,6 +678,14 @@ function buildWeeklySchedule(weekday: string, startTime: string, durationMinutes
 function isQuizOpen(quiz: { opens_at: string; closes_at: string }) {
   const now = Date.now();
   return new Date(quiz.opens_at).getTime() <= now && now <= new Date(quiz.closes_at).getTime();
+}
+
+function isQuizClosed(quiz: { closes_at: string }) {
+  return Date.now() > new Date(quiz.closes_at).getTime();
+}
+
+function getResultAvailableAt(quiz: { closes_at: string }) {
+  return new Date(new Date(quiz.closes_at).getTime() + 24 * 60 * 60 * 1000);
 }
 
 function getWeeklyQuizUnavailableReason(input: {

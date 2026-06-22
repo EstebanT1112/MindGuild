@@ -84,11 +84,15 @@ export interface WeeklyQuizStatusResult {
   quiz_id: string | null;
   status: string;
   can_start: boolean;
+  can_resolve: boolean;
   must_validate: boolean;
+  has_completed: boolean;
   assigned_questions_count: number;
   answered_questions_count: number;
+  proposed_count: number;
   opens_at: string | null;
   closes_at: string | null;
+  result_available_at: string | null;
   reason?: string;
 }
 

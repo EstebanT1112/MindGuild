@@ -68,11 +68,15 @@ export interface WeeklyQuizStatusResult {
   quiz_id: string | null;
   status: string;
   can_start: boolean;
+  can_resolve?: boolean;
   must_validate: boolean;
+  has_completed?: boolean;
   assigned_questions_count: number;
   answered_questions_count: number;
+  proposed_count?: number;
   opens_at: string | null;
   closes_at: string | null;
+  result_available_at?: string | null;
   reason?: string;
 }
 
@@ -273,6 +277,26 @@ export async function createRoomQuestion(
 
   if (!response.ok) {
     throw new Error(data.error ?? 'No se pudo crear la pregunta');
+  }
+
+  return data;
+}
+
+export async function deleteRoomQuestion(
+  accessToken: string,
+  roomId: string,
+  questionId: string
+): Promise<{ success: boolean }> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/battle-royale/rooms/${roomId}/questions/${questionId}`,
+    { method: 'DELETE' },
+    accessToken
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo eliminar la pregunta');
   }
 
   return data;

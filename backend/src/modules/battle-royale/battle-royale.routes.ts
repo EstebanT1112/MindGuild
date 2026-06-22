@@ -8,6 +8,7 @@ router.post('/rooms/:roomId/weekly-quiz', BattleRoyaleController.createWeeklyQui
 router.patch('/rooms/:roomId/weekly-quiz/:quizId', BattleRoyaleController.updateWeeklyQuiz);
 router.get('/rooms/:roomId/questions', BattleRoyaleController.getQuestions);
 router.post('/rooms/:roomId/questions', BattleRoyaleController.createQuestion);
+router.delete('/rooms/:roomId/questions/:questionId', BattleRoyaleController.deleteQuestion);
 router.get('/rooms/:roomId/weekly-quiz/status', BattleRoyaleController.getWeeklyQuizStatus);
 router.post('/rooms/:roomId/weekly-quiz/start', BattleRoyaleController.startWeeklyQuiz);
 router.post('/weekly-quiz/:attemptId/answers', BattleRoyaleController.saveWeeklyQuizAnswer);
