@@ -64,6 +64,18 @@ export const BattleRoyaleController = {
     }
   },
 
+  async deleteQuestion(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      const roomId = getParam(req, 'roomId');
+      const questionId = getParam(req, 'questionId');
+      const result = await BattleRoyaleService.deleteQuestion(userId, roomId, questionId);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      return handleBattleRoyaleError(error, res, 'Error interno al eliminar pregunta');
+    }
+  },
+
   async getWeeklyQuizStatus(req: Request, res: Response) {
     try {
       const userId = getUserId(req);

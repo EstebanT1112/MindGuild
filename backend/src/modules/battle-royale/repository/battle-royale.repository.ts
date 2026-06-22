@@ -279,6 +279,58 @@ export const BattleRoyaleRepository = {
     }
   },
 
+  async findQuestionOwnership(questionId: string): Promise<{
+    id: string;
+    room_id: string;
+    author_id: string;
+    status: string;
+    used_count: number;
+  } | null> {
+    const { rows } = await pool.query(
+      `
+        SELECT
+          q.id,
+          q.room_id,
+          q.author_id,
+          q.status,
+          (
+            SELECT COUNT(*)::int
+            FROM quiz_answers qa
+            WHERE qa.question_id = q.id
+          ) + (
+            SELECT COUNT(*)::int
+            FROM question_responses qr
+            WHERE qr.question_id = q.id
+          ) + (
+            SELECT COUNT(*)::int
+            FROM quiz_question_assignments qqa
+            WHERE qqa.question_id = q.id
+          ) AS used_count
+        FROM questions q
+        WHERE q.id = $1;
+      `,
+      [questionId]
+    );
+
+    return rows[0] ?? null;
+  },
+
+  async deleteOwnUnusedQuestion(questionId: string): Promise<{ success: true }> {
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+      await deleteQuestionCascade(client, questionId);
+      await client.query('COMMIT');
+      return { success: true };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
   async listRoomQuestions(roomId: string, authorId: string): Promise<BattleQuestion[]> {
     const { rows } = await pool.query(
       `
