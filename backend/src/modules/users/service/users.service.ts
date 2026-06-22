@@ -4,6 +4,8 @@ import {
   UserNotFoundError,
   UserValidationError,
   type FullProfile,
+  type StreakProtectionState,
+  type StreakStatus,
   type UpdateProfileDTO,
 } from '../types/users.types.js';
 
@@ -21,12 +23,14 @@ export const UsersService = {
       throw new UserNotFoundError('Usuario no encontrado');
     }
 
-    const [weeklyStats, village, streakCompletedToday, authProviders] = await Promise.all([
+    const [weeklyStats, village, streakCompletedToday, streakProtection, authProviders] = await Promise.all([
       UsersRepository.getWeeklyStats(userId, getWeekYear()),
       UsersRepository.getVillageState(userId),
-      UsersRepository.hasValidSessionToday(userId),
+      UsersRepository.hasCompletedValidSessionToday(userId),
+      UsersRepository.getStreakProtectionState(userId),
       UsersRepository.getAuthProviders(userId),
     ]);
+    const streakStatus = getStreakStatus(profile.streak_days, streakCompletedToday, streakProtection);
 
     return {
       ...profile,
@@ -40,6 +44,9 @@ export const UsersService = {
         village_level: 1,
       },
       streak_completed_today: streakCompletedToday,
+      streak_shield_active: streakProtection.active,
+      streak_shield_until: streakProtection.protected_until,
+      streak_status: streakStatus,
       auth_providers: authProviders,
     };
   },
@@ -136,4 +143,24 @@ function getWeekYear(): string {
   const numberOfDays = Math.floor((now.getTime() - oneJan.getTime()) / (24 * 60 * 60 * 1000));
   const weekNumber = Math.ceil((now.getDay() + 1 + numberOfDays) / 7);
   return `${weekNumber}-${now.getFullYear()}`;
+}
+
+function getStreakStatus(
+  streakDays: number,
+  completedToday: boolean,
+  protection: StreakProtectionState
+): StreakStatus {
+  if (completedToday) {
+    return 'active';
+  }
+
+  if (protection.active) {
+    return 'shielded';
+  }
+
+  if (streakDays > 0) {
+    return 'pending';
+  }
+
+  return 'inactive';
 }

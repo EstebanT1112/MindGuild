@@ -1,5 +1,5 @@
 import { pool } from '../../../common/config/db.js';
-import type { BasicProfile, UpdateProfileDTO, VillageState, WeeklyStats } from '../types/users.types.js';
+import type { BasicProfile, StreakProtectionState, UpdateProfileDTO, VillageState, WeeklyStats } from '../types/users.types.js';
 
 const APP_TIMEZONE = 'America/Argentina/Buenos_Aires';
 
@@ -168,7 +168,7 @@ export const UsersRepository = {
       .filter((provider): provider is string => Boolean(provider));
   },
 
-  async hasValidSessionToday(userId: string): Promise<boolean> {
+  async hasCompletedValidSessionToday(userId: string): Promise<boolean> {
     const { rows } = await pool.query(
       `
         SELECT 1
@@ -177,20 +177,31 @@ export const UsersRepository = {
           AND status IN ('pending', 'completed', 'validated')
           AND (ended_at AT TIME ZONE 'America/Argentina/Buenos_Aires')::date =
             (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date
-        
-        UNION
-
-        SELECT 1
-        FROM user_streak_protections
-        WHERE user_id = $1
-          AND protected_date = (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date
-          AND applied_at IS NOT NULL
         LIMIT 1;
       `,
       [userId]
     );
 
     return rows.length > 0;
+  },
+
+  async getStreakProtectionState(userId: string): Promise<StreakProtectionState> {
+    const { rows } = await pool.query(
+      `
+        SELECT
+          MAX(protected_date)::text AS protected_until,
+          BOOL_OR(protected_date = (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date) AS active_today
+        FROM user_streak_protections
+        WHERE user_id = $1
+          AND protected_date >= (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date;
+      `,
+      [userId]
+    );
+
+    return {
+      active: Boolean(rows[0]?.active_today),
+      protected_until: rows[0]?.protected_until ?? null,
+    };
   },
 
   //REQ 15 PUSH
