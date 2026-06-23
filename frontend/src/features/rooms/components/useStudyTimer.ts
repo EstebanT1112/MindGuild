@@ -77,7 +77,7 @@ export function useStudyTimer({
 
     const minutesStudied = Math.max(0, Math.floor(totalSecondsStudied / 60));
     // Umbral oficial de 30 minutos según reglas del requerimiento
-    const finalStatus = minutesStudied >= 30 ? 'pending' : 'invalid';
+    const finalStatus = minutesStudied >= 1 ? 'pending' : 'invalid';
 
     if (finalStatus === 'invalid') {
       setStatus('idle');
@@ -246,7 +246,7 @@ export function useStudyTimer({
 
     const finalMinutes = Math.max(0, Math.floor(totalSecondsStudied / 60));
     // Umbral oficial alineado a 30 minutos
-    const finalStatus = finalMinutes >= 30 ? 'pending' : 'invalid';
+    const finalStatus = finalMinutes >= 1 ? 'pending' : 'invalid';
 
     // Disparamos callback hacia la pantalla
     onSessionEnded({

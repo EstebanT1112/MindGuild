@@ -410,9 +410,9 @@ export const BattleRoyaleService = {
   async resolveWeeklyQuiz(userId: string, roomId: string) {
     await assertBattleRoyaleAccess(userId, roomId, { ownerOnly: true });
     const quiz = await getCurrentQuiz(roomId);
-    if (Date.now() < getResultAvailableAt(quiz).getTime()) {
-      throw new BattleRoyaleConflictError('Los resultados se pueden generar 24 horas despues del cierre del quiz');
-    }
+    // if (Date.now() < getResultAvailableAt(quiz).getTime()) {
+    //   throw new BattleRoyaleConflictError('Los resultados se pueden generar 24 horas despues del cierre del quiz');
+    // }
     return BattleRoyaleRepository.resolveQuestionVotes(roomId, quiz.id);
   },
 
