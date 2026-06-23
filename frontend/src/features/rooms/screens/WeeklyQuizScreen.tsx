@@ -114,7 +114,9 @@ export default function WeeklyQuizScreen() {
   const proposedCount = quizStatus?.proposed_count ?? questions.length;
   const canStartQuiz = Boolean(quizStatus?.can_start && !hasCompletedQuiz);
   const canValidateQuiz = Boolean(quizStatus?.must_validate);
-  const canResolveQuiz = Boolean(isOwner && quizStatus?.can_resolve);
+  // Agregamos una bandera para forzar la habilitación en la demo
+const isDemoMode = true; // CAMBIÁ A 'false' PARA PRODUCCIÓN
+const canResolveQuiz = Boolean(isOwner && (quizStatus?.can_resolve || isDemoMode));
 
   const handleStartQuiz = async () => {
     if (!accessToken || !roomId) return;
