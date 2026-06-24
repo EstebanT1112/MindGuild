@@ -100,8 +100,8 @@ export const sessionsService = {
       data.duration_minutes = Math.max(0, maxRealMinutes);
     }
 
-    if (data.duration_minutes >= 30 && (!data.evidence_photo_url || !data.summary_text?.trim())) {
-      throw new SessionValidationError('La evidencia fotografica y el resumen son requeridos para sesiones de 30 minutos o mas');
+    if (data.duration_minutes >= 1 && (!data.evidence_photo_url || !data.summary_text?.trim())) {
+      throw new SessionValidationError('La evidencia fotografica y el resumen son requeridos para sesiones validas');
     }
 
     const completedSession = await sessionsRepository.completeSession(session, data);

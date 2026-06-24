@@ -1,7 +1,7 @@
 import { pool } from '../../../common/config/db.js';
 import type { EndSessionDTO, StartSessionDTO, StudySession, StudySessionPause } from '../types/session.types.js';
 
-const VALID_MINUTES_THRESHOLD = 30;
+const VALID_MINUTES_THRESHOLD = 1;
 const ROOM_ACTIVITY_MINUTES_THRESHOLD = 30;
 const APP_TIMEZONE = 'America/Argentina/Buenos_Aires';
 
