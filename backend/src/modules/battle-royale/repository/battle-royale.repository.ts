@@ -771,7 +771,6 @@ export const BattleRoyaleRepository = {
         LEFT JOIN question_options qo ON qo.question_id = q.id
         WHERE q.room_id = $1
           AND qr.responder_user_id <> $2
-          AND q.author_id <> $2
           AND qr.status = 'pending'
           AND NOT EXISTS (
             SELECT 1

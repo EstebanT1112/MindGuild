@@ -344,7 +344,7 @@ const canResolveQuiz = Boolean(isOwner && (quizStatus?.can_resolve || isDemoMode
             )}
 
             <Pressable style={[styles.primaryBtn, actionLoading && styles.disabledBtn]} onPress={handleSubmitAnswer} disabled={actionLoading}>
-              {actionLoading ? <ActivityIndicator color="white" /> : <Text style={styles.primaryBtnText}>{currentQuestionIndex === attempt.questions.length - 1 ? 'Finalizar e ir a validacion' : 'Guardar y continuar'}</Text>}
+              {actionLoading ? <ActivityIndicator color="white" /> : <Text style={styles.primaryBtnText}>{currentQuestionIndex === attempt.questions.length - 1 ? 'Finalizar' : 'Guardar y continuar'}</Text>}
             </Pressable>
           </View>
         ) : null}
@@ -518,9 +518,9 @@ const canResolveQuiz = Boolean(isOwner && (quizStatus?.can_resolve || isDemoMode
             ) : null}
             {weeklyQuiz ? (
               <Pressable
-                style={[styles.resetBtn, (!quizResult || quizResult.status !== 'validated' || actionLoading) && styles.disabledBtn]}
+                style={[styles.resetBtn, actionLoading && styles.disabledBtn]}
                 onPress={handleResetQuiz}
-                disabled={!quizResult || quizResult.status !== 'validated' || actionLoading}
+                disabled={actionLoading}
               >
                 <Text style={styles.resetText}>Reiniciar cuestionario semanal</Text>
               </Pressable>
