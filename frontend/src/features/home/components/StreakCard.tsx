@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet } from "react-native";
-import { Flame, Shield } from 'lucide-react-native';
+import { Flame, FlameKindling, Shield, Snowflake } from 'lucide-react-native';
 
 type StreakStatus = 'inactive' | 'pending' | 'active' | 'shielded';
 
@@ -18,15 +18,15 @@ const STATUS_CONFIG: Record<StreakStatus, {
   statusText: string;
 }> = {
   inactive: {
-    accentColor: '#64748b',
-    softAccentColor: '#94a3b8',
-    borderColor: '#334155',
-    statusText: 'Inactiva',
-  },
-  pending: {
     accentColor: '#38bdf8',
     softAccentColor: '#7dd3fc',
     borderColor: '#38bdf833',
+    statusText: 'Inactiva',
+  },
+  pending: {
+    accentColor: '#94a3b8',
+    softAccentColor: '#cbd5e1',
+    borderColor: '#47556966',
     statusText: 'Pendiente',
   },
   active: {
@@ -36,7 +36,7 @@ const STATUS_CONFIG: Record<StreakStatus, {
     statusText: 'Activa',
   },
   shielded: {
-    accentColor: '#fb923c',
+    accentColor: '#facc15',
     softAccentColor: '#fde68a',
     borderColor: '#facc153d',
     statusText: 'Protegida',
@@ -53,25 +53,24 @@ export default function StreakCard({
   const resolvedStatus: StreakStatus = status ?? (active ? 'active' : currentStreak > 0 ? 'pending' : 'inactive');
   const config = STATUS_CONFIG[resolvedStatus];
   const shieldLabel = shieldUntil ? `Escudo hasta ${formatDateTime(shieldUntil)}` : 'Escudo activo';
+  const StatusIcon = getStatusIcon(resolvedStatus);
+  const iconSize = getStatusIconSize(resolvedStatus);
 
   return (
     <View style={[styles.card, { borderColor: config.borderColor }]}>
-      {resolvedStatus === 'shielded' && (
-        <View style={styles.shieldBadge}>
-          <Shield color="#facc15" size={15} strokeWidth={2.3} />
-        </View>
-      )}
       <View style={styles.row}>
         <View style={styles.left}>
           <View style={styles.icon}>
-            <Flame color={config.accentColor} size={46} strokeWidth={1.45} />
+            <StatusIcon color={config.accentColor} size={iconSize} strokeWidth={1.45} />
           </View>
 
           <View>
             <Text style={[styles.days, { color: config.accentColor }]}>
               {loading ? '--' : currentStreak} dias
             </Text>
-            <Text style={styles.label}>{resolvedStatus === 'shielded' ? shieldLabel : 'Racha actual'}</Text>
+            <Text style={styles.label} numberOfLines={1} ellipsizeMode="tail">
+              {resolvedStatus === 'shielded' ? shieldLabel : 'Racha actual'}
+            </Text>
           </View>
         </View>
 
@@ -105,10 +104,39 @@ function formatDateTime(value: string) {
   return value;
 }
 
+function getStatusIcon(status: StreakStatus) {
+  switch (status) {
+    case 'inactive':
+      return Snowflake;
+    case 'pending':
+      return FlameKindling;
+    case 'shielded':
+      return Shield;
+    case 'active':
+    default:
+      return Flame;
+  }
+}
+
+function getStatusIconSize(status: StreakStatus) {
+  switch (status) {
+    case 'inactive':
+      return 43;
+    case 'pending':
+      return 42;
+    case 'shielded':
+      return 42;
+    case 'active':
+    default:
+      return 46;
+  }
+}
+
 const styles = StyleSheet.create({
   card: {
     backgroundColor: "#1a1d29",
-    padding: 16,
+    padding: 14,
+    minHeight: 80,
     borderRadius: 20,
     marginBottom: 16,
     borderWidth: 1,
@@ -139,26 +167,17 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     color: "#aaa",
+    maxWidth: 150,
   },
   right: {
     alignItems: "flex-end",
-    paddingTop: 18,
+    justifyContent: 'center',
+    minWidth: 86,
   },
   status: {
-    fontSize: 16,
+    fontSize: 15,
+    lineHeight: 18,
     fontWeight: "bold",
-  },
-  shieldBadge: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#422006',
-    borderWidth: 1,
-    borderColor: '#facc15',
+    textAlign: 'right',
   },
 });
