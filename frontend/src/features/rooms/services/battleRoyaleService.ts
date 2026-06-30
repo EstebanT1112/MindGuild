@@ -30,6 +30,16 @@ export interface QuestionOption {
   sort_order: number;
 }
 
+export interface AcademicTopic {
+  id: string;
+  room_id: string;
+  name: string;
+  slug: string;
+  color: string | null;
+  created_by: string | null;
+  is_active: boolean;
+}
+
 export interface BattleQuestion {
   id: string;
   room_id: string;
@@ -45,6 +55,11 @@ export interface BattleQuestion {
     avatar_url: string | null;
   };
   options: QuestionOption[];
+  topics?: Array<{
+    id: string;
+    name: string;
+    color: string | null;
+  }>;
 }
 
 export interface WeeklyQuizInput {
@@ -62,6 +77,7 @@ export interface CreateQuestionInput {
     option_text: string;
     is_correct: boolean;
   }>;
+  topic_ids?: string[];
 }
 
 export interface WeeklyQuizStatusResult {
@@ -253,6 +269,49 @@ export async function fetchRoomQuestions(
 
   if (!response.ok) {
     throw new Error(data.error ?? 'No se pudieron cargar las preguntas');
+  }
+
+  return data;
+}
+
+export async function fetchRoomTopics(
+  accessToken: string,
+  roomId: string
+): Promise<AcademicTopic[]> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/battle-royale/rooms/${roomId}/topics`,
+    {},
+    accessToken
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudieron cargar los temas');
+  }
+
+  return data;
+}
+
+export async function createRoomTopic(
+  accessToken: string,
+  roomId: string,
+  input: { name: string; color?: string | null }
+): Promise<AcademicTopic> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/battle-royale/rooms/${roomId}/topics`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+    accessToken
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo crear el tema');
   }
 
   return data;
