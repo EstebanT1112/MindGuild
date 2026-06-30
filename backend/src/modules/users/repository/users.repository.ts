@@ -114,7 +114,7 @@ export const UsersRepository = {
     // Lee los acumulados semanales; si no hay fila, el service aplica defaults.
     const { rows } = await pool.query(
       `
-        SELECT total_minutes, consistency_score, academic_score, bosses_count
+        SELECT total_minutes, consistency_score, academic_score, bosses_count, 0 AS coins_earned
         FROM user_weekly_stats
         WHERE user_id = $1 AND week_year = $2
         LIMIT 1;
@@ -123,6 +123,28 @@ export const UsersRepository = {
     );
 
     return (rows[0] as WeeklyStats | undefined) ?? null;
+  },
+
+  async getWeeklyCoinsEarned(userId: string): Promise<number> {
+    const { rows } = await pool.query(
+      `
+        WITH current_week AS (
+          SELECT
+            date_trunc('week', (NOW() AT TIME ZONE $2)::timestamp) AS starts_at,
+            date_trunc('week', (NOW() AT TIME ZONE $2)::timestamp) + INTERVAL '7 days' AS ends_at
+        )
+        SELECT COALESCE(SUM(wm.amount), 0)::int AS coins_earned
+        FROM wallet_movements wm
+        CROSS JOIN current_week cw
+        WHERE wm.user_id = $1
+          AND wm.amount > 0
+          AND (wm.created_at AT TIME ZONE $2) >= cw.starts_at
+          AND (wm.created_at AT TIME ZONE $2) < cw.ends_at;
+      `,
+      [userId, 'America/Argentina/Buenos_Aires']
+    );
+
+    return Number(rows[0]?.coins_earned ?? 0);
   },
 
   async getVillageState(userId: string): Promise<VillageState | null> {

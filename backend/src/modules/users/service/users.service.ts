@@ -23,8 +23,9 @@ export const UsersService = {
       throw new UserNotFoundError('Usuario no encontrado');
     }
 
-    const [weeklyStats, village, streakCompletedToday, streakProtection, authProviders] = await Promise.all([
+    const [weeklyStats, weeklyCoinsEarned, village, streakCompletedToday, streakProtection, authProviders] = await Promise.all([
       UsersRepository.getWeeklyStats(userId, getWeekYear()),
+      UsersRepository.getWeeklyCoinsEarned(userId),
       UsersRepository.getVillageState(userId),
       UsersRepository.hasCompletedValidSessionToday(userId),
       UsersRepository.getStreakProtectionState(userId),
@@ -34,11 +35,12 @@ export const UsersService = {
 
     return {
       ...profile,
-      weekly_stats: weeklyStats ?? {
-        total_minutes: 0,
-        consistency_score: 0,
-        academic_score: 0,
-        bosses_count: 0,
+      weekly_stats: {
+        total_minutes: weeklyStats?.total_minutes ?? 0,
+        consistency_score: weeklyStats?.consistency_score ?? 0,
+        academic_score: weeklyStats?.academic_score ?? 0,
+        bosses_count: weeklyStats?.bosses_count ?? 0,
+        coins_earned: weeklyCoinsEarned,
       },
       village: village ?? {
         village_level: 1,

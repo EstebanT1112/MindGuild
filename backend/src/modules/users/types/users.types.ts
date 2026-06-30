@@ -16,6 +16,7 @@ export interface WeeklyStats {
   consistency_score: number;
   academic_score: number;
   bosses_count: number;
+  coins_earned: number;
 }
 
 export interface VillageState {
