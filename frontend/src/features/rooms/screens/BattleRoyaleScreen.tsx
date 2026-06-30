@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { BrainCircuit, CalendarClock, ChevronRight, Info, MessageCircle, Settings, Swords, ThermometerSun, UserPlus, Users } from 'lucide-react-native';
+import { BrainCircuit, CalendarClock, ChevronRight, FolderOpen, Info, MessageCircle, Settings, Swords, ThermometerSun, UserPlus, Users } from 'lucide-react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { useAppDataStore } from '../../../store/appDataStore';
@@ -280,6 +280,18 @@ export default function BattleRoyaleScreen() {
                             <Text style={styles.inviteFriendsBtnText}>Invitar Amigos a la Sala</Text>
                         </Pressable>
 
+                        <Pressable
+                            style={styles.vaultBtn}
+                            onPress={() => room?.id && navigation.navigate('RoomVault', {
+                                roomId: room.id,
+                                roomName: room.name,
+                                accentColor: '#14b8a6',
+                            })}
+                        >
+                            <FolderOpen color="white" size={22} />
+                            <Text style={styles.inviteFriendsBtnText}>The Vault</Text>
+                        </Pressable>
+
                         <Text style={styles.sectionLabel}>QUIZ SEMANAL</Text>
                         <Pressable
                             style={styles.quizBtn}
@@ -500,6 +512,7 @@ const styles = StyleSheet.create({
     resumeBtn: { backgroundColor: '#06b6d4' },
     finishBtn: { backgroundColor: '#dc2626' },
     inviteFriendsBtn: { backgroundColor: '#3b82f6', height: 52, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 14, marginTop: 12 },
+    vaultBtn: { backgroundColor: '#0f766e', height: 52, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 14 },
     inviteFriendsBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
     sectionLabel: { color: '#94a3b8', fontSize: 14, fontWeight: 'bold', marginTop: 25, marginBottom: 15 },
     quizBtn: { backgroundColor: '#a855f7', padding: 20, borderRadius: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
