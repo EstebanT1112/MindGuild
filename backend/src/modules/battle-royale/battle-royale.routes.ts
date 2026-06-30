@@ -6,6 +6,8 @@ const router = Router();
 router.get('/rooms/:roomId/config', BattleRoyaleController.getConfig);
 router.post('/rooms/:roomId/weekly-quiz', BattleRoyaleController.createWeeklyQuiz);
 router.patch('/rooms/:roomId/weekly-quiz/:quizId', BattleRoyaleController.updateWeeklyQuiz);
+router.get('/rooms/:roomId/topics', BattleRoyaleController.getTopics);
+router.post('/rooms/:roomId/topics', BattleRoyaleController.createTopic);
 router.get('/rooms/:roomId/questions', BattleRoyaleController.getQuestions);
 router.post('/rooms/:roomId/questions', BattleRoyaleController.createQuestion);
 router.delete('/rooms/:roomId/questions/:questionId', BattleRoyaleController.deleteQuestion);

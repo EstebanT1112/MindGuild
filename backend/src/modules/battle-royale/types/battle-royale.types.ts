@@ -56,6 +56,17 @@ export interface CreateQuestionInput {
   question_text?: string;
   expected_answer?: string;
   options?: QuestionOptionInput[];
+  topic_ids?: string[];
+}
+
+export interface AcademicTopic {
+  id: string;
+  room_id: string;
+  name: string;
+  slug: string;
+  color: string | null;
+  created_by: string | null;
+  is_active: boolean;
 }
 
 export interface BattleQuestion {
@@ -77,6 +88,11 @@ export interface BattleQuestion {
     option_text: string;
     is_correct: boolean;
     sort_order: number;
+  }>;
+  topics: Array<{
+    id: string;
+    name: string;
+    color: string | null;
   }>;
 }
 
