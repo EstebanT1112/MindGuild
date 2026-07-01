@@ -11,6 +11,7 @@ import DifficultyHeatmapScreen from '../features/analytics/screens/DifficultyHea
 import SmartDashboardScreen from '../features/analytics/screens/SmartDashboardScreen';
 import RoomVaultScreen from '../features/rooms/screens/RoomVaultScreen';
 import WalletScreen from '../features/wallet/screens/WalletScreen';
+import NotificationsScreen from '../features/notifications/screens/NotificationsScreen';
 import LoginScreen from '../features/auth/screens/LoginScreen';
 import RegisterScreen from '../features/auth/screens/RegisterScreen';
 import { useAuthStore } from '../store/authStore';
@@ -129,6 +130,7 @@ export default function AppNavigator() {
             <Stack.Screen name="DifficultyHeatmap" component={DifficultyHeatmapScreen} />
             <Stack.Screen name="RoomVault" component={RoomVaultScreen} />
             <Stack.Screen name="Wallet" component={WalletScreen} />
+            <Stack.Screen name="Notifications" component={NotificationsScreen} />
           </>
         ) : (
           <>
