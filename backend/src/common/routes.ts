@@ -14,6 +14,7 @@ import chatRoutes from '../modules/chat/chat.routes.js';
 import analyticsRoutes from '../modules/analytics/analytics.routes.js';
 import vaultRoutes from '../modules/vault/vault.routes.js';
 import teamsRoutes from '../modules/teams/teams.routes.js';
+import notificationRoutes from '../modules/notifications/notifications.routes.js';
 
 // --- INVITACIONES A SALAS ---
 import RoomInvitationsController from '../modules/room-invitations/controller/room-invitations.controller.js';
@@ -72,6 +73,9 @@ router.use('/wallet', checkAuth, walletRoutes);
 
 // --- ACHIEVEMENTS ---
 router.use('/achievements', checkAuth, achievementRoutes);
+
+// --- NOTIFICACIONES INTERNAS (E3) ---
+router.use('/', checkAuth, notificationRoutes);
 
 // --- MISIONES (RF-12) PROTEGIDAS ---
 router.get('/missions', checkAuth, missionsController.getUserMissions);
