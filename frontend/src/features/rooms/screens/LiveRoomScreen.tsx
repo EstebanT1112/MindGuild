@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { ChevronRight, FolderOpen, Info, MessageCircle, Settings, UserPlus, Users } from 'lucide-react-native';
+import { BarChart3, ChevronRight, FolderOpen, Info, MessageCircle, Settings, UserPlus, Users } from 'lucide-react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { useAppDataStore } from '../../../store/appDataStore';
@@ -277,6 +277,18 @@ export default function LiveRoomScreen() {
                 {!isEnfocused && (
                     <>
                         <RoomRanking roomId={room?.id} />
+                        <Pressable
+                            style={styles.dashboardBtn}
+                            onPress={() => room?.id && navigation.navigate('SmartDashboard', {
+                                roomId: room.id,
+                                roomName: room.name,
+                                scope: 'room',
+                                mode: 'survival',
+                            })}
+                        >
+                            <BarChart3 color="white" size={22} />
+                            <Text style={styles.inviteFriendsBtnText}>Dashboard de Sala</Text>
+                        </Pressable>
                         <Pressable style={[styles.configCard, styles.reviewCard]} onPress={() => setReviewPeersVisible(true)}>
                             <View style={[styles.configIconBox, { backgroundColor: '#14532d' }]}>
                                 <Users color="#22c55e" size={24} />
@@ -473,6 +485,7 @@ const styles = StyleSheet.create({
     headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     infoBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#1e293b', borderWidth: 1, borderColor: '#334155', alignItems: 'center', justifyContent: 'center' },
     inviteFriendsMainBtn: { backgroundColor: '#3b82f6', height: 52, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 14, marginTop: 12 },
+    dashboardBtn: { backgroundColor: '#0ea5e9', height: 52, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 14, marginTop: 12 },
     vaultBtn: { backgroundColor: '#0f766e', height: 52, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 14 },
     inviteFriendsBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
     configCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1e293b', padding: 15, borderRadius: 20, borderWidth: 1, borderColor: '#334155' },
