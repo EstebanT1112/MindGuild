@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { BrainCircuit, CalendarClock, ChevronRight, FolderOpen, Info, MessageCircle, Settings, Swords, ThermometerSun, UserPlus, Users } from 'lucide-react-native';
+import { BarChart3, BrainCircuit, CalendarClock, ChevronRight, FolderOpen, Info, MessageCircle, Settings, Swords, ThermometerSun, UserPlus, Users } from 'lucide-react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { useAppDataStore } from '../../../store/appDataStore';
@@ -314,6 +314,15 @@ export default function BattleRoyaleScreen() {
 
                         <Text style={styles.sectionLabel}>ANALISIS</Text>
                         <Pressable
+                            style={styles.dashboardBtn}
+                            onPress={() => room?.id && navigation.navigate('SmartDashboard', { roomId: room.id, roomName: room.name, scope: 'room' })}
+                        >
+                            <BarChart3 color="white" size={24} />
+                            <Text style={styles.quizBtnText}>Dashboard de Sala</Text>
+                        </Pressable>
+                        <Text style={styles.hintText}>Resumen semanal de estudio, quizzes e insights de esta sala.</Text>
+
+                        <Pressable
                             style={styles.heatmapBtn}
                             onPress={() => room?.id && navigation.navigate('DifficultyHeatmap', { roomId: room.id, roomName: room.name, scope: 'room' })}
                         >
@@ -517,6 +526,7 @@ const styles = StyleSheet.create({
     sectionLabel: { color: '#94a3b8', fontSize: 14, fontWeight: 'bold', marginTop: 25, marginBottom: 15 },
     quizBtn: { backgroundColor: '#a855f7', padding: 20, borderRadius: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
     practiceBtn: { backgroundColor: '#22c55e', padding: 20, borderRadius: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+    dashboardBtn: { backgroundColor: '#0ea5e9', padding: 20, borderRadius: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
     heatmapBtn: { backgroundColor: '#f97316', padding: 20, borderRadius: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
     quizBtnText: { color: 'white', fontWeight: '900', fontSize: 18 },
     hintText: { color: '#64748b', fontSize: 12, textAlign: 'center', marginTop: 10 },

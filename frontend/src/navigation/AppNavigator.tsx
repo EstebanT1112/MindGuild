@@ -8,6 +8,7 @@ import LiveRoomScreen from '../features/rooms/screens/LiveRoomScreen';
 import BattleRoyaleScreen from '../features/rooms/screens/BattleRoyaleScreen';
 import WeeklyQuizScreen from '../features/rooms/screens/WeeklyQuizScreen';
 import DifficultyHeatmapScreen from '../features/analytics/screens/DifficultyHeatmapScreen';
+import SmartDashboardScreen from '../features/analytics/screens/SmartDashboardScreen';
 import RoomVaultScreen from '../features/rooms/screens/RoomVaultScreen';
 import WalletScreen from '../features/wallet/screens/WalletScreen';
 import LoginScreen from '../features/auth/screens/LoginScreen';
@@ -124,6 +125,7 @@ export default function AppNavigator() {
             <Stack.Screen name="LiveRoom" component={LiveRoomScreen} />
             <Stack.Screen name="BattleRoyale" component={BattleRoyaleScreen} />
             <Stack.Screen name="WeeklyQuiz" component={WeeklyQuizScreen} />
+            <Stack.Screen name="SmartDashboard" component={SmartDashboardScreen} />
             <Stack.Screen name="DifficultyHeatmap" component={DifficultyHeatmapScreen} />
             <Stack.Screen name="RoomVault" component={RoomVaultScreen} />
             <Stack.Screen name="Wallet" component={WalletScreen} />

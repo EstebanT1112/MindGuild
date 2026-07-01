@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { Brain, ChevronRight, Clock3, Inbox, Target, Users } from 'lucide-react-native';
+import { BarChart3, Brain, ChevronRight, Clock3, Inbox, Target, Users } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { SessionExpiredError } from '../../../services/authenticatedFetch';
 import { useAppDataStore } from '../../../store/appDataStore';
@@ -174,6 +174,19 @@ export default function HomeScreen() {
               <Text style={styles.weekSummaryLabel}>Ganadas</Text>
             </View>
           </View>
+          <Pressable
+            style={styles.dashboardLink}
+            onPress={() => navigation.navigate('SmartDashboard', { scope: 'global' })}
+          >
+            <View style={styles.dashboardIconBox}>
+              <BarChart3 color="#38bdf8" size={18} />
+            </View>
+            <View style={styles.dashboardTextBox}>
+              <Text style={styles.dashboardTitle}>Ver dashboard inteligente</Text>
+              <Text style={styles.dashboardSub}>Comparacion semanal e insights</Text>
+            </View>
+            <ChevronRight color="#64748b" size={18} />
+          </Pressable>
         </View>
 
         <Text style={styles.section}>MISIONES ACTIVAS</Text>
@@ -239,6 +252,11 @@ const styles = StyleSheet.create({
   weekCoinIcon: { borderRadius: 12, backgroundColor: '#facc15', paddingTop: 1 },
   weekSummaryValue: { color: 'white', fontSize: 16, fontWeight: '900', marginTop: 6 },
   weekSummaryLabel: { color: '#94a3b8', fontSize: 11, fontWeight: '700', marginTop: 2 },
+  dashboardLink: { marginTop: 12, backgroundColor: '#0f172a', borderRadius: 14, borderWidth: 1, borderColor: '#233044', padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  dashboardIconBox: { width: 34, height: 34, borderRadius: 8, backgroundColor: '#082f49', alignItems: 'center', justifyContent: 'center' },
+  dashboardTextBox: { flex: 1 },
+  dashboardTitle: { color: '#f8fafc', fontSize: 13, fontWeight: '900' },
+  dashboardSub: { color: '#94a3b8', fontSize: 11, marginTop: 2 },
   roomCard: { backgroundColor: '#1a1d29', borderRadius: 18, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: '#2a2f45', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   roomLeft: { flex: 1 },
   roomName: { color: '#fff', fontWeight: 'bold', fontSize: 15, marginBottom: 8 },
