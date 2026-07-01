@@ -40,6 +40,8 @@ export const rankingsService = {
         position: index + 1,
         temporary_role: item.temporary_role ?? null,
         is_boss: Boolean(item.is_boss),
+        team_name: item.team_name ?? null,
+        team_color: item.team_color ?? null,
       };
     });
 

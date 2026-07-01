@@ -8,6 +8,8 @@ export interface RankingEntry {
   position: number;
   temporary_role?: string | null;
   is_boss?: boolean;
+  team_name?: string | null;
+  team_color?: string | null;
 }
 
 export interface RoomTimeRankingEntry {

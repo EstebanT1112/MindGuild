@@ -79,6 +79,8 @@ export const RoomsService = {
       throw new RoomConflictError('No se pudo procesar la salida de sala');
     }
 
+    await RoomsRepository.deactivateTeamMembershipsInRoom(userId, roomId);
+
     if (result.role === 'owner') {
       await RoomsRepository.transferOwnershipToOldestActiveMember(roomId);
     }
@@ -140,11 +142,15 @@ export const RoomsService = {
       throw new RoomNotFoundError('Sala no encontrada o inactiva');
     }
 
-    const members = await RoomsRepository.getActiveMembersWithRoles(roomId, rankingsService.getCurrentWeekYear());
+    const [members, teams] = await Promise.all([
+      RoomsRepository.getActiveMembersWithRoles(roomId, rankingsService.getCurrentWeekYear()),
+      room.teams_enabled ? RoomsRepository.getRoomTeamSummaries(roomId) : Promise.resolve([]),
+    ]);
 
     return {
       ...room,
       members,
+      teams,
     };
   },
 
@@ -236,11 +242,15 @@ export const RoomsService = {
       throw new RoomNotFoundError('Sala no encontrada o inactiva');
     }
 
-    const members = await RoomsRepository.getActiveMembersWithRoles(roomId, rankingsService.getCurrentWeekYear());
+    const [members, teams] = await Promise.all([
+      RoomsRepository.getActiveMembersWithRoles(roomId, rankingsService.getCurrentWeekYear()),
+      updatedRoom.teams_enabled ? RoomsRepository.getRoomTeamSummaries(roomId) : Promise.resolve([]),
+    ]);
 
     return {
       ...updatedRoom,
       members,
+      teams,
     };
   },
 
@@ -276,6 +286,8 @@ export const RoomsService = {
     if (!result) {
       throw new RoomConflictError('No se pudo expulsar al integrante');
     }
+
+    await RoomsRepository.deactivateTeamMembershipsInRoom(targetUserId, roomId);
 
     return { success: true, message: 'Integrante expulsado con exito' };
   }, // ⚡ CORRECCIÓN: Se cerró correctamente el método anterior antes de declarar el siguiente

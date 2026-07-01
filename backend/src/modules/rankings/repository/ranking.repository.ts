@@ -153,6 +153,8 @@ export const rankingsRepository = {
             p.id,
             p.username,
             p.avatar_url,
+            team.name AS team_name,
+            team.color AS team_color,
             tr.role_label AS temporary_role,
             COALESCE(bw.boss_user_id = p.id, false) AS is_boss,
             COALESCE(SUM(ru.total_minutes), 0)::int AS total_minutes,
@@ -161,6 +163,14 @@ export const rankingsRepository = {
             COALESCE(SUM(ru.bosses_count), 0)::int AS bosses_count
           FROM room_members rm
           INNER JOIN profiles p ON p.id = rm.user_id
+          LEFT JOIN team_members tm
+            ON tm.room_id = rm.room_id
+            AND tm.user_id = rm.user_id
+            AND tm.is_active = true
+          LEFT JOIN teams team
+            ON team.id = tm.team_id
+            AND team.room_id = rm.room_id
+            AND team.is_active = true
           LEFT JOIN room_user_weekly_stats ru
             ON ru.room_id = rm.room_id
             AND ru.user_id = rm.user_id
@@ -173,7 +183,7 @@ export const rankingsRepository = {
             AND tr.week_year = $2
           WHERE rm.room_id = $1
             AND rm.is_active = true
-          GROUP BY p.id, p.username, p.avatar_url, tr.role_label, bw.boss_user_id
+          GROUP BY p.id, p.username, p.avatar_url, team.name, team.color, tr.role_label, bw.boss_user_id
           ORDER BY COALESCE(SUM(ru.${column}), 0) DESC, p.username ASC
           LIMIT 50;
         `,
@@ -188,6 +198,8 @@ export const rankingsRepository = {
           p.id,
           p.username,
           p.avatar_url,
+          team.name AS team_name,
+          team.color AS team_color,
           tr.role_label AS temporary_role,
           COALESCE(bw.boss_user_id = p.id, false) AS is_boss,
           COALESCE(SUM(ru.total_minutes), 0)::int AS total_minutes,
@@ -196,6 +208,14 @@ export const rankingsRepository = {
           COALESCE(SUM(ru.bosses_count), 0)::int AS bosses_count
         FROM room_members rm
         INNER JOIN profiles p ON p.id = rm.user_id
+        LEFT JOIN team_members tm
+          ON tm.room_id = rm.room_id
+          AND tm.user_id = rm.user_id
+          AND tm.is_active = true
+        LEFT JOIN teams team
+          ON team.id = tm.team_id
+          AND team.room_id = rm.room_id
+          AND team.is_active = true
         LEFT JOIN room_user_weekly_stats ru
           ON ru.room_id = rm.room_id
           AND ru.user_id = rm.user_id
@@ -209,7 +229,7 @@ export const rankingsRepository = {
           AND tr.week_year = $3
         WHERE rm.room_id = $2
           AND rm.is_active = true
-        GROUP BY p.id, p.username, p.avatar_url, tr.role_label, bw.boss_user_id
+        GROUP BY p.id, p.username, p.avatar_url, team.name, team.color, tr.role_label, bw.boss_user_id
         ORDER BY COALESCE(SUM(ru.${column}), 0) DESC, p.username ASC
         LIMIT 50;
       `
