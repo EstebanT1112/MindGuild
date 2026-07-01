@@ -1,7 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Check, X } from 'lucide-react-native';
-import { createRoomQuestion, type BattleQuestionType } from '../services/battleRoyaleService';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Check, Plus, X } from 'lucide-react-native';
+import {
+    createRoomQuestion,
+    createRoomTopic,
+    fetchRoomTopics,
+    type AcademicTopic,
+    type BattleQuestionType,
+    type CreateQuestionInput,
+} from '../services/battleRoyaleService';
 
 interface NewQuestionModalProps {
     visible: boolean;
@@ -23,24 +30,90 @@ export default function NewQuestionModal({
     const [expectedAnswer, setExpectedAnswer] = useState('');
     const [options, setOptions] = useState(['', '', '', '']);
     const [selectedOption, setSelectedOption] = useState(0);
+    const [topics, setTopics] = useState<AcademicTopic[]>([]);
+    const [selectedTopicIds, setSelectedTopicIds] = useState<string[]>([]);
+    const [newTopicName, setNewTopicName] = useState('');
+    const [topicsLoading, setTopicsLoading] = useState(false);
+    const [creatingTopic, setCreatingTopic] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (!visible) return;
-        reset();
-    }, [visible]);
-
-    const reset = () => {
+    const reset = useCallback(() => {
         setType('multiple_choice');
         setQuestionText('');
         setExpectedAnswer('');
         setOptions(['', '', '', '']);
         setSelectedOption(0);
+        setSelectedTopicIds([]);
+        setNewTopicName('');
+        setErrorMessage(null);
         setSaving(false);
-    };
+    }, []);
+
+    const loadTopics = useCallback(async () => {
+        if (!accessToken || !roomId) return;
+
+        setTopicsLoading(true);
+        try {
+            setTopics(await fetchRoomTopics(accessToken, roomId));
+        } catch (error: any) {
+            setErrorMessage(error.message ?? 'No se pudieron cargar los temas.');
+        } finally {
+            setTopicsLoading(false);
+        }
+    }, [accessToken, roomId]);
+
+    useEffect(() => {
+        if (!visible) return;
+        reset();
+        loadTopics();
+    }, [visible, reset, loadTopics]);
 
     const handleOptionChange = (index: number, value: string) => {
         setOptions(current => current.map((option, i) => (i === index ? value : option)));
+    };
+
+    const toggleTopic = (topicId: string) => {
+        setSelectedTopicIds(current => {
+            if (current.includes(topicId)) {
+                return current.filter(id => id !== topicId);
+            }
+
+            if (current.length >= 5) {
+                setErrorMessage('Podes seleccionar hasta 5 temas por pregunta.');
+                return current;
+            }
+
+            setErrorMessage(null);
+            return [...current, topicId];
+        });
+    };
+
+    const handleCreateTopic = async () => {
+        if (!accessToken || !roomId || creatingTopic) return;
+
+        const name = newTopicName.trim();
+
+        if (name.length < 2) {
+            setErrorMessage('El tema debe tener al menos 2 caracteres.');
+            return;
+        }
+
+        setCreatingTopic(true);
+        setErrorMessage(null);
+        try {
+            const topic = await createRoomTopic(accessToken, roomId, { name });
+            setTopics(current => {
+                const withoutDuplicate = current.filter(item => item.id !== topic.id);
+                return [...withoutDuplicate, topic].sort((a, b) => a.name.localeCompare(b.name));
+            });
+            setSelectedTopicIds(current => current.includes(topic.id) ? current : [...current, topic.id].slice(0, 5));
+            setNewTopicName('');
+        } catch (error: any) {
+            setErrorMessage(error.message ?? 'No se pudo crear el tema.');
+        } finally {
+            setCreatingTopic(false);
+        }
     };
 
     const handleSubmit = async () => {
@@ -49,14 +122,15 @@ export default function NewQuestionModal({
         const trimmedQuestion = questionText.trim();
 
         if (!trimmedQuestion) {
-            Alert.alert('Pregunta requerida', 'Escribi el enunciado de la pregunta.');
+            setErrorMessage('Escribi el enunciado de la pregunta.');
             return;
         }
 
-        const payload = type === 'multiple_choice'
+        const payload: CreateQuestionInput = type === 'multiple_choice'
             ? {
                 type,
                 question_text: trimmedQuestion,
+                topic_ids: selectedTopicIds,
                 options: options
                     .map((option, index) => ({
                         option_text: option.trim(),
@@ -68,8 +142,10 @@ export default function NewQuestionModal({
                 type,
                 question_text: trimmedQuestion,
                 expected_answer: expectedAnswer.trim(),
+                topic_ids: selectedTopicIds,
             };
 
+        setErrorMessage(null);
         setSaving(true);
         try {
             await createRoomQuestion(accessToken, roomId, payload);
@@ -77,7 +153,7 @@ export default function NewQuestionModal({
             reset();
             onClose();
         } catch (error: any) {
-            Alert.alert('No se pudo crear la pregunta', error.message ?? 'Revisa los datos e intenta nuevamente.');
+            setErrorMessage(error.message ?? 'Revisa los datos e intenta nuevamente.');
         } finally {
             setSaving(false);
         }
@@ -125,6 +201,53 @@ export default function NewQuestionModal({
                             onChangeText={setQuestionText}
                         />
 
+                        <View style={styles.topicSection}>
+                            <Text style={styles.label}>Tema academico</Text>
+                            {topicsLoading ? (
+                                <ActivityIndicator color="#38bdf8" style={styles.topicLoader} />
+                            ) : topics.length === 0 ? (
+                                <Text style={styles.hint}>Sin temas creados. Podes crear uno o dejar la pregunta sin clasificar.</Text>
+                            ) : (
+                                <View style={styles.topicList}>
+                                    {topics.map(topic => {
+                                        const selected = selectedTopicIds.includes(topic.id);
+
+                                        return (
+                                            <Pressable
+                                                key={topic.id}
+                                                style={[styles.topicChip, selected && styles.topicChipActive]}
+                                                onPress={() => toggleTopic(topic.id)}
+                                            >
+                                                <Text style={[styles.topicText, selected && styles.topicTextActive]}>
+                                                    {topic.name}
+                                                </Text>
+                                            </Pressable>
+                                        );
+                                    })}
+                                </View>
+                            )}
+                            <View style={styles.newTopicRow}>
+                                <TextInput
+                                    style={styles.newTopicInput}
+                                    placeholder="Nuevo tema"
+                                    placeholderTextColor="#4b5563"
+                                    value={newTopicName}
+                                    onChangeText={setNewTopicName}
+                                />
+                                <Pressable
+                                    style={[styles.newTopicBtn, creatingTopic && styles.disabledBtn]}
+                                    onPress={handleCreateTopic}
+                                    disabled={creatingTopic}
+                                >
+                                    {creatingTopic ? (
+                                        <ActivityIndicator color="white" size="small" />
+                                    ) : (
+                                        <Plus color="white" size={18} />
+                                    )}
+                                </Pressable>
+                            </View>
+                        </View>
+
                         {type === 'multiple_choice' ? (
                             <View style={{ marginTop: 15 }}>
                                 <Text style={styles.label}>Opciones</Text>
@@ -161,6 +284,8 @@ export default function NewQuestionModal({
                                 />
                             </View>
                         )}
+
+                        {!!errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
 
                         <Pressable
                             style={[styles.addBtn, saving && styles.disabledBtn]}
@@ -199,7 +324,18 @@ const styles = StyleSheet.create({
     radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#4b5563', alignItems: 'center', justifyContent: 'center' },
     radioActive: { borderColor: '#22c55e', backgroundColor: '#22c55e' },
     optionInput: { flex: 1, backgroundColor: '#0f172a', color: 'white', padding: 10, borderRadius: 10, borderWidth: 1, borderColor: '#334155' },
+    topicSection: { marginTop: 15 },
+    topicLoader: { alignSelf: 'flex-start', marginBottom: 10 },
+    topicList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
+    topicChip: { borderWidth: 1, borderColor: '#334155', backgroundColor: '#0f172a', paddingHorizontal: 10, paddingVertical: 7, borderRadius: 999 },
+    topicChipActive: { borderColor: '#38bdf8', backgroundColor: '#0c4a6e' },
+    topicText: { color: '#94a3b8', fontSize: 12, fontWeight: '800' },
+    topicTextActive: { color: 'white' },
+    newTopicRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
+    newTopicInput: { flex: 1, backgroundColor: '#0f172a', color: 'white', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: '#334155' },
+    newTopicBtn: { width: 44, borderRadius: 12, backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center' },
     hint: { color: '#64748b', fontSize: 12, marginTop: 5, textAlign: 'center' },
+    errorText: { color: '#fca5a5', fontSize: 13, fontWeight: '700', marginTop: 14, textAlign: 'center' },
     addBtn: { backgroundColor: '#22c55e', height: 54, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginTop: 25 },
     disabledBtn: { opacity: 0.7 },
     addBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },

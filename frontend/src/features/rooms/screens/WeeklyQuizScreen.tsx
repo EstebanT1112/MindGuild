@@ -545,6 +545,19 @@ export default function WeeklyQuizScreen() {
               <Text style={styles.questionMeta}>
                 {question.type === 'multiple_choice' ? 'Multiple choice' : 'Desarrollo'} - {question.author.username}
               </Text>
+              <View style={styles.topicRow}>
+                {question.topics && question.topics.length > 0 ? (
+                  question.topics.map(topic => (
+                    <View key={topic.id} style={[styles.topicChip, topic.color ? { borderColor: topic.color } : null]}>
+                      <Text style={styles.topicText}>{topic.name}</Text>
+                    </View>
+                  ))
+                ) : (
+                  <View style={styles.topicChipMuted}>
+                    <Text style={styles.topicTextMuted}>Sin clasificar</Text>
+                  </View>
+                )}
+              </View>
 
               {question.type === 'multiple_choice' && question.options.length > 0 && (
                 <View style={styles.optionsPreview}>
@@ -721,6 +734,11 @@ const styles = StyleSheet.create({
   questionCard: { backgroundColor: '#1e293b', borderRadius: 22, padding: 18, borderWidth: 1, borderColor: '#334155', marginBottom: 12 },
   questionText: { color: 'white', fontWeight: 'bold', fontSize: 16, marginBottom: 6 },
   questionMeta: { color: '#94a3b8', fontSize: 12, marginBottom: 12 },
+  topicRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
+  topicChip: { borderWidth: 1, borderColor: '#38bdf8', backgroundColor: '#082f49', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 },
+  topicText: { color: '#e0f2fe', fontSize: 11, fontWeight: '800' },
+  topicChipMuted: { borderWidth: 1, borderColor: '#334155', backgroundColor: '#0f172a', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 },
+  topicTextMuted: { color: '#64748b', fontSize: 11, fontWeight: '800' },
   optionsPreview: { gap: 6, marginBottom: 14 },
   optionPreviewText: { color: '#94a3b8', fontSize: 13 },
   correctOption: { color: '#22c55e', fontWeight: 'bold' },

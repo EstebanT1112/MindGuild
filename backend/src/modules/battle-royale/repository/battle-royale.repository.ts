@@ -3,6 +3,7 @@ import type {
   BattleMembership,
   BattleQuestion,
   BattleQuestionType,
+  AcademicTopic,
   BattleRoom,
   QuestionOptionInput,
   AssignedQuizQuestion,
@@ -225,6 +226,7 @@ export const BattleRoyaleRepository = {
     expectedAnswer: string | null;
     weekYear: string;
     options: Required<QuestionOptionInput>[];
+    topicIds: string[];
   }): Promise<{ id: string; status: string }> {
     const client = await pool.connect();
 
@@ -269,6 +271,21 @@ export const BattleRoyaleRepository = {
         }
       }
 
+      if (input.topicIds.length > 0) {
+        await client.query(
+          `
+            INSERT INTO question_topics (question_id, topic_id)
+            SELECT $1, academic_topics.id
+            FROM academic_topics
+            WHERE academic_topics.room_id = $2
+              AND academic_topics.is_active = true
+              AND academic_topics.id = ANY($3::uuid[])
+            ON CONFLICT DO NOTHING;
+          `,
+          [question.id, input.roomId, input.topicIds]
+        );
+      }
+
       await client.query('COMMIT');
       return question;
     } catch (error) {
@@ -277,6 +294,63 @@ export const BattleRoyaleRepository = {
     } finally {
       client.release();
     }
+  },
+
+  async listRoomTopics(roomId: string): Promise<AcademicTopic[]> {
+    const { rows } = await pool.query(
+      `
+        SELECT id, room_id, name, slug, color, created_by, is_active
+        FROM academic_topics
+        WHERE room_id = $1
+          AND is_active = true
+        ORDER BY name ASC;
+      `,
+      [roomId]
+    );
+
+    return rows as AcademicTopic[];
+  },
+
+  async countActiveTopicsByIds(roomId: string, topicIds: string[]): Promise<number> {
+    if (topicIds.length === 0) return 0;
+
+    const { rows } = await pool.query(
+      `
+        SELECT COUNT(*)::int AS count
+        FROM academic_topics
+        WHERE room_id = $1
+          AND is_active = true
+          AND id = ANY($2::uuid[]);
+      `,
+      [roomId, topicIds]
+    );
+
+    return Number(rows[0]?.count ?? 0);
+  },
+
+  async createRoomTopic(input: {
+    roomId: string;
+    name: string;
+    slug: string;
+    color: string | null;
+    createdBy: string;
+  }): Promise<AcademicTopic> {
+    const { rows } = await pool.query(
+      `
+        INSERT INTO academic_topics (room_id, name, slug, color, created_by)
+        VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (room_id, slug)
+        WHERE is_active = true
+        DO UPDATE SET
+          name = EXCLUDED.name,
+          color = COALESCE(EXCLUDED.color, academic_topics.color),
+          updated_at = NOW()
+        RETURNING id, room_id, name, slug, color, created_by, is_active;
+      `,
+      [input.roomId, input.name, input.slug, input.color, input.createdBy]
+    );
+
+    return rows[0] as AcademicTopic;
   },
 
   async findQuestionOwnership(questionId: string): Promise<{
@@ -348,7 +422,12 @@ export const BattleRoyaleRepository = {
             'username', p.username,
             'avatar_url', p.avatar_url
           ) AS author,
-          COALESCE(
+          options.options,
+          topics.topics
+        FROM questions q
+        JOIN profiles p ON p.id = q.author_id
+        LEFT JOIN LATERAL (
+          SELECT COALESCE(
             json_agg(
               json_build_object(
                 'id', qo.id,
@@ -357,16 +436,32 @@ export const BattleRoyaleRepository = {
                 'sort_order', qo.sort_order
               )
               ORDER BY qo.sort_order ASC
-            ) FILTER (WHERE qo.id IS NOT NULL),
-            '[]'
+            ),
+            '[]'::json
           ) AS options
-        FROM questions q
-        JOIN profiles p ON p.id = q.author_id
-        LEFT JOIN question_options qo ON qo.question_id = q.id
+          FROM question_options qo
+          WHERE qo.question_id = q.id
+        ) options ON true
+        LEFT JOIN LATERAL (
+          SELECT COALESCE(
+            json_agg(
+              json_build_object(
+                'id', at.id,
+                'name', at.name,
+                'color', at.color
+              )
+              ORDER BY at.name ASC
+            ),
+            '[]'::json
+          ) AS topics
+          FROM question_topics qt
+          JOIN academic_topics at ON at.id = qt.topic_id
+          WHERE qt.question_id = q.id
+            AND at.is_active = true
+        ) topics ON true
         WHERE q.room_id = $1
           AND q.author_id = $2
           AND q.status IN ('pending', 'answered', 'in_validation')
-        GROUP BY q.id, p.id
         ORDER BY q.created_at DESC;
       `,
       [roomId, authorId]
@@ -1200,6 +1295,7 @@ export const BattleRoyaleRepository = {
       await client.query('DELETE FROM question_responses WHERE attempt_id IN (SELECT id FROM quiz_attempts WHERE quiz_id = $1) OR question_id = ANY($2::uuid[]);', [quizId, questionIds]);
       await client.query('DELETE FROM quiz_question_assignments WHERE quiz_id = $1 OR question_id = ANY($2::uuid[]);', [quizId, questionIds]);
       await client.query('DELETE FROM quiz_questions WHERE quiz_id = $1 OR question_id = ANY($2::uuid[]);', [quizId, questionIds]);
+      await client.query('DELETE FROM question_topics WHERE question_id = ANY($1::uuid[]);', [questionIds]);
       await client.query('DELETE FROM question_options WHERE question_id = ANY($1::uuid[]);', [questionIds]);
       await client.query('DELETE FROM questions WHERE id = ANY($1::uuid[]);', [questionIds]);
       await client.query('DELETE FROM quiz_attempts WHERE quiz_id = $1;', [quizId]);
@@ -1299,6 +1395,7 @@ async function deleteQuestionCascade(client: any, questionId: string) {
   await client.query('DELETE FROM question_responses WHERE question_id = $1;', [questionId]);
   await client.query('DELETE FROM quiz_question_assignments WHERE question_id = $1;', [questionId]);
   await client.query('DELETE FROM quiz_questions WHERE question_id = $1;', [questionId]);
+  await client.query('DELETE FROM question_topics WHERE question_id = $1;', [questionId]);
   await client.query('DELETE FROM question_options WHERE question_id = $1;', [questionId]);
   await client.query('DELETE FROM questions WHERE id = $1;', [questionId]);
 }

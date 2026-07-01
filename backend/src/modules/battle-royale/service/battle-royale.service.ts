@@ -100,9 +100,46 @@ export const BattleRoyaleService = {
     return BattleRoyaleRepository.listRoomQuestions(roomId, userId);
   },
 
+  async listTopics(userId: string, roomId: string) {
+    await assertBattleRoyaleAccess(userId, roomId);
+    return BattleRoyaleRepository.listRoomTopics(roomId);
+  },
+
+  async createTopic(userId: string, roomId: string, input: { name?: string; color?: string | null } = {}) {
+    await assertBattleRoyaleAccess(userId, roomId);
+    const name = String(input.name ?? '').trim();
+    const color = normalizeTopicColor(input.color);
+
+    if (name.length < 2 || name.length > 50) {
+      throw new BattleRoyaleValidationError('El tema debe tener entre 2 y 50 caracteres');
+    }
+
+    const slug = slugify(name);
+
+    if (!slug) {
+      throw new BattleRoyaleValidationError('El tema debe incluir letras o numeros');
+    }
+
+    return BattleRoyaleRepository.createRoomTopic({
+      roomId,
+      name,
+      slug,
+      color,
+      createdBy: userId,
+    });
+  },
+
   async createQuestion(userId: string, roomId: string, input: CreateQuestionInput) {
     await assertBattleRoyaleAccess(userId, roomId);
     const question = normalizeQuestionInput(input);
+
+    if (question.topicIds.length > 0) {
+      const validTopicsCount = await BattleRoyaleRepository.countActiveTopicsByIds(roomId, question.topicIds);
+
+      if (validTopicsCount !== question.topicIds.length) {
+        throw new BattleRoyaleValidationError('Uno o mas temas no pertenecen a esta sala');
+      }
+    }
 
     return BattleRoyaleRepository.createQuestion({
       roomId,
@@ -583,6 +620,7 @@ function normalizeWeeklyQuizInput(input: WeeklyQuizInput = {}, fallback?: Requir
 function normalizeQuestionInput(input: CreateQuestionInput = {}) {
   const type = String(input.type ?? '').trim() as BattleQuestionType;
   const questionText = String(input.question_text ?? '').trim();
+  const topicIds = normalizeTopicIds(input.topic_ids);
 
   if (!['multiple_choice', 'open'].includes(type)) {
     throw new BattleRoyaleValidationError('type debe ser multiple_choice u open');
@@ -604,6 +642,7 @@ function normalizeQuestionInput(input: CreateQuestionInput = {}) {
       questionText,
       expectedAnswer,
       options: [],
+      topicIds,
     };
   }
 
@@ -629,7 +668,47 @@ function normalizeQuestionInput(input: CreateQuestionInput = {}) {
     questionText,
     expectedAnswer: null,
     options,
+    topicIds,
   };
+}
+
+function normalizeTopicIds(topicIds?: string[]) {
+  if (!Array.isArray(topicIds)) return [];
+
+  const normalized = [...new Set(topicIds.map(topicId => String(topicId).trim()).filter(Boolean))];
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  if (normalized.length > 5) {
+    throw new BattleRoyaleValidationError('Una pregunta puede tener hasta 5 temas');
+  }
+
+  if (normalized.some(topicId => !uuidRegex.test(topicId))) {
+    throw new BattleRoyaleValidationError('topic_ids contiene un valor invalido');
+  }
+
+  return normalized;
+}
+
+function normalizeTopicColor(color?: string | null) {
+  if (color == null || String(color).trim() === '') return null;
+
+  const normalized = String(color).trim();
+
+  if (!/^#[0-9A-Fa-f]{6}$/.test(normalized)) {
+    throw new BattleRoyaleValidationError('color debe tener formato hexadecimal');
+  }
+
+  return normalized;
+}
+
+function slugify(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
 }
 
 function normalizePracticeLimit(limit?: number) {

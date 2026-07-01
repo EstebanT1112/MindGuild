@@ -53,6 +53,28 @@ export const BattleRoyaleController = {
     }
   },
 
+  async getTopics(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      const roomId = getParam(req, 'roomId');
+      const result = await BattleRoyaleService.listTopics(userId, roomId);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      return handleBattleRoyaleError(error, res, 'Error interno al listar temas');
+    }
+  },
+
+  async createTopic(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      const roomId = getParam(req, 'roomId');
+      const result = await BattleRoyaleService.createTopic(userId, roomId, req.body);
+      return res.status(201).json(result);
+    } catch (error: any) {
+      return handleBattleRoyaleError(error, res, 'Error interno al crear tema');
+    }
+  },
+
   async createQuestion(req: Request, res: Response) {
     try {
       const userId = getUserId(req);

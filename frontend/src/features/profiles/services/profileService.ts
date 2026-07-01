@@ -20,6 +20,7 @@ export interface FullProfile {
     consistency_score: number;
     academic_score: number;
     bosses_count: number;
+    coins_earned: number;
   };
   village: {
     village_level: number;
