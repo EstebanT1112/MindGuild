@@ -21,6 +21,54 @@ export interface DifficultyHeatmapResult {
   topics: DifficultyHeatmapTopic[];
 }
 
+export interface DashboardSummary {
+  total_minutes: number;
+  sessions_count: number;
+  days_active: number;
+  avg_quiz_score: number;
+  academic_score: number;
+}
+
+export interface DashboardResult {
+  week_year: string;
+  scope: 'global' | 'room';
+  room_id?: string;
+  summary: DashboardSummary;
+  previous_week: DashboardSummary | null;
+  deltas: {
+    minutes_percent: number | null;
+    quiz_percent: number | null;
+    academic_percent: number | null;
+    days_active_delta: number | null;
+  };
+  insights: Array<{
+    type: 'positive' | 'warning' | 'neutral';
+    message: string;
+  }>;
+}
+
+export async function fetchMyDashboard(accessToken: string): Promise<DashboardResult> {
+  const response = await authenticatedFetch(`${API_BASE_URL}/analytics/me/dashboard`, {}, accessToken);
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo cargar tu dashboard');
+  }
+
+  return data;
+}
+
+export async function fetchRoomDashboard(accessToken: string, roomId: string): Promise<DashboardResult> {
+  const response = await authenticatedFetch(`${API_BASE_URL}/rooms/${roomId}/analytics/dashboard`, {}, accessToken);
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo cargar el dashboard de la sala');
+  }
+
+  return data;
+}
+
 export async function fetchRoomDifficultyHeatmap(
   accessToken: string,
   roomId: string,
