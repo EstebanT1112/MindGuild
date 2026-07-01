@@ -19,6 +19,39 @@ export interface DifficultyHeatmapResult {
   topics: DifficultyHeatmapTopic[];
 }
 
+export type DashboardScope = 'global' | 'room';
+export type DashboardInsightType = 'positive' | 'warning' | 'neutral';
+
+export interface DashboardSummary {
+  total_minutes: number;
+  sessions_count: number;
+  days_active: number;
+  avg_quiz_score: number;
+  academic_score: number;
+}
+
+export interface DashboardDeltas {
+  minutes_percent: number | null;
+  quiz_percent: number | null;
+  academic_percent: number | null;
+  days_active_delta: number | null;
+}
+
+export interface DashboardInsight {
+  type: DashboardInsightType;
+  message: string;
+}
+
+export interface DashboardResult {
+  week_year: string;
+  scope: DashboardScope;
+  room_id?: string;
+  summary: DashboardSummary;
+  previous_week: DashboardSummary | null;
+  deltas: DashboardDeltas;
+  insights: DashboardInsight[];
+}
+
 export class AnalyticsValidationError extends Error {
   statusCode = 400;
 

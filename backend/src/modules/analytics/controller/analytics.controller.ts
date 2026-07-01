@@ -2,6 +2,29 @@ import type { Request, Response } from 'express';
 import { AnalyticsService } from '../service/analytics.service.js';
 
 export const AnalyticsController = {
+  async getMyDashboard(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      const result = await AnalyticsService.getMyDashboard(userId);
+
+      return res.status(200).json(result);
+    } catch (error: any) {
+      return handleAnalyticsError(res, error, 'Error interno al obtener dashboard individual');
+    }
+  },
+
+  async getRoomDashboard(req: Request, res: Response) {
+    try {
+      const userId = getUserId(req);
+      const roomId = String(req.params.roomId ?? '');
+      const result = await AnalyticsService.getRoomDashboard(userId, roomId);
+
+      return res.status(200).json(result);
+    } catch (error: any) {
+      return handleAnalyticsError(res, error, 'Error interno al obtener dashboard de sala');
+    }
+  },
+
   async getMyDifficultyHeatmap(req: Request, res: Response) {
     try {
       const userId = getUserId(req);
