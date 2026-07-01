@@ -1,5 +1,6 @@
 import { RoomInvitationsRepository } from '../repository/room-invitations.repository.js';
 import { RoomsRepository } from '../../rooms/repository/rooms.repository.js';
+import { notificationService } from '../../notifications/service/notification.service.js';
 import {
   RoomInvitationConflictError,
   RoomInvitationForbiddenError,
@@ -51,7 +52,19 @@ export const RoomInvitationsService = {
     }
 
     // 7. Crear la invitación
-    return RoomInvitationsRepository.createInvitation(roomId, senderId, receiverId);
+    const invitation = await RoomInvitationsRepository.createInvitation(roomId, senderId, receiverId);
+
+    try {
+      await notificationService.notifyRoomInvitation({
+        userId: receiverId,
+        invitationId: invitation.id,
+        roomName: room.name,
+      });
+    } catch (error) {
+      console.error('Error notifying room invitation', error);
+    }
+
+    return invitation;
   },
 
   /**

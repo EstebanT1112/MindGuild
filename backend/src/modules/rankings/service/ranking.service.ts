@@ -1,4 +1,5 @@
 import { rankingsRepository } from '../repository/ranking.repository.js';
+import { notificationService } from '../../notifications/service/notification.service.js';
 import {
   RankingForbiddenError,
   RankingNotFoundError,
@@ -122,6 +123,17 @@ export const rankingsService = {
       }
 
       const assignment = await rankingsRepository.assignWeeklyBoss(room.id, weekYear, candidate.user_id);
+      if (assignment.assigned && assignment.boss_week_id) {
+        try {
+          await notificationService.notifyBossAssigned({
+            userId: assignment.boss_user_id,
+            bossWeekId: assignment.boss_week_id,
+            roomName: room.name,
+          });
+        } catch (error) {
+          console.error('Error notifying weekly boss assignment', error);
+        }
+      }
       results.push({
         room_id: room.id,
         week_year: weekYear,

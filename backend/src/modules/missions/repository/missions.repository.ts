@@ -44,6 +44,12 @@ export interface UserMissionRow {
   expired: boolean;
 }
 
+export interface CompletedMissionNotificationRow {
+  user_mission_id: string;
+  title: string;
+  reward_coins: number;
+}
+
 const VISIBLE_EXPIRED_DAYS = 2;
 
 export const missionsRepository = {
@@ -193,30 +199,42 @@ export const missionsRepository = {
     missionType: string,
     incrementValue: number,
     periodKeys: string[]
-  ): Promise<void> {
-    await pool.query(
+  ): Promise<CompletedMissionNotificationRow[]> {
+    const { rows } = await pool.query<CompletedMissionNotificationRow>(
       `
-        UPDATE user_missions um
-        SET
-          progress = LEAST(m.target_value, um.progress + $3),
-          completed = CASE
-            WHEN (um.progress + $3) >= m.target_value THEN true
-            ELSE um.completed
-          END,
-          completed_at = CASE
-            WHEN (um.progress + $3) >= m.target_value AND um.completed = false THEN NOW()
-            ELSE um.completed_at
-          END
-        FROM missions m
-        WHERE um.mission_id = m.id
-          AND um.user_id = $1
-          AND m.type = $2
-          AND um.period_key = ANY($4)
-          AND um.completed = false
-          AND (um.expires_at IS NULL OR um.expires_at > NOW());
+        WITH updated AS (
+          UPDATE user_missions um
+          SET
+            progress = LEAST(m.target_value, um.progress + $3),
+            completed = CASE
+              WHEN (um.progress + $3) >= m.target_value THEN true
+              ELSE um.completed
+            END,
+            completed_at = CASE
+              WHEN (um.progress + $3) >= m.target_value AND um.completed = false THEN NOW()
+              ELSE um.completed_at
+            END
+          FROM missions m
+          WHERE um.mission_id = m.id
+            AND um.user_id = $1
+            AND m.type = $2
+            AND um.period_key = ANY($4)
+            AND um.completed = false
+            AND (um.expires_at IS NULL OR um.expires_at > NOW())
+          RETURNING
+            um.id AS user_mission_id,
+            m.title,
+            COALESCE(m.reward_coins, 0)::int AS reward_coins,
+            um.completed
+        )
+        SELECT user_mission_id, title, reward_coins
+        FROM updated
+        WHERE completed = true;
       `,
       [userId, missionType, incrementValue, periodKeys]
     );
+
+    return rows;
   },
 
   async expireOldMissions(): Promise<void> {

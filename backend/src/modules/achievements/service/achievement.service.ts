@@ -112,6 +112,17 @@ export const achievementService = {
             achievement
           );
 
+        const rewardCoins = Number(achievement.reward_coins) || 0;
+        if (rewardCoins > 0) {
+          await notificationService.notifyRewardAvailable({
+            userId,
+            referenceType: 'achievement',
+            referenceId: achievement.id,
+            title: 'Recompensa disponible',
+            body: `Tenes ${rewardCoins} monedas para reclamar por "${achievement.name}".`,
+          });
+        }
+
       } catch (error) {
 
         // No romper flujo principal
