@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useRoute } from '@react-navigation/native';
-import { ChevronRight, Info, MessageCircle, Settings, UserPlus, Users } from 'lucide-react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { ChevronRight, FolderOpen, Info, MessageCircle, Settings, UserPlus, Users } from 'lucide-react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { useAppDataStore } from '../../../store/appDataStore';
@@ -22,6 +22,7 @@ import RoomChatModal from '../components/RoomChatModal';
 
 export default function LiveRoomScreen() {
     const route = useRoute<any>();
+    const navigation = useNavigation<any>();
     const accessToken = useAuthStore(state => state.access_token);
     const currentUser = useAuthStore(state => state.user);
     const currentProfile = useAppDataStore(state => state.profile.data);
@@ -292,6 +293,18 @@ export default function LiveRoomScreen() {
                             <Text style={styles.inviteFriendsBtnText}>Invitar Amigos a la Sala</Text>
                         </Pressable>
 
+                        <Pressable
+                            style={styles.vaultBtn}
+                            onPress={() => room?.id && navigation.navigate('RoomVault', {
+                                roomId: room.id,
+                                roomName: room.name,
+                                accentColor: '#22c55e',
+                            })}
+                        >
+                            <FolderOpen color="white" size={22} />
+                            <Text style={styles.inviteFriendsBtnText}>The Vault</Text>
+                        </Pressable>
+
                         {room?.teams_enabled && <TeamsSection />}
                         <LeaveRoomButton roomId={room?.id} />
                     </>
@@ -460,6 +473,7 @@ const styles = StyleSheet.create({
     headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     infoBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#1e293b', borderWidth: 1, borderColor: '#334155', alignItems: 'center', justifyContent: 'center' },
     inviteFriendsMainBtn: { backgroundColor: '#3b82f6', height: 52, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 14, marginTop: 12 },
+    vaultBtn: { backgroundColor: '#0f766e', height: 52, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 14 },
     inviteFriendsBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
     configCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1e293b', padding: 15, borderRadius: 20, borderWidth: 1, borderColor: '#334155' },
     reviewCard: { marginTop: 12, borderColor: '#16a34a' },

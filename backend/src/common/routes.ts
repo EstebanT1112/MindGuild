@@ -12,6 +12,7 @@ import battleRoyaleRoutes from '../modules/battle-royale/battle-royale.routes.js
 import walletRoutes from '../modules/wallet/wallet.routes.js';
 import chatRoutes from '../modules/chat/chat.routes.js';
 import analyticsRoutes from '../modules/analytics/analytics.routes.js';
+import vaultRoutes from '../modules/vault/vault.routes.js';
 
 // --- INVITACIONES A SALAS ---
 import RoomInvitationsController from '../modules/room-invitations/controller/room-invitations.controller.js';
@@ -43,6 +44,7 @@ router.post('/rooms/:roomId/favorite', RoomsController.markFavorite);
 router.delete('/rooms/:roomId/favorite', RoomsController.unmarkFavorite);
 router.get('/rooms/:roomId/rankings/time', rankingsController.getRoomTimeRanking);
 router.use('/', checkAuth, chatRoutes);
+router.use('/', checkAuth, vaultRoutes);
 router.get('/rooms/:roomId', RoomsController.getRoomDetails);
 
 // --- STUDY (Modulos externos) ---

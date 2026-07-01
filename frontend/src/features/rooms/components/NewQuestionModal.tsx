@@ -99,6 +99,14 @@ export default function NewQuestionModal({
             return;
         }
 
+        const existingTopic = topics.find(topic => normalizeTopicName(topic.name) === normalizeTopicName(name));
+        if (existingTopic) {
+            setSelectedTopicIds(current => current.includes(existingTopic.id) ? current : [...current, existingTopic.id].slice(0, 5));
+            setNewTopicName('');
+            setErrorMessage('Ese tema ya existe y fue seleccionado.');
+            return;
+        }
+
         setCreatingTopic(true);
         setErrorMessage(null);
         try {
@@ -143,7 +151,7 @@ export default function NewQuestionModal({
                 question_text: trimmedQuestion,
                 expected_answer: expectedAnswer.trim(),
                 topic_ids: selectedTopicIds,
-            };
+};
 
         setErrorMessage(null);
         setSaving(true);
@@ -303,6 +311,15 @@ export default function NewQuestionModal({
             </View>
         </Modal>
     );
+}
+
+function normalizeTopicName(value: string) {
+    return value
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ');
 }
 
 const styles = StyleSheet.create({

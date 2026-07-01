@@ -328,6 +328,23 @@ export const BattleRoyaleRepository = {
     return Number(rows[0]?.count ?? 0);
   },
 
+  async findRoomTopicBySlug(roomId: string, slug: string): Promise<AcademicTopic | null> {
+    const { rows } = await pool.query(
+      `
+        SELECT id, room_id, name, slug, color, created_by, is_active
+        FROM academic_topics
+        WHERE room_id = $1
+          AND slug = $2
+          AND is_active = true
+        ORDER BY created_at ASC
+        LIMIT 1;
+      `,
+      [roomId, slug]
+    );
+
+    return (rows[0] as AcademicTopic | undefined) ?? null;
+  },
+
   async createRoomTopic(input: {
     roomId: string;
     name: string;

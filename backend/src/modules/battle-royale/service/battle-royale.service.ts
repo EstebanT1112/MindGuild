@@ -120,6 +120,11 @@ export const BattleRoyaleService = {
       throw new BattleRoyaleValidationError('El tema debe incluir letras o numeros');
     }
 
+    const existingTopic = await BattleRoyaleRepository.findRoomTopicBySlug(roomId, slug);
+    if (existingTopic) {
+      return existingTopic;
+    }
+
     return BattleRoyaleRepository.createRoomTopic({
       roomId,
       name,
