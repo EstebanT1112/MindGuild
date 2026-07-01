@@ -15,6 +15,7 @@ import RoomInfoModal from '../components/RoomInfoModal';
 import RoomRanking from '../components/RoomRanking';
 import RoomChatModal from '../components/RoomChatModal';
 import SessionConfigModal, { type SessionConfigData } from '../components/SessionConfigModal';
+import TeamsSection from '../components/TeamsSection';
 import { useStudyTimer } from '../components/useStudyTimer';
 import { type RoomDetails } from '../services/roomsService';
 
@@ -291,6 +292,10 @@ export default function BattleRoyaleScreen() {
                             <FolderOpen color="white" size={22} />
                             <Text style={styles.inviteFriendsBtnText}>The Vault</Text>
                         </Pressable>
+
+                        {room?.teams_enabled && accessToken && room?.id && (
+                            <TeamsSection roomId={room.id} accessToken={accessToken} mode="battle_royale" />
+                        )}
 
                         <Text style={styles.sectionLabel}>QUIZ SEMANAL</Text>
                         <Pressable

@@ -139,6 +139,12 @@ export default function RoomRanking({ roomId }: Props) {
 
               <View style={styles.info}>
                 <Text style={styles.name}>@{item.username}</Text>
+                {item.team_name && (
+                  <View style={styles.teamBadge}>
+                    <View style={[styles.teamColorDot, { backgroundColor: item.team_color ?? '#3b82f6' }]} />
+                    <Text style={[styles.teamBadgeText, { color: item.team_color ?? '#bfdbfe' }]}>{item.team_name}</Text>
+                  </View>
+                )}
                 <Text style={styles.sub}>{activeTab.itemLabel}</Text>
                 {(item.is_boss || item.temporary_role) && (
                   <View style={styles.roleRow}>
@@ -230,6 +236,9 @@ const styles = StyleSheet.create({
   avatar: { width: 36, height: 36, borderRadius: 18, marginRight: 10 },
   info: { flex: 1 },
   name: { color: 'white', fontWeight: 'bold', fontSize: 15 },
+  teamBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3, alignSelf: 'flex-start', backgroundColor: '#1e293b', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 3 },
+  teamColorDot: { width: 7, height: 7, borderRadius: 4 },
+  teamBadgeText: { fontSize: 10, fontWeight: '900' },
   sub: { color: '#64748b', fontSize: 11 },
   roleRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 4 },
   bossLabel: { color: '#fef3c7', backgroundColor: '#422006', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2, fontSize: 10, fontWeight: '900' },

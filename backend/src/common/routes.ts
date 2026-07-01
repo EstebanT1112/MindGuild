@@ -13,6 +13,7 @@ import walletRoutes from '../modules/wallet/wallet.routes.js';
 import chatRoutes from '../modules/chat/chat.routes.js';
 import analyticsRoutes from '../modules/analytics/analytics.routes.js';
 import vaultRoutes from '../modules/vault/vault.routes.js';
+import teamsRoutes from '../modules/teams/teams.routes.js';
 
 // --- INVITACIONES A SALAS ---
 import RoomInvitationsController from '../modules/room-invitations/controller/room-invitations.controller.js';
@@ -45,6 +46,7 @@ router.delete('/rooms/:roomId/favorite', RoomsController.unmarkFavorite);
 router.get('/rooms/:roomId/rankings/time', rankingsController.getRoomTimeRanking);
 router.use('/', checkAuth, chatRoutes);
 router.use('/', checkAuth, vaultRoutes);
+router.use('/', checkAuth, teamsRoutes);
 router.get('/rooms/:roomId', RoomsController.getRoomDetails);
 
 // --- STUDY (Modulos externos) ---

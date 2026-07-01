@@ -7,6 +7,7 @@ import type {
   MembershipJoinStatus,
   RoomDetails,
   RoomMember,
+  RoomTeamSummary,
   UpdateRoomDTO,
   UserRoom,
 } from '../types/rooms.types.js';
@@ -119,7 +120,7 @@ export const RoomsRepository = {
     return rows as UserRoom[];
   },
 
-  async findActiveRoomById(roomId: string): Promise<Omit<RoomDetails, 'members'> | null> {
+  async findActiveRoomById(roomId: string): Promise<Omit<RoomDetails, 'members' | 'teams'> | null> {
     // RF-06: obtiene los datos base de la sala antes de sumar integrantes.
     const { rows } = await pool.query(
       `
@@ -131,7 +132,35 @@ export const RoomsRepository = {
       [roomId]
     );
 
-    return (rows[0] as Omit<RoomDetails, 'members'> | undefined) ?? null;
+    return (rows[0] as Omit<RoomDetails, 'members' | 'teams'> | undefined) ?? null;
+  },
+
+  async getRoomTeamSummaries(roomId: string): Promise<RoomTeamSummary[]> {
+    const { rows } = await pool.query<RoomTeamSummary>(
+      `
+        SELECT
+          t.id,
+          t.name,
+          t.color,
+          COUNT(rm.user_id)::int AS members_count
+        FROM teams t
+        LEFT JOIN team_members tm
+          ON tm.team_id = t.id
+          AND tm.room_id = t.room_id
+          AND tm.is_active = true
+        LEFT JOIN room_members rm
+          ON rm.room_id = t.room_id
+          AND rm.user_id = tm.user_id
+          AND rm.is_active = true
+        WHERE t.room_id = $1
+          AND t.is_active = true
+        GROUP BY t.id, t.name, t.color, t.created_at
+        ORDER BY t.created_at ASC;
+      `,
+      [roomId]
+    );
+
+    return rows;
   },
 
   async getActiveMembers(roomId: string): Promise<RoomMember[]> {
@@ -498,6 +527,20 @@ export const RoomsRepository = {
     );
   },
 
+  async deactivateTeamMembershipsInRoom(userId: string, roomId: string): Promise<void> {
+    await pool.query(
+      `
+        UPDATE team_members
+        SET is_active = false,
+            left_at = NOW()
+        WHERE user_id = $1
+          AND room_id = $2
+          AND is_active = true;
+      `,
+      [userId, roomId]
+    );
+  },
+
   async checkActiveMembership(userId: string, roomId: string): Promise<boolean> {
     // Verifica membresia activa para flujos que deben excluir usuarios salidos.
     const query = `
@@ -509,7 +552,7 @@ export const RoomsRepository = {
     return rows.length > 0;
   },
 
-  async updateRoom(roomId: string, data: UpdateRoomDTO): Promise<Omit<RoomDetails, 'members'> | null> {
+  async updateRoom(roomId: string, data: UpdateRoomDTO): Promise<Omit<RoomDetails, 'members' | 'teams'> | null> {
     const { rows } = await pool.query(
       `
         UPDATE rooms
@@ -524,7 +567,7 @@ export const RoomsRepository = {
       [roomId, data.name ?? null, Object.prototype.hasOwnProperty.call(data, 'description'), data.description ?? null]
     );
 
-    return (rows[0] as Omit<RoomDetails, 'members'> | undefined) ?? null;
+    return (rows[0] as Omit<RoomDetails, 'members' | 'teams'> | undefined) ?? null;
   },
 
   async removeMember(roomId: string, targetUserId: string, ownerId: string) {

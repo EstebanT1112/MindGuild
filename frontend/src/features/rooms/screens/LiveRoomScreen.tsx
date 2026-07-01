@@ -317,7 +317,9 @@ export default function LiveRoomScreen() {
                             <Text style={styles.inviteFriendsBtnText}>The Vault</Text>
                         </Pressable>
 
-                        {room?.teams_enabled && <TeamsSection />}
+                        {room?.teams_enabled && accessToken && room?.id && (
+                            <TeamsSection roomId={room.id} accessToken={accessToken} mode="survival" />
+                        )}
                         <LeaveRoomButton roomId={room?.id} />
                     </>
                 )}
