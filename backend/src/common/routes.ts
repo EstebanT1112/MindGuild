@@ -11,6 +11,7 @@ import sessionRoutes from '../modules/sessions/session.routes.js';
 import battleRoyaleRoutes from '../modules/battle-royale/battle-royale.routes.js';
 import walletRoutes from '../modules/wallet/wallet.routes.js';
 import chatRoutes from '../modules/chat/chat.routes.js';
+import analyticsRoutes from '../modules/analytics/analytics.routes.js';
 
 // --- INVITACIONES A SALAS ---
 import RoomInvitationsController from '../modules/room-invitations/controller/room-invitations.controller.js';
@@ -53,6 +54,9 @@ router.use('/sessions', checkAuth, sessionRoutes);
 
 // --- BATTLE ROYALE (RF-02) PROTEGIDO ---
 router.use('/battle-royale', checkAuth, battleRoyaleRoutes);
+
+// --- ANALYTICS / HEATMAPS (E3) ---
+router.use('/', checkAuth, analyticsRoutes);
 
 // --- RANKINGS ---
 router.post('/ranking/recalculate-week', checkAuth, rankingsController.recalculateWeek);
