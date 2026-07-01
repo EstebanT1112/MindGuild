@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Alert, Image, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Crown, Hash, Tag, Users, X } from 'lucide-react-native';
+import { Crown, Hash, Shield, Tag, Users, X } from 'lucide-react-native';
 import type { RoomDetails } from '../services/roomsService';
 import { assignTemporaryRoomRole, fetchRoomRoles, type RoomMember } from '../services/roomsService';
 
 const fallbackAvatar = 'https://ui-avatars.com/api/?background=1e293b&color=ffffff&name=MG';
+const teamFallbackColors = ['#3b82f6', '#a855f7', '#ec4899', '#f59e0b', '#10b981', '#ef4444'];
 
 interface Props {
   room: RoomDetails;
@@ -20,6 +21,7 @@ export default function RoomInfoPanel({ room, accessToken, currentUserId, onRoom
   const [selectedMember, setSelectedMember] = useState<RoomMember | null>(null);
   const [roleLabel, setRoleLabel] = useState('');
   const [saving, setSaving] = useState(false);
+  const teams = room.teams ?? [];
   const currentUserIsBoss = members.some(member => member.id === currentUserId && member.is_boss);
 
   useEffect(() => {
@@ -121,6 +123,33 @@ export default function RoomInfoPanel({ room, accessToken, currentUserId, onRoom
         })}
       </View>
 
+      {room.teams_enabled && teams.length > 0 && (
+        <View style={styles.teamsReadOnlyBlock}>
+          <View style={styles.membersHeader}>
+            <Shield color="#94a3b8" size={18} />
+            <Text style={styles.membersTitle}>Equipos ({teams.length})</Text>
+          </View>
+
+          <View style={styles.teamsList}>
+            {teams.map((team, index) => {
+              const teamColor = team.color ?? teamFallbackColors[index % teamFallbackColors.length];
+
+              return (
+                <View key={team.id} style={styles.teamRow}>
+                  <View style={[styles.teamAvatar, { borderColor: teamColor }]}>
+                    <View style={[styles.teamColorDot, { backgroundColor: teamColor }]} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.teamName}>{team.name}</Text>
+                    <Text style={styles.teamMeta}>{team.members_count} integrantes</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      )}
+
       <Modal visible={Boolean(selectedMember)} transparent animationType="fade" onRequestClose={() => setSelectedMember(null)}>
         <View style={styles.roleBackdrop}>
           <View style={styles.roleModal}>
@@ -148,6 +177,7 @@ export default function RoomInfoPanel({ room, accessToken, currentUserId, onRoom
           </View>
         </View>
       </Modal>
+
     </View>
   );
 }
@@ -201,6 +231,20 @@ const styles = StyleSheet.create({
   bossPillText: { color: '#fef3c7', fontSize: 10, fontWeight: '900' },
   temporaryRole: { color: '#22c55e', fontSize: 12, fontWeight: '900', marginTop: 4 },
   assignBtn: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#052e16', borderWidth: 1, borderColor: '#166534' },
+  teamsReadOnlyBlock: { marginTop: 18 },
+  teamsList: { gap: 10 },
+  teamRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#0f172a',
+    borderRadius: 16,
+    padding: 12,
+  },
+  teamAvatar: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', borderWidth: 2, backgroundColor: '#020617' },
+  teamColorDot: { width: 16, height: 16, borderRadius: 8 },
+  teamName: { color: 'white', fontWeight: 'bold', fontSize: 14 },
+  teamMeta: { color: '#64748b', fontSize: 12, marginTop: 2 },
   roleBackdrop: { flex: 1, backgroundColor: '#020617cc', justifyContent: 'center', padding: 24 },
   roleModal: { backgroundColor: '#0f172a', borderRadius: 22, borderWidth: 1, borderColor: '#334155', padding: 16 },
   roleHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },

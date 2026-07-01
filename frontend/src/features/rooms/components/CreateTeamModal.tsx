@@ -1,13 +1,28 @@
 import React, { useState } from 'react';
-import { Modal, View, Text, StyleSheet, TextInput, Pressable } from 'react-native';
+import { ActivityIndicator, Modal, View, Text, StyleSheet, TextInput, Pressable } from 'react-native';
 import { X } from 'lucide-react-native';
 
 // Colores idénticos a tu captura de Figma
 const colors = ['#3b82f6', '#a855f7', '#ec4899', '#f59e0b', '#10b981', '#ef4444'];
 
-export default function CreateTeamModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+export default function CreateTeamModal({
+  visible,
+  onClose,
+  onCreate,
+  saving,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onCreate: (name: string, color: string) => void;
+  saving?: boolean;
+}) {
   const [name, setName] = useState('');
   const [selectedColor, setSelectedColor] = useState(colors[0]);
+
+  const handleCreate = () => {
+    if (!name.trim() || saving) return;
+    onCreate(name.trim(), selectedColor);
+  };
 
   return (
     <Modal visible={visible} animationType="fade" transparent>
@@ -46,8 +61,8 @@ export default function CreateTeamModal({ visible, onClose }: { visible: boolean
             </View>
           </View>
 
-          <Pressable style={styles.createBtn} onPress={onClose}>
-            <Text style={styles.createBtnText}>Crear Team</Text>
+          <Pressable style={[styles.createBtn, saving && styles.disabledBtn]} onPress={handleCreate} disabled={saving}>
+            {saving ? <ActivityIndicator color="white" /> : <Text style={styles.createBtnText}>Crear Team</Text>}
           </Pressable>
         </View>
       </View>
@@ -120,6 +135,7 @@ const styles = StyleSheet.create({
     padding: 18, 
     alignItems: 'center' 
   },
+  disabledBtn: { opacity: 0.7 },
   createBtnText: { 
     color: 'white', 
     fontWeight: 'bold', 

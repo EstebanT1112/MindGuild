@@ -31,8 +31,16 @@ export interface RoomMember {
   is_boss?: boolean;
 }
 
+export interface RoomTeamSummary {
+  id: string;
+  name: string;
+  color: string | null;
+  members_count: number;
+}
+
 export interface RoomDetails extends CreatedRoom {
   members: RoomMember[];
+  teams: RoomTeamSummary[];
 }
 
 export interface RoomTimeRankingEntry {
