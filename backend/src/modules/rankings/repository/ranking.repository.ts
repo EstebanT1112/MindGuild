@@ -292,10 +292,10 @@ export const rankingsRepository = {
     );
   },
 
-  async findRoomsForWeeklyClose(roomId?: string): Promise<Array<{ id: string; mode: string }>> {
+  async findRoomsForWeeklyClose(roomId?: string): Promise<Array<{ id: string; name: string; mode: string }>> {
     const { rows } = await pool.query(
       `
-        SELECT id, mode
+        SELECT id, name, mode
         FROM rooms
         WHERE is_active = true
         ${roomId ? 'AND id = $1' : ''};
@@ -341,7 +341,7 @@ export const rankingsRepository = {
     try {
       await client.query('BEGIN');
 
-      const insertResult = await client.query(
+      const insertResult = await client.query<{ id: string }>(
         `
           INSERT INTO boss_weeks (room_id, week_year, boss_user_id)
           VALUES ($1, $2, $3)
@@ -353,7 +353,7 @@ export const rankingsRepository = {
 
       if (insertResult.rowCount === 0) {
         await client.query('COMMIT');
-        return { assigned: false, boss_user_id: bossUserId };
+        return { assigned: false, boss_user_id: bossUserId, boss_week_id: null };
       }
 
       await client.query(
@@ -390,7 +390,7 @@ export const rankingsRepository = {
       });
 
       await client.query('COMMIT');
-      return { assigned: true, boss_user_id: bossUserId };
+      return { assigned: true, boss_user_id: bossUserId, boss_week_id: insertResult.rows[0]?.id ?? null };
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;

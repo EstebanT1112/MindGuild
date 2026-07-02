@@ -4,6 +4,7 @@ import cors from 'cors';
 import router from './common/routes.js';
 import { missionsService } from './modules/missions/service/missions.service.js';
 import { ChatService } from './modules/chat/service/chat.service.js';
+import { notificationJobsService } from './modules/notifications/service/notification-jobs.service.js';
 
 dotenv.config({ override: true });
 
@@ -21,6 +22,7 @@ app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`🚀 Servidor de MindGuild corriendo en cualquier interfaz en el puerto ${PORT}`);
     setupDailyMissionsExpiration();
     setupDailyChatCleanup();
+    setupNotificationJobs();
 });
 
 function setupDailyMissionsExpiration() {
@@ -78,4 +80,26 @@ function setupDailyChatCleanup() {
             }
         }, 24 * 60 * 60 * 1000);
     }, tiempoParaMedianoche);
+}
+
+function setupNotificationJobs() {
+    const intervalMinutes = Math.max(5, Number(process.env.NOTIFICATION_JOBS_INTERVAL_MINUTES) || 30);
+    const intervalMs = intervalMinutes * 60 * 1000;
+
+    console.log(`🔔 Programador de notificaciones activo. Intervalo: ${intervalMinutes} minutos.`);
+
+    const runJobs = async () => {
+        try {
+            const result = await notificationJobsService.runScheduledNotifications();
+            const total = Object.values(result).reduce((sum, value) => sum + value, 0);
+            if (total > 0) {
+                console.log('🔔 Notificaciones programadas generadas:', result);
+            }
+        } catch (error) {
+            console.error('❌ Fallo el programador de notificaciones:', error);
+        }
+    };
+
+    setTimeout(runJobs, 30 * 1000);
+    setInterval(runJobs, intervalMs);
 }

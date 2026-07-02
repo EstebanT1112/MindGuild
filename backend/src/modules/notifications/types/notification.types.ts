@@ -1,5 +1,18 @@
 export type NotificationType =
-  | 'achievement_unlocked';
+  | 'achievement_unlocked'
+  | 'mission_completed'
+  | 'room_invitation'
+  | 'ranking_changed'
+  | 'weekly_quiz_configured'
+  | 'weekly_quiz_updated'
+  | 'weekly_quiz_opened'
+  | 'weekly_validation_opened'
+  | 'weekly_results_ready'
+  | 'week_closing'
+  | 'boss_assigned'
+  | 'team_needs_points'
+  | 'reward_available'
+  | string;
 
 export interface Notification {
   id: string;
@@ -24,4 +37,10 @@ export interface CreateNotificationInput {
   reference_type?: string;
 
   reference_id?: string;
+}
+
+export interface NotificationListOptions {
+  limit?: number;
+  offset?: number;
+  unreadOnly?: boolean;
 }

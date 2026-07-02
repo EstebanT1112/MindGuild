@@ -1,4 +1,5 @@
 import { pool } from '../../../common/config/db.js';
+import { notificationService } from '../../notifications/service/notification.service.js';
 import { walletRepository } from '../../wallet/repository/wallet.repository.js';
 import {
   missionsRepository,
@@ -87,12 +88,35 @@ export const missionsService = {
 
     const periods = getCurrentMissionPeriods();
 
-    await missionsRepository.updateMissionProgressForCurrentPeriods(
+    const completedMissions = await missionsRepository.updateMissionProgressForCurrentPeriods(
       userId,
       missionType,
       incrementValue,
       [periods.daily.key, periods.weekly.key]
     );
+
+    for (const mission of completedMissions) {
+      try {
+        await notificationService.notifyMissionCompleted({
+          userId,
+          userMissionId: mission.user_mission_id,
+          title: mission.title,
+          rewardCoins: Number(mission.reward_coins) || 0,
+        });
+        const rewardCoins = Number(mission.reward_coins) || 0;
+        if (rewardCoins > 0) {
+          await notificationService.notifyRewardAvailable({
+            userId,
+            referenceType: 'user_mission',
+            referenceId: mission.user_mission_id,
+            title: 'Recompensa disponible',
+            body: `Tenes ${rewardCoins} monedas para reclamar por "${mission.title}".`,
+          });
+        }
+      } catch (error) {
+        console.error('Error notifying mission completion', error);
+      }
+    }
 
     return this.getAndAssignMissions(userId);
   },

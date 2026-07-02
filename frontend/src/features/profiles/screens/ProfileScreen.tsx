@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import {
     Award,
+    Bell,
     BookOpen,
     CalendarCheck,
     Compass,
@@ -29,6 +30,7 @@ import {
     Users,
     Zap,
 } from 'lucide-react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
@@ -39,6 +41,7 @@ import WeeklyProgress from '../components/WeeklyProgress';
 import AchievementDetailModal from '../components/AchievementDetailModal';
 
 import { updateMyProfile } from '../services/profileService';
+import { fetchUnreadNotificationsCount } from '../../notifications/services/notificationsService';
 
 import {
     claimAchievementReward,
@@ -97,7 +100,7 @@ const renderAchievementIcon = (achievement: Achievement, size = 30) => {
     }
 };
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ navigation }: any) {
     const accessToken = useAuthStore(state => state.access_token);
     const setUser = useAuthStore(state => state.setUser);
     const profile = useAppDataStore(state => state.profile.data);
@@ -113,6 +116,7 @@ export default function ProfileScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [claimingAchievementId, setClaimingAchievementId] = useState<string | null>(null);
     const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
+    const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
     const unlockedAchievementsCount = achievements.filter(achievement => achievement.unlocked).length;
     
     const avatarUri = profile?.avatar_url || fallbackAvatar;
@@ -120,6 +124,12 @@ export default function ProfileScreen() {
     useEffect(() => {
         loadProfile();
     }, [accessToken]);
+
+    useFocusEffect(
+        useCallback(() => {
+            loadUnreadNotificationsCount();
+        }, [accessToken])
+    );
 
     // RF-03: obtiene el perfil completo y sincroniza el usuario global.
     const loadProfile = async () => {
@@ -136,8 +146,21 @@ export default function ProfileScreen() {
             } catch (achievementError) {
                 console.warn('No se pudieron cargar los logros', achievementError);
             }
+
+            loadUnreadNotificationsCount();
         } catch (error: any) {
             Alert.alert('Error de perfil', error.message ?? 'No se pudo cargar el perfil.');
+        }
+    };
+
+    const loadUnreadNotificationsCount = async () => {
+        if (!accessToken) return;
+
+        try {
+            const count = await fetchUnreadNotificationsCount(accessToken);
+            setUnreadNotificationsCount(count);
+        } catch (error) {
+            console.warn('No se pudo cargar el contador de notificaciones', error);
         }
     };
 
@@ -151,6 +174,7 @@ export default function ProfileScreen() {
                 setUser({ id: data.id, email: data.email, username: data.username });
             }
             await loadAchievementsFromStore(accessToken, { force: true });
+            await loadUnreadNotificationsCount();
         } catch (error: any) {
             Alert.alert('Error de perfil', error.message ?? 'No se pudo cargar el perfil.');
         } finally {
@@ -239,18 +263,34 @@ export default function ProfileScreen() {
                 {/* Botones de acción contenidos en el flujo del scroll */}
                 <View style={styles.actionButtons}>
                     <Pressable
-                        style={[styles.iconBtn, styles.editBtnActive]}
-                        onPress={() => setEditModalVisible(true)}
+                        style={[styles.iconBtn, styles.notificationBtn]}
+                        onPress={() => navigation.navigate('Notifications')}
                     >
-                        <Edit2 color="#3b82f6" size={18} />
+                        <Bell color="#facc15" size={18} />
+                        {unreadNotificationsCount > 0 && (
+                            <View style={styles.notificationBadge}>
+                                <Text style={styles.notificationBadgeText}>
+                                    {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
+                                </Text>
+                            </View>
+                        )}
                     </Pressable>
 
-                    <Pressable
-                        style={styles.iconBtn}
-                        onPress={() => setSettingsVisible(true)}
-                    >
-                        <Settings color="#94a3b8" size={18} />
-                    </Pressable>
+                    <View style={styles.rightActionButtons}>
+                        <Pressable
+                            style={[styles.iconBtn, styles.editBtnActive]}
+                            onPress={() => setEditModalVisible(true)}
+                        >
+                            <Edit2 color="#3b82f6" size={18} />
+                        </Pressable>
+
+                        <Pressable
+                            style={styles.iconBtn}
+                            onPress={() => setSettingsVisible(true)}
+                        >
+                            <Settings color="#94a3b8" size={18} />
+                        </Pressable>
+                    </View>
                 </View>
 
                 {/* Información Principal del Perfil */}
@@ -398,10 +438,15 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
     actionButtons: {
         flexDirection: 'row',
-        justifyContent: 'flex-end',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         gap: 10,
         paddingHorizontal: 4,
         marginBottom: 10,
+    },
+    rightActionButtons: {
+        flexDirection: 'row',
+        gap: 10,
     },
     iconBtn: {
         width: 40, 
@@ -411,6 +456,22 @@ const styles = StyleSheet.create({
         alignItems: 'center', 
         justifyContent: 'center'
     },
+    notificationBtn: { borderColor: '#facc1544', borderWidth: 1, marginTop: 3 },
+    notificationBadge: {
+        position: 'absolute',
+        top: -2,
+        right: -5,
+        minWidth: 18,
+        height: 18,
+        borderRadius: 9,
+        backgroundColor: '#ef4444',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 4,
+        borderWidth: 2,
+        borderColor: '#0f172a',
+    },
+    notificationBadgeText: { color: 'white', fontSize: 10, fontWeight: '900' },
     loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
     loadingText: { color: '#94a3b8', fontWeight: 'bold' },
     editBtnActive: { borderColor: '#3b82f6', borderWidth: 1 },

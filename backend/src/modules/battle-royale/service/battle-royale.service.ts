@@ -1,4 +1,6 @@
 import { BattleRoyaleRepository } from '../repository/battle-royale.repository.js';
+import { RoomsRepository } from '../../rooms/repository/rooms.repository.js';
+import { notificationService } from '../../notifications/service/notification.service.js';
 import {
   BattleRoyaleConflictError,
   BattleRoyaleForbiddenError,
@@ -45,16 +47,19 @@ export const BattleRoyaleService = {
         throw new BattleRoyaleConflictError('El cuestionario ya no se puede editar');
       }
 
-      return BattleRoyaleRepository.updateWeeklyQuiz(existingQuiz.id, {
+      const updatedQuiz = await BattleRoyaleRepository.updateWeeklyQuiz(existingQuiz.id, {
         title: data.title,
         weekday: data.weekday,
         startTime: data.start_time,
         durationMinutes: data.duration_minutes,
         ...schedule,
       });
+
+      await notifyWeeklyQuizConfiguredForRoom(roomId, userId, updatedQuiz.id, updatedQuiz.title, true);
+      return updatedQuiz;
     }
 
-    return BattleRoyaleRepository.createWeeklyQuiz({
+    const quiz = await BattleRoyaleRepository.createWeeklyQuiz({
       roomId,
       createdBy: userId,
       title: data.title,
@@ -64,6 +69,9 @@ export const BattleRoyaleService = {
       durationMinutes: data.duration_minutes,
       ...schedule,
     });
+
+    await notifyWeeklyQuizConfiguredForRoom(roomId, userId, quiz.id, quiz.title, false);
+    return quiz;
   },
 
   async updateWeeklyQuiz(userId: string, roomId: string, quizId: string, input: WeeklyQuizInput) {
@@ -86,13 +94,16 @@ export const BattleRoyaleService = {
     });
     const schedule = buildWeeklySchedule(data.weekday, data.start_time, data.duration_minutes);
 
-    return BattleRoyaleRepository.updateWeeklyQuiz(quizId, {
+    const updatedQuiz = await BattleRoyaleRepository.updateWeeklyQuiz(quizId, {
       title: data.title,
       weekday: data.weekday,
       startTime: data.start_time,
       durationMinutes: data.duration_minutes,
       ...schedule,
     });
+
+    await notifyWeeklyQuizConfiguredForRoom(roomId, userId, updatedQuiz.id, updatedQuiz.title, true);
+    return updatedQuiz;
   },
 
   async listQuestions(userId: string, roomId: string) {
@@ -213,7 +224,7 @@ export const BattleRoyaleService = {
     const hasAssignedOrAssignableQuestions = assignedCount > 0 || assignableQuestionsCount > 0;
     const canStart = isOpen && !hasCompletedAttempt && hasEnoughOwnQuestions && hasAssignedOrAssignableQuestions;
 
-    return {
+    const statusResult = {
       quiz_id: quiz.id,
       status: quiz.status,
       can_start: canStart,
@@ -233,6 +244,8 @@ export const BattleRoyaleService = {
         hasAssignedOrAssignableQuestions,
       }),
     };
+
+    return statusResult;
   },
 
   async startWeeklyQuiz(userId: string, roomId: string) {
@@ -455,7 +468,9 @@ export const BattleRoyaleService = {
     if (Date.now() < getResultAvailableAt(quiz).getTime()) {
       throw new BattleRoyaleConflictError('Los resultados se pueden generar 24 horas despues del cierre del quiz');
     }
-    return BattleRoyaleRepository.resolveQuestionVotes(roomId, quiz.id);
+    const result = await BattleRoyaleRepository.resolveQuestionVotes(roomId, quiz.id);
+    await notifyWeeklyResultsReadyForRoom(roomId, quiz.id, quiz.title);
+    return result;
   },
 
   async getWeeklyQuizResult(userId: string, roomId: string) {
@@ -560,6 +575,51 @@ async function getAttempt(attemptId: string) {
   }
 
   return attempt;
+}
+
+async function notifyWeeklyQuizConfiguredForRoom(
+  roomId: string,
+  ownerId: string,
+  quizId: string,
+  quizTitle: string,
+  isUpdate: boolean
+) {
+  try {
+    const members = await RoomsRepository.getActiveMembers(roomId);
+
+    await Promise.all(
+      members
+        .filter(member => member.id !== ownerId)
+        .map(member =>
+          notificationService.notifyWeeklyQuizConfigured({
+            userId: member.id,
+            quizId,
+            quizTitle,
+            isUpdate,
+          })
+        )
+    );
+  } catch (error) {
+    console.error('Error notifying weekly quiz configuration', error);
+  }
+}
+
+async function notifyWeeklyResultsReadyForRoom(roomId: string, quizId: string, quizTitle: string) {
+  try {
+    const members = await RoomsRepository.getActiveMembers(roomId);
+
+    await Promise.all(
+      members.map(member =>
+        notificationService.notifyWeeklyResultsReady({
+          userId: member.id,
+          quizId,
+          quizTitle,
+        })
+      )
+    );
+  } catch (error) {
+    console.error('Error notifying weekly quiz results', error);
+  }
 }
 
 async function assertBattleRoyaleAccess(userId: string, roomId: string, options: { ownerOnly?: boolean } = {}) {
