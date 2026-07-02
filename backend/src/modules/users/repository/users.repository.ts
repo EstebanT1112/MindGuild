@@ -147,6 +147,55 @@ export const UsersRepository = {
     return Number(rows[0]?.coins_earned ?? 0);
   },
 
+  async getWeeklyDailyMinutes(userId: string): Promise<Array<{ day: string; minutes: number }>> {
+    const { rows } = await pool.query(
+      `
+        WITH current_week AS (
+          SELECT date_trunc('week', (NOW() AT TIME ZONE $2)::timestamp)::date AS starts_on
+        ),
+        week_days AS (
+          SELECT
+            generate_series(0, 6) AS day_index,
+            starts_on + generate_series(0, 6) AS day_date
+          FROM current_week
+        ),
+        session_minutes AS (
+          SELECT
+            ((COALESCE(ended_at, updated_at, created_at) AT TIME ZONE $2)::date) AS session_date,
+            COALESCE(SUM(duration_minutes), 0)::int AS minutes
+          FROM study_sessions
+          CROSS JOIN current_week cw
+          WHERE user_id = $1
+            AND valid = true
+            AND duration_minutes > 0
+            AND ((COALESCE(ended_at, updated_at, created_at) AT TIME ZONE $2)::date) >= cw.starts_on
+            AND ((COALESCE(ended_at, updated_at, created_at) AT TIME ZONE $2)::date) < cw.starts_on + 7
+          GROUP BY session_date
+        )
+        SELECT
+          CASE wd.day_index
+            WHEN 0 THEN 'Lun'
+            WHEN 1 THEN 'Mar'
+            WHEN 2 THEN 'Mie'
+            WHEN 3 THEN 'Jue'
+            WHEN 4 THEN 'Vie'
+            WHEN 5 THEN 'Sab'
+            ELSE 'Dom'
+          END AS day,
+          COALESCE(sm.minutes, 0)::int AS minutes
+        FROM week_days wd
+        LEFT JOIN session_minutes sm ON sm.session_date = wd.day_date
+        ORDER BY wd.day_index ASC;
+      `,
+      [userId, 'America/Argentina/Buenos_Aires']
+    );
+
+    return rows.map(row => ({
+      day: String(row.day),
+      minutes: Number(row.minutes) || 0,
+    }));
+  },
+
   async getVillageState(userId: string): Promise<VillageState | null> {
     // Lee el nivel visual de aldea; si falta, el service devuelve nivel 1.
     const { rows } = await pool.query(
