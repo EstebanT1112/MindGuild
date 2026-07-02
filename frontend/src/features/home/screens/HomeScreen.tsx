@@ -40,6 +40,8 @@ export default function HomeScreen() {
   const favoriteRooms = rooms.filter(room => room.is_favorite).slice(0, 3);
   const completedMissionsCount = activeMissions.filter(mission => mission.completed && !mission.expired).length;
   const claimableMissionsCount = activeMissions.filter(mission => mission.completed && !mission.claimed && !mission.expired).length;
+  const dailyStudyMinutes = normalizeDailyStudyMinutes(profile?.weekly_stats.daily_minutes);
+  const maxDailyMinutes = Math.max(...dailyStudyMinutes.map(day => day.minutes), 1);
 
   const handleRefresh = async () => {
     if (!accessToken) return;
@@ -174,6 +176,27 @@ export default function HomeScreen() {
               <Text style={styles.weekSummaryLabel}>Ganadas</Text>
             </View>
           </View>
+          <View style={styles.dailyStudyBlock}>
+            <View style={styles.dailyStudyHeader}>
+              <Text style={styles.dailyStudyTitle}>Estudio por dia</Text>
+              <Text style={styles.dailyStudyTotal}>{profile?.weekly_stats.total_minutes ?? 0}m total</Text>
+            </View>
+            <View style={styles.dailyStudyBars}>
+              {dailyStudyMinutes.map(day => {
+                const fillHeight = Math.max(6, Math.round((day.minutes / maxDailyMinutes) * 54));
+
+                return (
+                  <View key={day.day} style={styles.dailyStudyItem}>
+                    <View style={styles.dailyBarTrack}>
+                      <View style={[styles.dailyBarFill, { height: day.minutes > 0 ? fillHeight : 4 }]} />
+                    </View>
+                    <Text style={styles.dailyBarDay}>{day.day}</Text>
+                    <Text style={styles.dailyBarValue}>{day.minutes}m</Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
           <Pressable
             style={styles.dashboardLink}
             onPress={() => navigation.navigate('SmartDashboard', { scope: 'global' })}
@@ -238,6 +261,16 @@ function getRoomAccentColor(mode: UserRoom['mode']) {
   return mode === 'battle_royale' ? '#a855f7' : '#22c55e';
 }
 
+function normalizeDailyStudyMinutes(days?: Array<{ day: string; minutes: number }>) {
+  const defaults = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'];
+  const byDay = new Map((days ?? []).map(day => [day.day, Number(day.minutes) || 0]));
+
+  return defaults.map(day => ({
+    day,
+    minutes: byDay.get(day) ?? 0,
+  }));
+}
+
 const styles = StyleSheet.create({
   content: { paddingVertical: 10, paddingBottom: 120 },
   section: { color: '#64748b', fontSize: 12, fontWeight: '900', letterSpacing: 1, marginBottom: 12, marginTop: 20 },
@@ -252,6 +285,16 @@ const styles = StyleSheet.create({
   weekCoinIcon: { borderRadius: 12, backgroundColor: '#facc15', paddingTop: 1 },
   weekSummaryValue: { color: 'white', fontSize: 16, fontWeight: '900', marginTop: 6 },
   weekSummaryLabel: { color: '#94a3b8', fontSize: 11, fontWeight: '700', marginTop: 2 },
+  dailyStudyBlock: { marginTop: 14, backgroundColor: '#0f172a', borderRadius: 14, borderWidth: 1, borderColor: '#233044', padding: 12 },
+  dailyStudyHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 10 },
+  dailyStudyTitle: { color: '#e2e8f0', fontSize: 12, fontWeight: '900' },
+  dailyStudyTotal: { color: '#38bdf8', fontSize: 11, fontWeight: '900' },
+  dailyStudyBars: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 6 },
+  dailyStudyItem: { flex: 1, alignItems: 'center', gap: 4 },
+  dailyBarTrack: { height: 58, width: '100%', maxWidth: 20, borderRadius: 999, backgroundColor: '#1e293b', justifyContent: 'flex-end', overflow: 'hidden', borderWidth: 1, borderColor: '#334155' },
+  dailyBarFill: { width: '100%', borderRadius: 999, backgroundColor: '#38bdf8' },
+  dailyBarDay: { color: '#94a3b8', fontSize: 10, fontWeight: '900' },
+  dailyBarValue: { color: '#e2e8f0', fontSize: 9, fontWeight: '800' },
   dashboardLink: { marginTop: 12, backgroundColor: '#0f172a', borderRadius: 14, borderWidth: 1, borderColor: '#233044', padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 },
   dashboardIconBox: { width: 34, height: 34, borderRadius: 8, backgroundColor: '#082f49', alignItems: 'center', justifyContent: 'center' },
   dashboardTextBox: { flex: 1 },

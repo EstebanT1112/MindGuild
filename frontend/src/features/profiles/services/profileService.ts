@@ -21,6 +21,10 @@ export interface FullProfile {
     academic_score: number;
     bosses_count: number;
     coins_earned: number;
+    daily_minutes: Array<{
+      day: string;
+      minutes: number;
+    }>;
   };
   village: {
     village_level: number;
