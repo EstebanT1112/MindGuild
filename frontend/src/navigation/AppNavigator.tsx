@@ -14,6 +14,7 @@ import WalletScreen from '../features/wallet/screens/WalletScreen';
 import NotificationsScreen from '../features/notifications/screens/NotificationsScreen';
 import LoginScreen from '../features/auth/screens/LoginScreen';
 import RegisterScreen from '../features/auth/screens/RegisterScreen';
+import ForgotPasswordScreen from '../features/auth/screens/ForgotPasswordScreen';
 import { useAuthStore } from '../store/authStore';
 import { useAppDataStore } from '../store/appDataStore';
 import { fetchMyProfile, updateMyProfile } from '../features/profiles/services/profileService';
@@ -23,7 +24,6 @@ import { SessionExpiredError } from '../services/authenticatedFetch';
 const Stack = createNativeStackNavigator();
 
 export default function AppNavigator() {
-  // RF-02: el estado de sesion decide si se muestra el stack publico o privado.
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
   const accessToken = useAuthStore(state => state.access_token);
   const clearSession = useAuthStore(state => state.clearSession);
@@ -40,31 +40,24 @@ export default function AppNavigator() {
 
   useEffect(() => {
     let cancelled = false;
-
     const validateSession = async () => {
       if (!isAuthenticated || !accessToken) {
         setValidatingSession(false);
         return;
       }
-
       setValidatingSession(true);
-
       try {
         const profile = await fetchMyProfile(accessToken);
-
         if (cancelled) return;
-
         setProfile(profile);
         setUser({ id: profile.id, email: profile.email, username: profile.username });
       } catch (error: any) {
         if (cancelled) return;
-
         if (isInvalidSessionError(error)) {
           clearAppData();
           clearSession();
           return;
         }
-
         console.warn('No se pudo validar la sesion actual', error);
       } finally {
         if (!cancelled) {
@@ -72,40 +65,20 @@ export default function AppNavigator() {
         }
       }
     };
-
     validateSession();
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [isAuthenticated, accessToken, clearSession, clearAppData, setProfile, setUser]);
 
   useEffect(() => {
     let cancelled = false;
-
     const syncPushToken = async () => {
-      if (!isAuthenticated || !accessToken || validatingSession) {
-        return;
-      }
-
+      if (!isAuthenticated || !accessToken || validatingSession) return;
       const expoPushToken = await registerForPushNotifications();
-
-      if (!expoPushToken || cancelled) {
-        return;
-      }
-
-      await updateMyProfile(accessToken, {
-        expo_push_token: expoPushToken,
-      });
+      if (!expoPushToken || cancelled) return;
+      await updateMyProfile(accessToken, { expo_push_token: expoPushToken });
     };
-
-    syncPushToken().catch(error => {
-      console.warn('No se pudo sincronizar el token push', error);
-    });
-
-    return () => {
-      cancelled = true;
-    };
+    syncPushToken().catch(error => { console.warn('No se pudo sincronizar el token push', error); });
+    return () => { cancelled = true; };
   }, [isAuthenticated, accessToken, validatingSession]);
 
   if (isAuthenticated && validatingSession) {
@@ -136,6 +109,7 @@ export default function AppNavigator() {
           <>
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Register" component={RegisterScreen} />
+            <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
           </>
         )}
       </Stack.Navigator>
@@ -144,12 +118,8 @@ export default function AppNavigator() {
 }
 
 function isInvalidSessionError(error: any) {
-  if (error instanceof SessionExpiredError) {
-    return true;
-  }
-
+  if (error instanceof SessionExpiredError) return true;
   const message = String(error?.message ?? error ?? '').toLowerCase();
-
   return (
     message.includes('token invalido') ||
     message.includes('token inválido') ||
