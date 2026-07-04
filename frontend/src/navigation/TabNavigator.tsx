@@ -58,7 +58,7 @@ export default function TabNavigator() {
           tabBarLabel: 'Home',
           tabBarIcon: ({ color }) => (
             <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 2 }}>
-              <Home color={color} size={22} />
+              <Home color={color} size={26} />
             </View>
           ),
         }}
@@ -70,7 +70,7 @@ export default function TabNavigator() {
           tabBarLabel: 'Salas',
           tabBarIcon: ({ color }) => (
             <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 2 }}>
-              <Users color={color} size={22} />
+              <Users color={color} size={26} />
             </View>
           ),
         }}
@@ -82,7 +82,7 @@ export default function TabNavigator() {
           tabBarLabel: 'Ranking',
           tabBarIcon: ({ color }) => (
             <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 2 }}>
-              <Trophy color={color} size={22} />
+              <Trophy color={color} size={26} />
             </View>
           ),
         }}
@@ -94,7 +94,7 @@ export default function TabNavigator() {
           tabBarLabel: 'Amigos',
           tabBarIcon: ({ color }) => (
             <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 2 }}>
-              <UsersRound color={color} size={22} />
+              <UsersRound color={color} size={26} />
             </View>
           ),
         }}

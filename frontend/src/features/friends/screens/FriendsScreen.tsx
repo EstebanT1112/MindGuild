@@ -223,7 +223,7 @@ export default function FriendsScreen() {
 
   if (loading) {
     return (
-      <ScreenLayout title="Amigos">
+      <ScreenLayout title="Amigos" hideBackButton={true}>
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.accent} />
         </View>
