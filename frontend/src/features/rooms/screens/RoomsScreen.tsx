@@ -35,7 +35,7 @@ export default function RoomsScreen() {
 
     const [createVisible, setCreateVisible] = useState(false);
     const [joinVisible, setJoinVisible] = useState(false);
-    
+
     const [invitationsVisible, setInvitationsVisible] = useState(false);
     const [pendingCount, setPendingCount] = useState(0);
 
@@ -150,6 +150,7 @@ export default function RoomsScreen() {
             title="MIS SALAS"
             type="rooms"
             icon={<Users color={colors.accent} size={22} />}
+            hideBackButton={true}
         >
             <Pressable style={[styles.createMainBtn, { backgroundColor: colors.accent }]} onPress={() => setCreateVisible(true)}>
                 <Plus color="white" size={24} />
@@ -161,16 +162,23 @@ export default function RoomsScreen() {
                 <Text style={styles.joinBtnText}>Unirse con Codigo</Text>
             </Pressable>
 
-            <Pressable 
+            <Pressable
                 style={[
-                    styles.invitationsMainBtn, 
+                    styles.invitationsMainBtn,
                     pendingCount > 0 && styles.invitationsMainBtnActive
-                ]} 
+                ]}
                 onPress={() => setInvitationsVisible(true)}
             >
-                <Mail color="#ffffff" size={20} />
+                <View style={styles.mailContainer}>
+                    <Mail color="#ffffff" size={20} />
+                    {pendingCount > 0 && (
+                        <View style={styles.badge}>
+                            <Text style={styles.badgeText}>{pendingCount}</Text>
+                        </View>
+                    )}
+                </View>
                 <Text style={styles.invitationsBtnText}>
-                    {pendingCount > 0 ? `Invitaciones Pendientes (${pendingCount})` : 'Ver Invitaciones de Salas'}
+                    {pendingCount > 0 ? 'Ver invitaciones' : 'Ver Invitaciones de Salas'}
                 </Text>
             </Pressable>
 
@@ -298,4 +306,25 @@ const styles = StyleSheet.create({
     },
     emptyState: { alignItems: 'center', gap: 8, paddingVertical: 28 },
     emptyText: { fontSize: 13, fontWeight: 'bold' },
+    // Nuevos estilos para el badge de invitaciones
+    mailContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    badge: {
+        position: 'absolute',
+        top: -8,
+        right: -10,
+        backgroundColor: '#ef4444',
+        borderRadius: 10,
+        paddingHorizontal: 5,
+        height: 18,
+        justifyContent: 'center',
+        zIndex: 5,
+    },
+    badgeText: {
+        color: 'white',
+        fontSize: 10,
+        fontWeight: 'bold',
+    },
 });
