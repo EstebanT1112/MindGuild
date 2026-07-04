@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Plus, Save, Shield, Trash2, Users, X } from 'lucide-react-native';
+import { useThemeStore } from '../../../store/themeStore'; //[cite: 13]
 import CreateTeamModal from './CreateTeamModal';
 import type { RoomDetails } from '../services/roomsService';
 import { fetchRoomAdminDetails, removeRoomMember, updateRoom } from '../services/roomsService';
@@ -25,6 +26,7 @@ export default function RoomAdminModal({
   onClose,
   onRoomUpdated,
 }: Props) {
+  const colors = useThemeStore(state => state.colors); //[cite: 13]
   const [name, setName] = useState(room.name);
   const [description, setDescription] = useState(room.description ?? '');
   const [adminRoom, setAdminRoom] = useState(room);
@@ -163,83 +165,83 @@ export default function RoomAdminModal({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
-        <View style={styles.modal}>
+      <View style={[styles.backdrop, { backgroundColor: colors.overlay }]}>
+        <View style={[styles.modal, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.header}>
-            <Text style={styles.title}>Administrar sala</Text>
-            <Pressable style={styles.closeBtn} onPress={onClose}>
-              <X color="#94a3b8" size={20} />
+            <Text style={[styles.title, { color: colors.text }]}>Administrar sala</Text>
+            <Pressable style={[styles.closeBtn, { backgroundColor: colors.background }]} onPress={onClose}>
+              <X color={colors.textMuted} size={20} />
             </Pressable>
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false}>
-            <Text style={styles.label}>Nombre</Text>
+            <Text style={[styles.label, { color: colors.textMuted }]}>Nombre</Text>
             <TextInput
               value={name}
               onChangeText={setName}
               maxLength={60}
               placeholder="Nombre de la sala"
-              placeholderTextColor="#64748b"
-              style={styles.input}
+              placeholderTextColor={colors.textMuted}
+              style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
             />
 
-            <Text style={styles.label}>Descripcion</Text>
+            <Text style={[styles.label, { color: colors.textMuted }]}>Descripcion</Text>
             <TextInput
               value={description}
               onChangeText={setDescription}
               maxLength={240}
               placeholder="Descripcion de la sala"
-              placeholderTextColor="#64748b"
-              style={[styles.input, styles.textArea]}
+              placeholderTextColor={colors.textMuted}
+              style={[styles.input, styles.textArea, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }]}
               multiline
             />
 
-            <Pressable style={[styles.saveBtn, saving && styles.disabled]} onPress={handleSave} disabled={saving}>
-              <Save color="white" size={18} />
-              <Text style={styles.saveText}>{saving ? 'Guardando...' : 'Guardar cambios'}</Text>
+            <Pressable style={[styles.saveBtn, { backgroundColor: colors.accent }, saving && styles.disabled]} onPress={handleSave} disabled={saving}>
+              <Save color={colors.background} size={18} />
+              <Text style={[styles.saveText, { color: colors.background }]}>{saving ? 'Guardando...' : 'Guardar cambios'}</Text>
             </Pressable>
 
             {room.teams_enabled && (
               <>
                 <View style={styles.sectionHeader}>
                   <View style={styles.sectionTitleRow}>
-                    <Shield color="#3b82f6" size={18} />
-                    <Text style={styles.sectionTitle}>Equipos</Text>
+                    <Shield color={colors.accent} size={18} />
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Equipos</Text>
                   </View>
-                  <Pressable style={styles.addTeamBtn} onPress={() => setTeamModalVisible(true)}>
-                    <Plus color="#bfdbfe" size={16} />
-                    <Text style={styles.addTeamText}>Crear</Text>
+                  <Pressable style={[styles.addTeamBtn, { borderColor: `${colors.accent}44`, backgroundColor: `${colors.accent}15` }]} onPress={() => setTeamModalVisible(true)}>
+                    <Plus color={colors.accent} size={16} />
+                    <Text style={[styles.addTeamText, { color: colors.accent }]}>Crear</Text>
                   </Pressable>
                 </View>
 
                 {loadingTeams ? (
                   <View style={styles.loadingRow}>
-                    <ActivityIndicator color="#3b82f6" />
-                    <Text style={styles.loadingText}>Cargando equipos...</Text>
+                    <ActivityIndicator color={colors.accent} />
+                    <Text style={[styles.loadingText, { color: colors.textMuted }]}>Cargando equipos...</Text>
                   </View>
                 ) : teams.length === 0 ? (
-                  <Text style={styles.emptyText}>Todavia no hay equipos creados.</Text>
+                  <Text style={[styles.emptyText, { color: colors.textMuted, backgroundColor: colors.background, borderColor: colors.border }]}>Todavia no hay equipos creados.</Text>
                 ) : (
                   <View style={styles.teamsList}>
                     {teams.map(team => (
-                      <View key={team.id} style={styles.teamRow}>
-                        <View style={[styles.teamColorDot, { backgroundColor: team.color ?? '#3b82f6' }]} />
+                      <View key={team.id} style={[styles.teamRow, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                        <View style={[styles.teamColorDot, { backgroundColor: team.color ?? colors.accent }]} />
                         <View style={{ flex: 1 }}>
-                          <Text style={styles.teamName}>{team.name}</Text>
+                          <Text style={[styles.teamName, { color: colors.text }]}>{team.name}</Text>
                           <View style={styles.teamMetaRow}>
-                            <Users color="#64748b" size={13} />
-                            <Text style={styles.teamMeta}>{team.members.length} integrantes</Text>
+                            <Users color={colors.textMuted} size={13} />
+                            <Text style={[styles.teamMeta, { color: colors.textMuted }]}>{team.members.length} integrantes</Text>
                           </View>
                         </View>
                         <Pressable
-                          style={[styles.removeBtn, teamDeletingId === team.id && styles.disabled]}
+                          style={[styles.removeBtn, { backgroundColor: `${colors.warning}20`, borderColor: colors.warning }, teamDeletingId === team.id && styles.disabled]}
                           onPress={() => confirmDeleteTeam(team)}
                           disabled={Boolean(teamDeletingId)}
                         >
                           {teamDeletingId === team.id ? (
-                            <ActivityIndicator color="#f87171" />
+                            <ActivityIndicator color={colors.warning} />
                           ) : (
-                            <Trash2 color="#f87171" size={18} />
+                            <Trash2 color={colors.warning} size={18} />
                           )}
                         </Pressable>
                       </View>
@@ -249,25 +251,25 @@ export default function RoomAdminModal({
               </>
             )}
 
-            <Text style={styles.sectionTitle}>Integrantes activos</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Integrantes activos</Text>
             <View style={styles.membersList}>
               {adminRoom.members.map(member => {
                 const canRemove = member.role !== 'owner' && member.id !== currentUserId;
 
                 return (
-                  <View key={member.id} style={styles.memberRow}>
+                  <View key={member.id} style={[styles.memberRow, { backgroundColor: colors.background, borderColor: colors.border }]}>
                     <Image source={{ uri: member.avatar_url || fallbackAvatar }} style={styles.avatar} />
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.memberName}>@{member.username}</Text>
-                      <Text style={styles.memberRole}>{member.role === 'owner' ? 'Owner' : 'Miembro'}</Text>
+                      <Text style={[styles.memberName, { color: colors.text }]}>@{member.username}</Text>
+                      <Text style={[styles.memberRole, { color: colors.textMuted }]}>{member.role === 'owner' ? 'Owner' : 'Miembro'}</Text>
                     </View>
                     {canRemove && (
                       <Pressable
-                        style={[styles.removeBtn, removingId === member.id && styles.disabled]}
+                        style={[styles.removeBtn, { backgroundColor: `${colors.warning}20`, borderColor: colors.warning }, removingId === member.id && styles.disabled]}
                         onPress={() => confirmRemove(member.id, member.username)}
                         disabled={Boolean(removingId)}
                       >
-                        <Trash2 color="#f87171" size={18} />
+                        <Trash2 color={colors.warning} size={18} />
                       </Pressable>
                     )}
                   </View>
@@ -289,35 +291,35 @@ export default function RoomAdminModal({
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: '#020617cc', justifyContent: 'center', padding: 20 },
-  modal: { maxHeight: '86%', backgroundColor: '#0f172a', borderRadius: 24, borderWidth: 1, borderColor: '#334155', padding: 16 },
+  backdrop: { flex: 1, justifyContent: 'center', padding: 20 },
+  modal: { maxHeight: '86%', borderRadius: 24, borderWidth: 1, padding: 16 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
-  title: { color: 'white', fontSize: 18, fontWeight: '900' },
-  closeBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#1e293b', alignItems: 'center', justifyContent: 'center' },
-  label: { color: '#94a3b8', fontSize: 12, fontWeight: '900', marginBottom: 8, marginTop: 10 },
-  input: { backgroundColor: '#1e293b', color: 'white', borderRadius: 14, borderWidth: 1, borderColor: '#334155', paddingHorizontal: 14, paddingVertical: 12, fontSize: 14 },
+  title: { fontSize: 18, fontWeight: '900' },
+  closeBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  label: { fontSize: 12, fontWeight: '900', marginBottom: 8, marginTop: 10 },
+  input: { borderRadius: 14, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14 },
   textArea: { minHeight: 82, textAlignVertical: 'top' },
-  saveBtn: { height: 50, borderRadius: 16, backgroundColor: '#22c55e', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 14 },
-  saveText: { color: 'white', fontWeight: '900', fontSize: 15 },
-  sectionTitle: { color: '#cbd5e1', fontSize: 14, fontWeight: '900', marginTop: 22, marginBottom: 12 },
+  saveBtn: { height: 50, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 14 },
+  saveText: { fontWeight: '900', fontSize: 15 },
+  sectionTitle: { fontSize: 14, fontWeight: '900', marginTop: 22, marginBottom: 12 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 22, marginBottom: 12 },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  addTeamBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 12, borderWidth: 1, borderColor: '#3b82f644', backgroundColor: '#3b82f615', paddingHorizontal: 12, paddingVertical: 8 },
-  addTeamText: { color: '#bfdbfe', fontWeight: '900', fontSize: 12 },
+  addTeamBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8 },
+  addTeamText: { fontWeight: '900', fontSize: 12 },
   loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
-  loadingText: { color: '#94a3b8', fontSize: 13, fontWeight: '700' },
-  emptyText: { color: '#94a3b8', fontSize: 13, fontWeight: '700', backgroundColor: '#1e293b', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: '#334155' },
+  loadingText: { fontSize: 13, fontWeight: '700' },
+  emptyText: { fontSize: 13, fontWeight: '700', borderRadius: 14, padding: 12, borderWidth: 1 },
   teamsList: { gap: 10 },
-  teamRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#1e293b', borderRadius: 16, padding: 12, borderWidth: 1, borderColor: '#334155' },
+  teamRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, padding: 12, borderWidth: 1 },
   teamColorDot: { width: 12, height: 12, borderRadius: 6 },
-  teamName: { color: 'white', fontWeight: 'bold', fontSize: 14 },
+  teamName: { fontWeight: 'bold', fontSize: 14 },
   teamMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
-  teamMeta: { color: '#64748b', fontSize: 12 },
+  teamMeta: { fontSize: 12 },
   membersList: { gap: 10 },
-  memberRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#1e293b', borderRadius: 16, padding: 12, borderWidth: 1, borderColor: '#334155' },
+  memberRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, padding: 12, borderWidth: 1 },
   avatar: { width: 38, height: 38, borderRadius: 19 },
-  memberName: { color: 'white', fontWeight: 'bold', fontSize: 14 },
-  memberRole: { color: '#64748b', fontSize: 12, marginTop: 2 },
-  removeBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#450a0a55', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#7f1d1d' },
+  memberName: { fontWeight: 'bold', fontSize: 14 },
+  memberRole: { fontSize: 12, marginTop: 2 },
+  removeBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   disabled: { opacity: 0.65 },
 });
