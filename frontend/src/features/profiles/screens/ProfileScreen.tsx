@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -17,7 +17,6 @@ import {
     CalendarCheck,
     Compass,
     Crown,
-    Castle,
     Edit2,
     Flame,
     Gem,
@@ -34,10 +33,10 @@ import { useFocusEffect } from '@react-navigation/native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
+import { useThemeStore } from '../../../store/themeStore'; // Importado
 import EditProfileModal from '../components/EditProfileModal';
 import SettingsModal from '../components/SettingsModal';
 import StatCard from '../components/StatCard';
-import WeeklyProgress from '../components/WeeklyProgress';
 import AchievementDetailModal from '../components/AchievementDetailModal';
 
 import { updateMyProfile } from '../services/profileService';
@@ -56,50 +55,6 @@ const getAchievementRewardCoins = (achievement: Achievement) => {
     return rewardCoins > 0 ? rewardCoins : DEFAULT_ACHIEVEMENT_REWARD_COINS;
 };
 
-const medalTierColors = {
-    bronze: '#cd7f32',
-    silver: '#c0c0c0',
-    gold: '#facc15',
-};
-
-const renderAchievementIcon = (achievement: Achievement, size = 30) => {
-    const color = achievement.unlocked ? '#22c55e' : '#64748b';
-    const props = { color, size };
-
-    switch (achievement.badge_icon) {
-        case 'star':
-            return <Star {...props} />;
-        case 'flame':
-        case 'fire':
-            return <Flame {...props} />;
-        case 'book':
-            return <BookOpen {...props} />;
-        case 'calendar-check':
-            return <CalendarCheck {...props} />;
-        case 'compass':
-            return <Compass {...props} />;
-        case 'users':
-            return <Users {...props} />;
-        case 'trophy':
-            return <Trophy {...props} />;
-        case 'zap':
-            return <Zap {...props} />;
-        case 'crown':
-            return <Crown {...props} />;
-        case 'award':
-            return <Award {...props} />;
-        case 'network':
-            return <Network {...props} />;
-        case 'shield':
-            return <Shield {...props} />;
-        case 'gem':
-            return <Gem {...props} />;
-        case 'medal':
-        default:
-            return <Medal {...props} />;
-    }
-};
-
 export default function ProfileScreen({ navigation }: any) {
     const accessToken = useAuthStore(state => state.access_token);
     const setUser = useAuthStore(state => state.setUser);
@@ -110,6 +65,8 @@ export default function ProfileScreen({ navigation }: any) {
     const setProfileInStore = useAppDataStore(state => state.setProfile);
     const loadAchievementsFromStore = useAppDataStore(state => state.loadAchievements);
 
+    const colors = useThemeStore(state => state.colors); // Colores del tema
+
     const [isEditModalVisible, setEditModalVisible] = useState(false);
     const [isSettingsVisible, setSettingsVisible] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -118,35 +75,19 @@ export default function ProfileScreen({ navigation }: any) {
     const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
     const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
     const unlockedAchievementsCount = achievements.filter(achievement => achievement.unlocked).length;
-    
+
     const avatarUri = profile?.avatar_url || fallbackAvatar;
 
-    useEffect(() => {
-        loadProfile();
-    }, [accessToken]);
+    useEffect(() => { loadProfile(); }, [accessToken]);
 
-    useFocusEffect(
-        useCallback(() => {
-            loadUnreadNotificationsCount();
-        }, [accessToken])
-    );
+    useFocusEffect(useCallback(() => { loadUnreadNotificationsCount(); }, [accessToken]));
 
-    // RF-03: obtiene el perfil completo y sincroniza el usuario global.
     const loadProfile = async () => {
         if (!accessToken) return;
-
         try {
             const data = await loadProfileFromStore(accessToken);
-            if (data) {
-                setUser({ id: data.id, email: data.email, username: data.username });
-            }
-
-            try {
-                await loadAchievementsFromStore(accessToken);
-            } catch (achievementError) {
-                console.warn('No se pudieron cargar los logros', achievementError);
-            }
-
+            if (data) setUser({ id: data.id, email: data.email, username: data.username });
+            await loadAchievementsFromStore(accessToken).catch(console.warn);
             loadUnreadNotificationsCount();
         } catch (error: any) {
             Alert.alert('Error de perfil', error.message ?? 'No se pudo cargar el perfil.');
@@ -155,37 +96,27 @@ export default function ProfileScreen({ navigation }: any) {
 
     const loadUnreadNotificationsCount = async () => {
         if (!accessToken) return;
-
         try {
             const count = await fetchUnreadNotificationsCount(accessToken);
             setUnreadNotificationsCount(count);
-        } catch (error) {
-            console.warn('No se pudo cargar el contador de notificaciones', error);
-        }
+        } catch (error) { console.warn('No se pudo cargar notificaciones', error); }
     };
 
     const handleRefresh = async () => {
         if (!accessToken) return;
-
         setRefreshing(true);
         try {
             const data = await loadProfileFromStore(accessToken, { force: true });
-            if (data) {
-                setUser({ id: data.id, email: data.email, username: data.username });
-            }
+            if (data) setUser({ id: data.id, email: data.email, username: data.username });
             await loadAchievementsFromStore(accessToken, { force: true });
             await loadUnreadNotificationsCount();
         } catch (error: any) {
             Alert.alert('Error de perfil', error.message ?? 'No se pudo cargar el perfil.');
-        } finally {
-            setRefreshing(false);
-        }
+        } finally { setRefreshing(false); }
     };
 
-    // RF-03: envia cambios editables y refresca la respuesta completa del perfil.
     const handleSaveProfile = async (data: { username: string; bio: string; avatar_url: string }) => {
         if (!accessToken) return;
-
         setSaving(true);
         try {
             const updatedProfile = await updateMyProfile(accessToken, {
@@ -193,51 +124,256 @@ export default function ProfileScreen({ navigation }: any) {
                 bio: data.bio,
                 avatar_url: data.avatar_url || null,
             });
-
             setProfileInStore(updatedProfile);
-            setUser({
-                id: updatedProfile.id,
-                email: updatedProfile.email,
-                username: updatedProfile.username,
-            });
+            setUser({ id: updatedProfile.id, email: updatedProfile.email, username: updatedProfile.username });
             setEditModalVisible(false);
-        } catch (error: any) {
-            Alert.alert('Error al guardar', error.message ?? 'No se pudo actualizar el perfil.');
-        } finally {
-            setSaving(false);
-        }
+        } catch (error: any) { Alert.alert('Error al guardar', error.message ?? 'No se pudo actualizar.'); }
+        finally { setSaving(false); }
     };
 
     const handleClaimAchievement = async (achievementId: string) => {
         if (!accessToken || claimingAchievementId) return;
-
         setClaimingAchievementId(achievementId);
         try {
             const result = await claimAchievementReward(accessToken, achievementId);
-            if (profile && typeof result?.coins_balance === 'number') {
-                setProfileInStore({ ...profile, coins_balance: result.coins_balance });
-            }
-            await Promise.all([
-                loadProfileFromStore(accessToken, { force: true }),
-                loadAchievementsFromStore(accessToken, { force: true }),
-            ]);
-            setSelectedAchievement(current =>
-                current?.id === achievementId
-                    ? { ...current, reward_claimed_at: new Date().toISOString() }
-                    : current
-            );
-        } catch (error: any) {
-            Alert.alert('Error al reclamar', error.message ?? 'No se pudo reclamar la recompensa.');
-        } finally {
-            setClaimingAchievementId(null);
+            if (profile && typeof result?.coins_balance === 'number') setProfileInStore({ ...profile, coins_balance: result.coins_balance });
+            await Promise.all([loadProfileFromStore(accessToken, { force: true }), loadAchievementsFromStore(accessToken, { force: true })]);
+            setSelectedAchievement(current => current?.id === achievementId ? { ...current, reward_claimed_at: new Date().toISOString() } : current);
+        } catch (error: any) { Alert.alert('Error al reclamar', error.message ?? 'No se pudo reclamar.'); }
+        finally { setClaimingAchievementId(null); }
+    };
+
+    // Colores para las medallas según el tier (usando tokens del tema)
+    const getMedalTierColor = (tier: string = 'bronze') => {
+        switch (tier) {
+            case 'gold': return colors.rankGold;
+            case 'silver': return colors.rankSilver;
+            case 'bronze': return colors.rankBronze;
+            default: return colors.rankBronze;
         }
     };
+
+    // Función para renderizar el icono del logro con colores dinámicos
+    const renderAchievementIcon = (achievement: Achievement, size = 30) => {
+        const color = achievement.unlocked ? colors.accent : colors.textMuted;
+        const props = { color, size };
+
+        switch (achievement.badge_icon) {
+            case 'star': return <Star {...props} />;
+            case 'flame': case 'fire': return <Flame {...props} />;
+            case 'book': return <BookOpen {...props} />;
+            case 'calendar-check': return <CalendarCheck {...props} />;
+            case 'compass': return <Compass {...props} />;
+            case 'users': return <Users {...props} />;
+            case 'trophy': return <Trophy {...props} />;
+            case 'zap': return <Zap {...props} />;
+            case 'crown': return <Crown {...props} />;
+            case 'award': return <Award {...props} />;
+            case 'network': return <Network {...props} />;
+            case 'shield': return <Shield {...props} />;
+            case 'gem': return <Gem {...props} />;
+            case 'medal': default: return <Medal {...props} />;
+        }
+    };
+
+    // Estilos dinámicos basados en el tema
+    const styles = useMemo(() => StyleSheet.create({
+        actionButtons: {
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 10,
+            paddingHorizontal: 4,
+            marginBottom: 10,
+        },
+        rightActionButtons: {
+            flexDirection: 'row',
+            gap: 10,
+        },
+        iconBtn: {
+            width: 40,
+            height: 40,
+            borderRadius: 12,
+            backgroundColor: colors.surface,
+            alignItems: 'center',
+            justifyContent: 'center',
+        },
+        notificationBtn: {
+            borderColor: colors.warning + '44', // semitransparente
+            borderWidth: 1,
+            marginTop: 3,
+        },
+        notificationBadge: {
+            position: 'absolute',
+            top: -2,
+            right: -5,
+            minWidth: 18,
+            height: 18,
+            borderRadius: 9,
+            backgroundColor: colors.danger,
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingHorizontal: 4,
+            borderWidth: 2,
+            borderColor: colors.background,
+        },
+        notificationBadgeText: {
+            color: colors.text,
+            fontSize: 10,
+            fontWeight: '900',
+        },
+        loadingState: {
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 12,
+        },
+        loadingText: {
+            color: colors.textMuted,
+            fontWeight: 'bold',
+        },
+        editBtnActive: {
+            borderColor: colors.info,
+            borderWidth: 1,
+        },
+        profileSection: {
+            alignItems: 'center',
+            marginBottom: 20,
+        },
+        avatarContainer: {
+            position: 'relative',
+        },
+        avatarBorder: {
+            width: 150,
+            height: 150,
+            borderRadius: 75,
+            borderWidth: 4,
+            borderColor: colors.warning,
+            padding: 5,
+        },
+        avatarImage: {
+            width: '100%',
+            height: '100%',
+            borderRadius: 70,
+        },
+        userName: {
+            color: colors.text,
+            fontSize: 24,
+            fontWeight: '900',
+            marginTop: 15,
+        },
+        userTag: {
+            color: colors.textMuted,
+            fontSize: 16,
+        },
+        bioText: {
+            color: colors.textSoft,
+            fontSize: 14,
+            textAlign: 'center',
+            marginTop: 8,
+            paddingHorizontal: 24,
+        },
+        ratingRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+            marginTop: 8,
+        },
+        ratingText: {
+            color: colors.warning,
+            fontWeight: 'bold',
+        },
+        statsGrid: {
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: 15,
+            justifyContent: 'center',
+        },
+        medalsSection: {
+            backgroundColor: colors.surfaceElevated,
+            borderRadius: 28,
+            padding: 20,
+            marginBottom: 30,
+            marginTop: 20,
+        },
+        sectionHeaderRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+            marginBottom: 15,
+        },
+        sectionTitle: {
+            color: colors.text,
+            fontSize: 18,
+            fontWeight: 'bold',
+        },
+        medalsGrid: {
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: 12,
+            justifyContent: 'center',
+        },
+        medalCard: {
+            width: '30%',
+            backgroundColor: colors.surface,
+            padding: 15,
+            borderRadius: 20,
+            alignItems: 'center',
+            gap: 8,
+            borderWidth: 1,
+            borderColor: colors.border,
+        },
+        medalTierDot: {
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            width: 8,
+            height: 8,
+            borderRadius: 4,
+        },
+        lockedMedalCard: {
+            opacity: 0.55,
+        },
+        medalName: {
+            color: colors.text,
+            fontSize: 10,
+            textAlign: 'center',
+            fontWeight: 'bold',
+        },
+        medalReward: {
+            color: colors.warning,
+            fontSize: 11,
+            textAlign: 'center',
+            fontWeight: '900',
+        },
+        medalProgress: {
+            color: colors.textMuted,
+            fontSize: 10,
+            textAlign: 'center',
+            fontWeight: '700',
+        },
+        medalStatus: {
+            color: colors.textMuted,
+            fontSize: 9,
+            textAlign: 'center',
+            fontWeight: '700',
+        },
+        medalStatusUnlocked: {
+            color: colors.accent,
+        },
+        emptyAchievementsText: {
+            color: colors.textMuted,
+            fontSize: 13,
+            textAlign: 'center',
+            width: '100%',
+        },
+    }), [colors]);
 
     if (profileLoading && !profile) {
         return (
             <ScreenLayout title="MI PERFIL" type="profiles">
                 <View style={styles.loadingState}>
-                    <ActivityIndicator color="#22c55e" />
+                    <ActivityIndicator color={colors.accent} />
                     <Text style={styles.loadingText}>Cargando perfil...</Text>
                 </View>
             </ScreenLayout>
@@ -246,7 +382,6 @@ export default function ProfileScreen({ navigation }: any) {
 
     return (
         <ScreenLayout title="MI PERFIL" type="profiles">
-            {/* El ScrollView envuelve todo, incluidos los botones superiores */}
             <ScrollView
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 40 }}
@@ -254,19 +389,14 @@ export default function ProfileScreen({ navigation }: any) {
                     <RefreshControl
                         refreshing={refreshing}
                         onRefresh={handleRefresh}
-                        tintColor="#22c55e"
-                        colors={['#22c55e']}
+                        tintColor={colors.accent}
+                        colors={[colors.accent]}
                     />
                 }
             >
-                
-                {/* Botones de acción contenidos en el flujo del scroll */}
                 <View style={styles.actionButtons}>
-                    <Pressable
-                        style={[styles.iconBtn, styles.notificationBtn]}
-                        onPress={() => navigation.navigate('Notifications')}
-                    >
-                        <Bell color="#facc15" size={18} />
+                    <Pressable style={[styles.iconBtn, styles.notificationBtn]} onPress={() => navigation.navigate('Notifications')}>
+                        <Bell color={colors.warning} size={18} />
                         {unreadNotificationsCount > 0 && (
                             <View style={styles.notificationBadge}>
                                 <Text style={styles.notificationBadgeText}>
@@ -275,130 +405,94 @@ export default function ProfileScreen({ navigation }: any) {
                             </View>
                         )}
                     </Pressable>
-
                     <View style={styles.rightActionButtons}>
-                        <Pressable
-                            style={[styles.iconBtn, styles.editBtnActive]}
-                            onPress={() => setEditModalVisible(true)}
-                        >
-                            <Edit2 color="#3b82f6" size={18} />
+                        <Pressable style={[styles.iconBtn, styles.editBtnActive]} onPress={() => setEditModalVisible(true)}>
+                            <Edit2 color={colors.info} size={18} />
                         </Pressable>
-
-                        <Pressable
-                            style={styles.iconBtn}
-                            onPress={() => setSettingsVisible(true)}
-                        >
-                            <Settings color="#94a3b8" size={18} />
+                        <Pressable style={styles.iconBtn} onPress={() => setSettingsVisible(true)}>
+                            <Settings color={colors.textMuted} size={18} />
                         </Pressable>
                     </View>
                 </View>
 
-                {/* Información Principal del Perfil */}
                 <View style={styles.profileSection}>
                     <View style={styles.avatarContainer}>
                         <View style={styles.avatarBorder}>
                             <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
-                        </View>
-                        <View style={styles.levelBadge}>
-                            <Text style={styles.levelText}>{profile?.village.village_level ?? 1}</Text>
                         </View>
                     </View>
                     <Text style={styles.userName}>{profile?.username ?? 'Usuario'}</Text>
                     <Text style={styles.userTag}>@{profile?.username ?? 'usuario'}</Text>
                     {!!profile?.bio && <Text style={styles.bioText}>{profile.bio}</Text>}
                     <View style={styles.ratingRow}>
-                        <Star color="#facc15" fill="#facc15" size={16} />
+                        <Star color={colors.warning} fill={colors.warning} size={16} />
                         <Text style={styles.ratingText}>{profile?.email}</Text>
                     </View>
                 </View>
 
-                {/* Grid de Estadísticas */}
                 <View style={styles.statsGrid}>
-                    <StatCard icon={<Trophy color="#22c55e" size={24} />} value={`${profile?.total_study_minutes ?? 0}m`} label="Total Estudio" />
-                    <StatCard icon={<Flame color="#fb923c" size={24} />} value={`${profile?.streak_days ?? 0} dias`} label="Racha Actual" />
-                    <StatCard icon={<Medal color="#22c55e" size={24} />} value={`${unlockedAchievementsCount}`} label="Logros" />
-                    <StatCard icon={<Castle color="#22c55e" size={24} />} value={`${profile?.village.village_level ?? 1}`} label="Nivel Aldea" />
+                    <StatCard
+                        icon={<Trophy color={colors.accent} size={24} />}
+                        value={`${profile?.total_study_minutes ?? 0}m`}
+                        label="Total Estudio"
+                    />
+                    <StatCard
+                        icon={<Flame color={colors.warning} size={24} />}
+                        value={`${profile?.streak_days ?? 0} dias`}
+                        label="Racha Actual"
+                    />
+                    <StatCard
+                        icon={<Medal color={colors.accent} size={24} />}
+                        value={`${unlockedAchievementsCount}`}
+                        label="Logros"
+                    />
                 </View>
 
-                {/* IMPLEMENTAR EN LA E2 */}
-                {/* Progreso Semanal
-                <WeeklyProgress
-                    data={[0, 0, 0, 0, 0, 0, profile?.weekly_stats.total_minutes ?? 0]}
-                    totalMinutes={profile?.weekly_stats.total_minutes ?? 0}
-                /> */}
-
-                {/* Sección de Medallas / Logros Unificada */}
                 <View style={styles.medalsSection}>
                     <View style={styles.sectionHeaderRow}>
-                        <Medal color="#facc15" size={20} />
+                        <Medal color={colors.warning} size={20} />
                         <Text style={styles.sectionTitle}>Logros y medallas</Text>
                     </View>
                     <View style={styles.medalsGrid}>
                         {achievements.length === 0 ? (
                             <Text style={styles.emptyAchievementsText}>Todavia no hay logros disponibles.</Text>
-                        ) : achievements.map((m) => {
-                            const rewardCoins = getAchievementRewardCoins(m);
-
-                            return (
-                                <Pressable
-                                    key={m.id}
-                                    style={[styles.medalCard, !m.unlocked && styles.lockedMedalCard]}
-                                    onPress={() => setSelectedAchievement(m)}
-                                >
-                                    <View
-                                        style={[
-                                            styles.medalTierDot,
-                                            { backgroundColor: medalTierColors[m.medal_tier ?? 'bronze'] },
-                                        ]}
-                                    />
-                                    {renderAchievementIcon(m)}
-                                    <Text style={styles.medalName}>{m.name}</Text>
-                                    <Text style={styles.medalReward}>+{rewardCoins}</Text>
-                                    <Text style={styles.medalProgress}>
-                                        {m.progress_value ?? 0}/{m.target_value}
-                                    </Text>
-                                    <Text style={[styles.medalStatus, m.unlocked && styles.medalStatusUnlocked]}>
-                                        {m.reward_claimed_at ? 'Reclamado' : m.unlocked ? 'Desbloqueado' : 'Pendiente'}
-                                    </Text>
-                                    {m.unlocked && !m.reward_claimed_at && rewardCoins > 0 && (
-                                        <Pressable
-                                            style={styles.claimAchievementBtn}
-                                            onPress={() => handleClaimAchievement(m.id)}
-                                            disabled={claimingAchievementId === m.id}
+                        ) : (
+                            achievements.map((m) => {
+                                const rewardCoins = getAchievementRewardCoins(m);
+                                return (
+                                    <Pressable
+                                        key={m.id}
+                                        style={[styles.medalCard, !m.unlocked && styles.lockedMedalCard]}
+                                        onPress={() => setSelectedAchievement(m)}
+                                    >
+                                        <View
+                                            style={[
+                                                styles.medalTierDot,
+                                                { backgroundColor: getMedalTierColor(m.medal_tier) },
+                                            ]}
+                                        />
+                                        {renderAchievementIcon(m)}
+                                        <Text style={styles.medalName}>{m.name}</Text>
+                                        <Text style={styles.medalReward}>+{rewardCoins}</Text>
+                                        <Text style={styles.medalProgress}>
+                                            {m.progress_value ?? 0}/{m.target_value}
+                                        </Text>
+                                        <Text
+                                            style={[
+                                                styles.medalStatus,
+                                                m.unlocked && styles.medalStatusUnlocked,
+                                            ]}
                                         >
-                                            <Text style={styles.claimAchievementText}>
-                                                {claimingAchievementId === m.id ? '...' : 'Reclamar'}
-                                            </Text>
-                                        </Pressable>
-                                    )}
-                                </Pressable>
-                            );
-                        })}
-                    </View>
-                </View>
-
-                {/* Tarjeta de la Aldea */}
-                <View style={styles.villageCard}>
-                    <Text style={styles.villageTitle}>Tu Aldea en Evolucion</Text>
-                    <View style={styles.villageMainRow}>
-                        <View style={styles.villageIconBox}>
-                            <Castle color="#22c55e" size={46} />
-                        </View>
-                        <View style={styles.villageInfo}>
-                            <View style={styles.levelRow}>
-                                <Text style={styles.levelLabelText}>Nivel {profile?.village.village_level ?? 1}</Text>
-                                <Text style={styles.percentageText}>{profile?.weekly_stats.total_minutes ?? 0}m</Text>
-                            </View>
-                            <View style={styles.progressBarBg}>
-                                <View style={[styles.progressBarFill, { width: '40%' }]} />
-                            </View>
-                            <Text style={styles.nextLevelText}>Tiempo semanal registrado</Text>
-                        </View>
+                                            {m.reward_claimed_at ? 'Reclamado' : m.unlocked ? 'Desbloqueado' : 'Pendiente'}
+                                        </Text>
+                                    </Pressable>
+                                );
+                            })
+                        )}
                     </View>
                 </View>
             </ScrollView>
 
-            {/* Modales */}
             <EditProfileModal
                 visible={isEditModalVisible}
                 onClose={() => setEditModalVisible(false)}
@@ -410,19 +504,15 @@ export default function ProfileScreen({ navigation }: any) {
                     avatar_url: profile?.avatar_url ?? null,
                 }}
             />
-
             <SettingsModal
                 visible={isSettingsVisible}
                 onClose={() => setSettingsVisible(false)}
                 email={profile?.email}
                 authProviders={profile?.auth_providers ?? []}
                 onAuthProvidersChanged={(authProviders) => {
-                    if (profile) {
-                        setProfileInStore({ ...profile, auth_providers: authProviders });
-                    }
+                    if (profile) setProfileInStore({ ...profile, auth_providers: authProviders });
                 }}
             />
-
             <AchievementDetailModal
                 visible={Boolean(selectedAchievement)}
                 achievement={selectedAchievement}
@@ -434,108 +524,3 @@ export default function ProfileScreen({ navigation }: any) {
         </ScreenLayout>
     );
 }
-
-const styles = StyleSheet.create({
-    actionButtons: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        gap: 10,
-        paddingHorizontal: 4,
-        marginBottom: 10,
-    },
-    rightActionButtons: {
-        flexDirection: 'row',
-        gap: 10,
-    },
-    iconBtn: {
-        width: 40, 
-        height: 40, 
-        borderRadius: 12,
-        backgroundColor: '#1e293b', 
-        alignItems: 'center', 
-        justifyContent: 'center'
-    },
-    notificationBtn: { borderColor: '#facc1544', borderWidth: 1, marginTop: 3 },
-    notificationBadge: {
-        position: 'absolute',
-        top: -2,
-        right: -5,
-        minWidth: 18,
-        height: 18,
-        borderRadius: 9,
-        backgroundColor: '#ef4444',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: 4,
-        borderWidth: 2,
-        borderColor: '#0f172a',
-    },
-    notificationBadgeText: { color: 'white', fontSize: 10, fontWeight: '900' },
-    loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-    loadingText: { color: '#94a3b8', fontWeight: 'bold' },
-    editBtnActive: { borderColor: '#3b82f6', borderWidth: 1 },
-    profileSection: { alignItems: 'center', marginBottom: 20 },
-    avatarContainer: { position: 'relative' },
-    avatarBorder: {
-        width: 150, height: 150, borderRadius: 75,
-        borderWidth: 4, borderColor: '#facc15', padding: 5
-    },
-    avatarImage: { width: '100%', height: '100%', borderRadius: 70 },
-    levelBadge: {
-        position: 'absolute', bottom: 5, right: 5,
-        width: 40, height: 40, borderRadius: 20,
-        backgroundColor: '#22c55e', borderWidth: 3,
-        borderColor: '#0f172a', alignItems: 'center', justifyContent: 'center'
-    },
-    levelText: { color: 'white', fontWeight: 'bold', fontSize: 18 },
-    userName: { color: 'white', fontSize: 24, fontWeight: '900', marginTop: 15 },
-    userTag: { color: '#94a3b8', fontSize: 16 },
-    bioText: { color: '#cbd5e1', fontSize: 14, textAlign: 'center', marginTop: 8, paddingHorizontal: 24 },
-    ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
-    ratingText: { color: '#facc15', fontWeight: 'bold' },
-    statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 15, justifyContent: 'center' },
-    medalsSection: {
-        backgroundColor: '#1e293b', borderRadius: 28,
-        padding: 20, marginBottom: 30, marginTop: 20
-    },
-    sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 15 },
-    sectionTitle: { color: 'white', fontSize: 18, fontWeight: 'bold' },
-    medalsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center' },
-    medalCard: {
-        width: '30%', backgroundColor: '#0f172a',
-        padding: 15, borderRadius: 20, alignItems: 'center',
-        gap: 8, borderWidth: 1, borderColor: '#334155'
-    },
-    medalTierDot: {
-        position: 'absolute',
-        top: 8,
-        right: 8,
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-    },
-    lockedMedalCard: { opacity: 0.55 },
-    medalName: { color: 'white', fontSize: 10, textAlign: 'center', fontWeight: 'bold' },
-    medalReward: { color: '#facc15', fontSize: 11, textAlign: 'center', fontWeight: '900' },
-    medalProgress: { color: '#94a3b8', fontSize: 10, textAlign: 'center', fontWeight: '700' },
-    medalStatus: { color: '#94a3b8', fontSize: 9, textAlign: 'center', fontWeight: '700' },
-    medalStatusUnlocked: { color: '#22c55e' },
-    claimAchievementBtn: { backgroundColor: '#22c55e', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 6, marginTop: 2 },
-    claimAchievementText: { color: 'white', fontSize: 10, fontWeight: '900' },
-    emptyAchievementsText: { color: '#94a3b8', fontSize: 13, textAlign: 'center', width: '100%' },
-    villageCard: {
-        backgroundColor: '#1e293b', borderRadius: 28,
-        padding: 20, marginBottom: 40, borderWidth: 1, borderColor: '#334155'
-    },
-    villageTitle: { color: 'white', fontSize: 18, fontWeight: 'bold', marginBottom: 15 },
-    villageMainRow: { flexDirection: 'row', gap: 15, alignItems: 'center' },
-    villageIconBox: { width: 100, height: 100, borderRadius: 20, borderWidth: 2, borderColor: '#22c55e', backgroundColor: '#0f172a', alignItems: 'center', justifyContent: 'center' },
-    villageInfo: { flex: 1 },
-    levelRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-    levelLabelText: { color: 'white', fontWeight: 'bold' },
-    percentageText: { color: '#22c55e', fontWeight: 'bold' },
-    progressBarBg: { height: 10, backgroundColor: '#334155', borderRadius: 5, overflow: 'hidden' },
-    progressBarFill: { height: '100%', backgroundColor: '#22c55e' },
-    nextLevelText: { color: '#64748b', fontSize: 12, marginTop: 8 },
-});

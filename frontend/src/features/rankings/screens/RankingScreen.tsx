@@ -1,10 +1,25 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { BrainCircuit, Clock, Crown, GraduationCap, UsersRound } from 'lucide-react-native';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import {
+  BrainCircuit,
+  Clock,
+  Crown,
+  GraduationCap,
+  UsersRound,
+} from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { type RankingEntry, type RankingType } from '../../../services/apiConfig';
 import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
+import { useThemeStore } from '../../../store/themeStore'; // 👈 Importamos el theme
 import RankingItem from '../components/RankingItem';
 
 type VisibleRankingType = Extract<RankingType, 'time' | 'qa' | 'academic' | 'boss'>;
@@ -54,15 +69,22 @@ const rankingTabs: Array<{
 ];
 
 export default function RankingScreen() {
-  const accessToken = useAuthStore(state => state.access_token);
+  const accessToken = useAuthStore((state) => state.access_token);
   const [activeType, setActiveType] = useState<VisibleRankingType>('time');
   const [data, setData] = useState<RankingEntryWithTrend[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const ranking = useAppDataStore(state => state.globalRanking.data ?? []);
-  const loading = useAppDataStore(state => state.globalRanking.isLoading);
-  const loadGlobalRanking = useAppDataStore(state => state.loadGlobalRanking);
+  const ranking = useAppDataStore((state) => state.globalRanking.data ?? []);
+  const loading = useAppDataStore((state) => state.globalRanking.isLoading);
+  const loadGlobalRanking = useAppDataStore((state) => state.loadGlobalRanking);
   const previousPositionsRef = useRef<Map<string, number>>(new Map());
-  const activeTab = rankingTabs.find(tab => tab.type === activeType) ?? rankingTabs[0];
+
+  // 👇 Obtenemos los colores del tema actual
+  const { colors } = useThemeStore();
+
+  // 👇 Estilos dinámicos que se reconstruyen al cambiar el tema
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
+  const activeTab = rankingTabs.find((tab) => tab.type === activeType) ?? rankingTabs[0];
   const SummaryIcon = activeTab.icon;
 
   useEffect(() => {
@@ -87,7 +109,7 @@ export default function RankingScreen() {
 
       return {
         ...entry,
-        trend: currentPosition < previousPosition ? 'up' as RankingTrend : 'down' as RankingTrend,
+        trend: currentPosition < previousPosition ? ('up' as RankingTrend) : ('down' as RankingTrend),
         movement: Math.abs(previousPosition - currentPosition),
       };
     });
@@ -119,7 +141,7 @@ export default function RankingScreen() {
   return (
     <ScreenLayout title="RANKING" type="rankings">
       <View style={styles.tabs}>
-        {rankingTabs.map(tab => {
+        {rankingTabs.map((tab) => {
           const isActive = activeType === tab.type;
           return (
             <Pressable
@@ -127,14 +149,16 @@ export default function RankingScreen() {
               style={[styles.tabButton, isActive && styles.tabButtonActive]}
               onPress={() => setActiveType(tab.type)}
             >
-              <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{tab.label}</Text>
+              <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
+                {tab.label}
+              </Text>
             </Pressable>
           );
         })}
       </View>
 
       <View style={styles.summaryCard}>
-        <SummaryIcon color="#22c55e" size={22} />
+        <SummaryIcon color={colors.accent} size={22} />
         <View style={styles.summaryText}>
           <Text style={styles.title}>{activeTab.title}</Text>
           <Text style={styles.description}>{activeTab.description}</Text>
@@ -142,7 +166,7 @@ export default function RankingScreen() {
       </View>
 
       {loading ? (
-        <ActivityIndicator color="#22c55e" style={{ marginTop: 20 }} />
+        <ActivityIndicator color={colors.accent} style={{ marginTop: 20 }} />
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
@@ -151,15 +175,15 @@ export default function RankingScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              tintColor="#22c55e"
-              colors={['#22c55e']}
+              tintColor={colors.accent}
+              colors={[colors.accent]}
             />
           }
         >
           {data.length === 0 ? (
             <View style={styles.emptyState}>
-              <UsersRound color="#64748b" size={28} />
-              <Text style={styles.emptyText}>Todavia no hay usuarios para mostrar.</Text>
+              <UsersRound color={colors.textMuted} size={28} />
+              <Text style={styles.emptyText}>Todavía no hay usuarios para mostrar.</Text>
             </View>
           ) : (
             data.map((item, index) => (
@@ -180,50 +204,76 @@ export default function RankingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  tabs: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 4,
-    marginBottom: 6,
-  },
-  tabButton: {
-    flex: 1,
-    minHeight: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#334155',
-    backgroundColor: '#0f172a',
-    paddingHorizontal: 6,
-  },
-  tabButtonActive: {
-    borderColor: '#22c55e',
-    backgroundColor: '#123524',
-  },
-  tabText: {
-    color: '#94a3b8',
-    fontSize: 11,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
-  tabTextActive: { color: '#bbf7d0' },
-  summaryCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#1e293b',
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: '#334155',
-    padding: 16,
-    marginVertical: 10,
-  },
-  summaryText: { flex: 1 },
-  title: { color: 'white', fontSize: 18, fontWeight: '900' },
-  description: { color: '#94a3b8', fontSize: 13, marginTop: 2 },
-  listContent: { paddingBottom: 40, paddingTop: 10 },
-  emptyState: { alignItems: 'center', gap: 8, paddingVertical: 28 },
-  emptyText: { color: '#64748b', fontSize: 13, textAlign: 'center', marginTop: 18 },
-});
+// 👇 Función que construye los estilos dinámicamente a partir de los colores del tema
+const createStyles = (colors: any) =>
+  StyleSheet.create({
+    tabs: {
+      flexDirection: 'row',
+      gap: 8,
+      marginTop: 4,
+      marginBottom: 6,
+    },
+    tabButton: {
+      flex: 1,
+      minHeight: 38,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      paddingHorizontal: 6,
+    },
+    tabButtonActive: {
+      borderColor: colors.accent,
+      backgroundColor: colors.accentSoft,
+    },
+    tabText: {
+      color: colors.textMuted,
+      fontSize: 11,
+      fontWeight: '900',
+      textAlign: 'center',
+    },
+    tabTextActive: {
+      color: colors.accentStrong,
+    },
+    summaryCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      backgroundColor: colors.surfaceElevated,
+      borderRadius: 22,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 16,
+      marginVertical: 10,
+    },
+    summaryText: {
+      flex: 1,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: '900',
+    },
+    description: {
+      color: colors.textMuted,
+      fontSize: 13,
+      marginTop: 2,
+    },
+    listContent: {
+      paddingBottom: 40,
+      paddingTop: 10,
+    },
+    emptyState: {
+      alignItems: 'center',
+      gap: 8,
+      paddingVertical: 28,
+    },
+    emptyText: {
+      color: colors.textMuted,
+      fontSize: 13,
+      textAlign: 'center',
+      marginTop: 18,
+    },
+  });

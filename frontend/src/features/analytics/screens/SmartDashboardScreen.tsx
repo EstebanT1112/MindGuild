@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import { BarChart3, BrainCircuit, CalendarDays, Clock3, Target, TrendingDown, TrendingUp } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { useAuthStore } from '../../../store/authStore';
+import { useThemeStore, ThemeColors } from '../../../store/themeStore';
 import {
   fetchMyDashboard,
   fetchRoomDashboard,
@@ -19,6 +20,10 @@ export default function SmartDashboardScreen() {
   const scope = route.params?.scope === 'room' && roomId ? 'room' : 'global';
   const roomMode = route.params?.mode === 'survival' ? 'survival' : 'battle_royale';
   const showAcademicMetrics = !(scope === 'room' && roomMode === 'survival');
+
+  // 🎨 Colores dinámicos del tema activo
+  const colors = useThemeStore((state) => state.colors);
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [data, setData] = useState<DashboardResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,11 +58,17 @@ export default function SmartDashboardScreen() {
 
   const title = scope === 'room' ? 'DASHBOARD DE SALA' : 'MI DASHBOARD';
 
+  const getInsightStyle = (type: 'positive' | 'warning' | 'neutral') => {
+    if (type === 'positive') return styles.insightPositive;
+    if (type === 'warning') return styles.insightWarning;
+    return styles.insightNeutral;
+  };
+
   return (
-    <ScreenLayout title={title} type="rooms" icon={<BarChart3 color="#38bdf8" size={22} />}>
+    <ScreenLayout title={title} type="rooms" icon={<BarChart3 color={colors.cyan} size={22} />}>
       {loading ? (
         <View style={styles.loadingState}>
-          <ActivityIndicator color="#38bdf8" />
+          <ActivityIndicator color={colors.cyan} />
           <Text style={styles.loadingText}>Calculando rendimiento...</Text>
         </View>
       ) : (
@@ -68,8 +79,8 @@ export default function SmartDashboardScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => loadDashboard({ refreshing: true })}
-              tintColor="#38bdf8"
-              colors={['#38bdf8']}
+              tintColor={colors.cyan}
+              colors={[colors.cyan || '#38bdf8']}
             />
           }
         >
@@ -87,47 +98,57 @@ export default function SmartDashboardScreen() {
             <>
               <View style={styles.metricsGrid}>
                 <MetricCard
+                  colors={colors}
+                  styles={styles}
                   label="Minutos"
                   value={`${data.summary.total_minutes}m`}
                   previous={data.previous_week?.total_minutes}
                   delta={formatPercent(data.deltas.minutes_percent)}
-                  icon={<Clock3 color="#38bdf8" size={20} />}
+                  icon={<Clock3 color={colors.cyan} size={20} />}
                 />
                 <MetricCard
+                  colors={colors}
+                  styles={styles}
                   label="Sesiones"
                   value={String(data.summary.sessions_count)}
                   previous={data.previous_week?.sessions_count}
-                  icon={<Target color="#22c55e" size={20} />}
+                  icon={<Target color={colors.accent} size={20} />}
                 />
                 <MetricCard
+                  colors={colors}
+                  styles={styles}
                   label="Dias activos"
                   value={String(data.summary.days_active)}
                   previous={data.previous_week?.days_active}
                   delta={formatSignedNumber(data.deltas.days_active_delta)}
-                  icon={<CalendarDays color="#facc15" size={20} />}
+                  icon={<CalendarDays color={colors.warning} size={20} />}
                 />
                 {showAcademicMetrics ? (
                   <MetricCard
+                    colors={colors}
+                    styles={styles}
                     label="Quiz"
                     value={`${Math.round(data.summary.avg_quiz_score)}%`}
                     previous={data.previous_week?.avg_quiz_score}
                     delta={formatPercent(data.deltas.quiz_percent)}
-                    icon={<BrainCircuit color="#a855f7" size={20} />}
+                    icon={<BrainCircuit color={colors.purple} size={20} />}
                   />
                 ) : (
                   <MetricCard
+                    colors={colors}
+                    styles={styles}
                     label="Constancia"
                     value={`${data.summary.days_active}/7`}
                     previous={data.previous_week?.days_active}
                     delta={formatSignedNumber(data.deltas.days_active_delta)}
-                    icon={<BarChart3 color="#22c55e" size={20} />}
+                    icon={<BarChart3 color={colors.accent} size={20} />}
                   />
                 )}
               </View>
 
               <View style={[styles.academicCard, !showAcademicMetrics && styles.studyCard]}>
                 <View style={[styles.academicIconBox, !showAcademicMetrics && styles.studyIconBox]}>
-                  <BarChart3 color={showAcademicMetrics ? '#0f172a' : '#e0f2fe'} size={24} />
+                  <BarChart3 color={showAcademicMetrics ? colors.rankBadgeText : colors.cyanSoft} size={24} />
                 </View>
                 <View style={styles.academicTextBox}>
                   <Text style={styles.academicLabel}>
@@ -146,11 +167,11 @@ export default function SmartDashboardScreen() {
               {data.insights.map((insight, index) => (
                 <View key={`${insight.type}-${index}`} style={[styles.insightCard, getInsightStyle(insight.type)]}>
                   {insight.type === 'positive' ? (
-                    <TrendingUp color="#86efac" size={20} />
+                    <TrendingUp color={colors.accent} size={20} />
                   ) : insight.type === 'warning' ? (
-                    <TrendingDown color="#fca5a5" size={20} />
+                    <TrendingDown color={colors.danger} size={20} />
                   ) : (
-                    <BarChart3 color="#93c5fd" size={20} />
+                    <BarChart3 color={colors.info} size={20} />
                   )}
                   <Text style={styles.insightText}>{insight.message}</Text>
                 </View>
@@ -169,12 +190,16 @@ function MetricCard({
   previous,
   delta,
   icon,
+  colors,
+  styles,
 }: {
   label: string;
   value: string;
   previous?: number;
   delta?: string | null;
   icon: React.ReactNode;
+  colors: ThemeColors;
+  styles: ReturnType<typeof createStyles>;
 }) {
   return (
     <View style={styles.metricCard}>
@@ -227,70 +252,71 @@ function getSurvivalSummaryText(summary: DashboardSummary) {
   return `${summary.sessions_count} sesiones validadas en ${summary.days_active} dias activos.`;
 }
 
-function getInsightStyle(type: 'positive' | 'warning' | 'neutral') {
-  if (type === 'positive') return styles.insightPositive;
-  if (type === 'warning') return styles.insightWarning;
-  return styles.insightNeutral;
-}
-
-const styles = StyleSheet.create({
-  content: { paddingBottom: 36 },
-  loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, paddingTop: 80 },
-  loadingText: { color: '#94a3b8' },
-  heroCard: {
-    backgroundColor: '#0f172a',
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 16,
-  },
-  scopeText: { color: '#f8fafc', fontSize: 20, fontWeight: '900' },
-  weekText: { color: '#38bdf8', fontSize: 13, fontWeight: '900', marginTop: 4 },
-  heroCopy: { color: '#94a3b8', marginTop: 8, lineHeight: 19 },
-  metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  metricCard: {
-    width: '48%',
-    backgroundColor: '#111827',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#243244',
-    padding: 12,
-  },
-  metricTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  metricIcon: { width: 34, height: 34, borderRadius: 8, backgroundColor: '#0f172a', alignItems: 'center', justifyContent: 'center' },
-  deltaText: { color: '#cbd5e1', fontSize: 12, fontWeight: '900' },
-  metricValue: { color: '#f8fafc', fontSize: 22, fontWeight: '900', marginTop: 12 },
-  metricLabel: { color: '#94a3b8', fontSize: 12, fontWeight: '800', marginTop: 2 },
-  previousText: { color: '#64748b', fontSize: 11, marginTop: 8 },
-  academicCard: {
-    marginTop: 14,
-    borderRadius: 8,
-    backgroundColor: '#facc15',
-    padding: 14,
-    flexDirection: 'row',
-    gap: 12,
-    alignItems: 'center',
-  },
-  studyCard: { backgroundColor: '#082f49' },
-  academicIconBox: { width: 44, height: 44, borderRadius: 8, backgroundColor: 'rgba(15,23,42,0.12)', alignItems: 'center', justifyContent: 'center' },
-  studyIconBox: { backgroundColor: 'rgba(224,242,254,0.12)' },
-  academicTextBox: { flex: 1 },
-  academicLabel: { color: '#1f2937', fontSize: 12, fontWeight: '900' },
-  academicValue: { color: '#0f172a', fontSize: 26, fontWeight: '900' },
-  academicSub: { color: '#334155', fontSize: 12, fontWeight: '700' },
-  sectionTitle: { color: '#64748b', fontSize: 12, fontWeight: '900', letterSpacing: 1, marginTop: 20, marginBottom: 10 },
-  insightCard: {
-    borderRadius: 8,
-    borderWidth: 1,
-    padding: 13,
-    flexDirection: 'row',
-    gap: 10,
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  insightPositive: { backgroundColor: '#052e16', borderColor: '#166534' },
-  insightWarning: { backgroundColor: '#450a0a', borderColor: '#991b1b' },
-  insightNeutral: { backgroundColor: '#0f172a', borderColor: '#1e3a8a' },
-  insightText: { color: '#e2e8f0', flex: 1, lineHeight: 18, fontWeight: '700' },
-});
+// 🎨 ESTILOS DINÁMICOS: se generan a partir de los tokens del themeStore.
+// No hay ningún color hexadecimal fijo aquí — todo viene de `colors`.
+// Excepción documentada: el "velo" translúcido de academicIconBox/studyIconBox usa un
+// negro/blanco a baja opacidad fijo, porque es un efecto decorativo de oscurecimiento
+// sobre una tarjeta que YA tiene un color de marca fijo (warning/cyan), no una superficie
+// del sistema de temas.
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    content: { paddingBottom: 36 },
+    loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, paddingTop: 80 },
+    loadingText: { color: colors.textMuted },
+    heroCard: {
+      backgroundColor: colors.surfaceElevated,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      padding: 16,
+      marginBottom: 16,
+    },
+    scopeText: { color: colors.text, fontSize: 20, fontWeight: '900' },
+    weekText: { color: colors.cyan, fontSize: 13, fontWeight: '900', marginTop: 4 },
+    heroCopy: { color: colors.textMuted, marginTop: 8, lineHeight: 19 },
+    metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    metricCard: {
+      width: '48%',
+      backgroundColor: colors.surface,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 12,
+    },
+    metricTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    metricIcon: { width: 34, height: 34, borderRadius: 8, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
+    deltaText: { color: colors.textMuted, fontSize: 12, fontWeight: '900' },
+    metricValue: { color: colors.text, fontSize: 22, fontWeight: '900', marginTop: 12 },
+    metricLabel: { color: colors.textMuted, fontSize: 12, fontWeight: '800', marginTop: 2 },
+    previousText: { color: colors.textSoft, fontSize: 11, marginTop: 8 },
+    academicCard: {
+      marginTop: 14,
+      borderRadius: 8,
+      backgroundColor: colors.warning,
+      padding: 14,
+      flexDirection: 'row',
+      gap: 12,
+      alignItems: 'center',
+    },
+    studyCard: { backgroundColor: colors.cyanSoft },
+    academicIconBox: { width: 44, height: 44, borderRadius: 8, backgroundColor: 'rgba(15,23,42,0.12)', alignItems: 'center', justifyContent: 'center' },
+    studyIconBox: { backgroundColor: 'rgba(224,242,254,0.12)' },
+    academicTextBox: { flex: 1 },
+    academicLabel: { color: colors.rankBadgeText, fontSize: 12, fontWeight: '900' },
+    academicValue: { color: colors.rankBadgeText, fontSize: 26, fontWeight: '900' },
+    academicSub: { color: colors.rankBadgeText, fontSize: 12, fontWeight: '700' },
+    sectionTitle: { color: colors.textSoft, fontSize: 12, fontWeight: '900', letterSpacing: 1, marginTop: 20, marginBottom: 10 },
+    insightCard: {
+      borderRadius: 8,
+      borderWidth: 1,
+      padding: 13,
+      flexDirection: 'row',
+      gap: 10,
+      alignItems: 'center',
+      marginBottom: 10,
+    },
+    insightPositive: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
+    insightWarning: { backgroundColor: colors.dangerSoft, borderColor: colors.dangerBorder },
+    insightNeutral: { backgroundColor: colors.surface, borderColor: colors.info },
+    insightText: { color: colors.text, flex: 1, lineHeight: 18, fontWeight: '700' },
+  });

@@ -6,6 +6,7 @@ import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { SessionExpiredError } from '../../../services/authenticatedFetch';
 import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
+import { useThemeStore } from '../../../store/themeStore';
 import RoomCard, { type RoomCardData } from '../components/RoomCard';
 import CreateRoomModal from '../components/CreateRoomModal';
 import JoinRoomModal from '../components/JoinRoomModal';
@@ -18,12 +19,12 @@ import {
     type UserRoom,
 } from '../services/roomsService';
 
-// --- IMPORTS DEL REQUERIMIENTO RF-05 ---
 import RoomInvitationsModal from '../components/RoomInvitationsModal';
 import { roomInvitationsService } from '../services/roomInvitationsService';
 
 export default function RoomsScreen() {
     const navigation = useNavigation<any>();
+    const colors = useThemeStore(state => state.colors);
     const accessToken = useAuthStore(state => state.access_token);
     const getCurrentAccessToken = () => useAuthStore.getState().access_token;
     const rooms = useAppDataStore(state => state.rooms.data ?? []);
@@ -35,7 +36,6 @@ export default function RoomsScreen() {
     const [createVisible, setCreateVisible] = useState(false);
     const [joinVisible, setJoinVisible] = useState(false);
     
-    // --- ESTADOS DE CONTROL PARA LAS INVITACIONES RECIBIDAS ---
     const [invitationsVisible, setInvitationsVisible] = useState(false);
     const [pendingCount, setPendingCount] = useState(0);
 
@@ -60,7 +60,6 @@ export default function RoomsScreen() {
         }
     };
 
-    // Consulta el contador de invitaciones activas en segundo plano
     const checkPendingInvitations = async () => {
         const currentAccessToken = getCurrentAccessToken();
         if (!currentAccessToken) return;
@@ -150,21 +149,23 @@ export default function RoomsScreen() {
         <ScreenLayout
             title="MIS SALAS"
             type="rooms"
-            icon={<Users color="#22c55e" size={22} />}
+            icon={<Users color={colors.accent} size={22} />}
         >
-            {/* --- BOTÓN DE INVITACIONES PENDIENTES CON NOTIFICADOR DINÁMICO --- */}
-            <Pressable style={styles.createMainBtn} onPress={() => setCreateVisible(true)}>
+            <Pressable style={[styles.createMainBtn, { backgroundColor: colors.accent }]} onPress={() => setCreateVisible(true)}>
                 <Plus color="white" size={24} />
                 <Text style={styles.createBtnText}>Crear Nueva Sala</Text>
             </Pressable>
 
-            <Pressable style={styles.joinMainBtn} onPress={() => setJoinVisible(true)}>
+            <Pressable style={[styles.joinMainBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]} onPress={() => setJoinVisible(true)}>
                 <LogIn color="#3b82f6" size={22} />
                 <Text style={styles.joinBtnText}>Unirse con Codigo</Text>
             </Pressable>
 
             <Pressable 
-                style={[styles.invitationsMainBtn, pendingCount > 0 && styles.invitationsMainBtnActive]} 
+                style={[
+                    styles.invitationsMainBtn, 
+                    pendingCount > 0 && styles.invitationsMainBtnActive
+                ]} 
                 onPress={() => setInvitationsVisible(true)}
             >
                 <Mail color="#ffffff" size={20} />
@@ -175,22 +176,22 @@ export default function RoomsScreen() {
 
             <ScrollView
                 showsVerticalScrollIndicator={false}
-                style={styles.scroll}
+                style={[styles.scroll, { backgroundColor: colors.background }]}
                 refreshControl={
                     <RefreshControl
                         refreshing={refreshing}
                         onRefresh={handleRefresh}
-                        tintColor="#22c55e"
-                        colors={['#22c55e']}
+                        tintColor={colors.accent}
+                        colors={[colors.accent]}
                     />
                 }
             >
-                <Text style={styles.sectionTitle}>MIS SALAS ({myRooms.length})</Text>
+                <Text style={[styles.sectionTitle, { color: colors.textSoft }]}>MIS SALAS ({myRooms.length})</Text>
 
                 {myRooms.length === 0 ? (
                     <View style={styles.emptyState}>
-                        <Inbox color="#64748b" size={28} />
-                        <Text style={styles.emptyText}>Todavia no tenes salas.</Text>
+                        <Inbox color={colors.textSoft} size={28} />
+                        <Text style={[styles.emptyText, { color: colors.textSoft }]}>Todavia no tenes salas.</Text>
                     </View>
                 ) : (
                     myRooms.map(room => (
@@ -223,7 +224,6 @@ export default function RoomsScreen() {
                 loading={joining}
             />
 
-            {/* --- MODAL PARA LA GESTIÓN DE LAS INVITACIONES DEL RF-05 --- */}
             {accessToken && (
                 <RoomInvitationsModal
                     visible={invitationsVisible}
@@ -251,7 +251,6 @@ function mapUserRoomToCard(room: UserRoom): RoomCardData {
 }
 
 const styles = StyleSheet.create({
-    // Estilos del botón de invitaciones del RF-05
     invitationsMainBtn: {
         backgroundColor: '#4f46e5',
         height: 48,
@@ -269,9 +268,7 @@ const styles = StyleSheet.create({
         borderColor: '#60a5fa',
     },
     invitationsBtnText: { color: '#ffffff', fontWeight: 'bold', fontSize: 15 },
-
     createMainBtn: {
-        backgroundColor: '#22c55e',
         height: 52,
         borderRadius: 16,
         flexDirection: 'row',
@@ -282,7 +279,6 @@ const styles = StyleSheet.create({
     },
     createBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
     joinMainBtn: {
-        backgroundColor: '#1e293b',
         height: 48,
         borderRadius: 16,
         flexDirection: 'row',
@@ -290,18 +286,16 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         gap: 10,
         borderWidth: 1,
-        borderColor: '#334155',
         marginBottom: 10,
     },
     joinBtnText: { color: '#3b82f6', fontWeight: 'bold', fontSize: 15 },
     scroll: { flex: 1 },
     sectionTitle: {
-        color: '#64748b',
         fontSize: 12,
         fontWeight: '900',
         marginVertical: 15,
         letterSpacing: 1,
     },
     emptyState: { alignItems: 'center', gap: 8, paddingVertical: 28 },
-    emptyText: { color: '#64748b', fontSize: 13, fontWeight: 'bold' },
+    emptyText: { fontSize: 13, fontWeight: 'bold' },
 });

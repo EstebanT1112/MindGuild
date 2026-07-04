@@ -6,6 +6,7 @@ import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { SessionExpiredError } from '../../../services/authenticatedFetch';
 import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
+import { useThemeStore } from '../../../store/themeStore';
 import { type UserRoom } from '../../rooms/services/roomsService';
 import MissionCard from '../components/MissionCard';
 import MissionsModal from '../components/MissionsModal';
@@ -14,6 +15,7 @@ import { claimMissionReward } from '../services/missionsService';
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
+  const colors = useThemeStore(state => state.colors);
   const accessToken = useAuthStore(state => state.access_token);
   const profile = useAppDataStore(state => state.profile.data);
   const profileLoading = useAppDataStore(state => state.profile.isLoading);
@@ -21,6 +23,8 @@ export default function HomeScreen() {
   const roomsLoading = useAppDataStore(state => state.rooms.isLoading);
   const activeMissions = useAppDataStore(state => state.missions.data ?? []);
   const missionsLoading = useAppDataStore(state => state.missions.isLoading);
+  const achievements = useAppDataStore(state => state.achievements.data ?? []);
+
   const loadProfile = useAppDataStore(state => state.loadProfile);
   const loadRooms = useAppDataStore(state => state.loadRooms);
   const loadMissions = useAppDataStore(state => state.loadMissions);
@@ -30,10 +34,12 @@ export default function HomeScreen() {
   const [claimingMissionId, setClaimingMissionId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
+  const hasClaimableAchievements = achievements.some(a => a.unlocked && !a.reward_claimed_at);
+
   useFocusEffect(useCallback(() => {
     if (!accessToken) return;
-    loadProfile(accessToken).catch(err => logLoadError('Error cargando perfil del usuario:', err));
-    loadRooms(accessToken, { force: true }).catch(err => logLoadError('Error cargando salas del usuario:', err));
+    loadProfile(accessToken).catch(err => logLoadError('Error cargando perfil:', err));
+    loadRooms(accessToken, { force: true }).catch(err => logLoadError('Error cargando salas:', err));
     loadMissions(accessToken).catch(err => logLoadError('Error cargando misiones:', err));
   }, [accessToken, loadProfile, loadRooms, loadMissions]));
 
@@ -45,7 +51,6 @@ export default function HomeScreen() {
 
   const handleRefresh = async () => {
     if (!accessToken) return;
-
     setRefreshing(true);
     try {
       await Promise.all([
@@ -69,7 +74,6 @@ export default function HomeScreen() {
 
   const handleClaimMission = async (missionId: string) => {
     if (!accessToken || claimingMissionId) return;
-
     setClaimingMissionId(missionId);
     try {
       const result = await claimMissionReward(accessToken, missionId);
@@ -90,16 +94,9 @@ export default function HomeScreen() {
   return (
     <ScreenLayout title="MINDGUILD" type="home">
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { backgroundColor: colors.background }]} // <--- ESTO DEBE SER DINÁMICO
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor="#22c55e"
-            colors={['#22c55e']}
-          />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.accent} colors={[colors.accent]} />}
       >
         <StreakCard
           currentStreak={profile?.streak_days ?? 0}
@@ -109,207 +106,146 @@ export default function HomeScreen() {
           loading={profileLoading}
         />
 
-        <Text style={styles.section}>SALAS FAVORITAS</Text>
+        {hasClaimableAchievements && (
+          <Pressable style={[styles.claimIndicator, { backgroundColor: colors.warning }]} onPress={() => navigation.navigate('Perfil')}>
+            <Text style={[styles.claimIndicatorText, { color: colors.rankBadgeText }]}>🏆 Tenés logros para reclamar!</Text>
+          </Pressable>
+        )}
+
+        <Text style={[styles.section, { color: colors.textSoft }]}>SALAS FAVORITAS</Text>
         {roomsLoading ? (
-          <ActivityIndicator size="small" color="#22c55e" style={{ marginTop: 10 }} />
+          <ActivityIndicator size="small" color={colors.accent} style={{ marginTop: 10 }} />
         ) : favoriteRooms.length === 0 ? (
           <View style={styles.emptyState}>
-            <Inbox color="#64748b" size={24} />
-            <Text style={styles.emptyText}>Marca hasta 3 salas favoritas para verlas aca.</Text>
+            <Inbox color={colors.textSoft} size={24} />
+            <Text style={[styles.emptyText, { color: colors.textSoft }]}>Marca hasta 3 salas favoritas para verlas aca.</Text>
           </View>
         ) : (
           favoriteRooms.map(room => {
             const roomAccent = getRoomAccentColor(room.mode);
-
             return (
-              <Pressable key={room.id} style={styles.roomCard} onPress={() => handleRoomPress(room)}>
+              <Pressable key={room.id} style={[styles.roomCard, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => handleRoomPress(room)}>
                 <View style={styles.roomLeft}>
-                  <Text style={styles.roomName}>{room.name}</Text>
+                  <Text style={[styles.roomName, { color: colors.text }]}>{room.name}</Text>
                   <View style={styles.roomMeta}>
                     <View style={[styles.codeBox, { borderColor: roomAccent, backgroundColor: `${roomAccent}18` }]}>
                       <Text style={[styles.codeText, { color: roomAccent }]}>{room.invite_code}</Text>
                     </View>
                     <View style={styles.membersMeta}>
-                      <Users color="#94a3b8" size={13} />
-                      <Text style={styles.roomMembers}>{room.members_count}</Text>
+                      <Users color={colors.textMuted} size={13} />
+                      <Text style={[styles.roomMembers, { color: colors.textMuted }]}>{room.members_count}</Text>
                     </View>
                     <Text style={[styles.roomMode, { color: roomAccent }]}>{room.mode === 'battle_royale' ? 'Battle Royale' : 'Supervivencia'}</Text>
                   </View>
                 </View>
                 <View style={styles.roomRight}>
-                  <ChevronRight color="#64748b" size={18} />
+                  <ChevronRight color={colors.textSoft} size={18} />
                 </View>
               </Pressable>
             );
           })
         )}
 
-        <View style={styles.weekSummaryCard}>
+        <View style={[styles.weekSummaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.weekSummaryHeader}>
-            <Text style={styles.weekSummaryTitle}>TU SEMANA</Text>
+            <Text style={[styles.weekSummaryTitle, { color: colors.text }]}>TU SEMANA</Text>
             {claimableMissionsCount > 0 && (
-              <View style={styles.claimBadge}>
-                <Text style={styles.claimBadgeText}>{claimableMissionsCount} por reclamar</Text>
+              <View style={[styles.claimBadge, { backgroundColor: colors.accentStrong }]}>
+                <Text style={[styles.claimBadgeText, { color: colors.text }]}>{claimableMissionsCount} por reclamar</Text>
               </View>
             )}
           </View>
           <View style={styles.weekSummaryGrid}>
-            <View style={styles.weekSummaryItem}>
-              <View style={styles.weekIconBox}>
-                <Clock3 color="#38bdf8" size={18} />
-              </View>
-              <Text style={styles.weekSummaryValue}>{profile?.weekly_stats.total_minutes ?? 0}m</Text>
-              <Text style={styles.weekSummaryLabel}>Estudio</Text>
+            <View style={[styles.weekSummaryItem, { backgroundColor: colors.background, borderColor: colors.border }]}>
+              <View style={styles.weekIconBox}><Clock3 color="#38bdf8" size={18} /></View>
+              <Text style={[styles.weekSummaryValue, { color: colors.text }]}>{profile?.weekly_stats.total_minutes ?? 0}m</Text>
+              <Text style={[styles.weekSummaryLabel, { color: colors.textMuted }]}>Estudio</Text>
             </View>
-            <View style={styles.weekSummaryItem}>
-              <View style={styles.weekIconBox}>
-                <Target color="#22c55e" size={18} />
-              </View>
-              <Text style={styles.weekSummaryValue}>{completedMissionsCount}/{activeMissions.length}</Text>
-              <Text style={styles.weekSummaryLabel}>Misiones</Text>
+            <View style={[styles.weekSummaryItem, { backgroundColor: colors.background, borderColor: colors.border }]}>
+              <View style={styles.weekIconBox}><Target color={colors.accent} size={18} /></View>
+              <Text style={[styles.weekSummaryValue, { color: colors.text }]}>{completedMissionsCount}/{activeMissions.length}</Text>
+              <Text style={[styles.weekSummaryLabel, { color: colors.textMuted }]}>Misiones</Text>
             </View>
-            <View style={styles.weekSummaryItem}>
-              <View style={[styles.weekIconBox, styles.weekCoinIcon]}>
-                <Brain color="#0f172a" size={18} strokeWidth={2.2} />
-              </View>
-              <Text style={styles.weekSummaryValue}>{profile?.weekly_stats.coins_earned ?? 0}</Text>
-              <Text style={styles.weekSummaryLabel}>Ganadas</Text>
+            <View style={[styles.weekSummaryItem, { backgroundColor: colors.background, borderColor: colors.border }]}>
+              <View style={[styles.weekIconBox, { backgroundColor: colors.warning, borderRadius: 12 }]}><Brain color={colors.rankBadgeText} size={18} strokeWidth={2.2} /></View>
+              <Text style={[styles.weekSummaryValue, { color: colors.text }]}>{profile?.weekly_stats.coins_earned ?? 0}</Text>
+              <Text style={[styles.weekSummaryLabel, { color: colors.textMuted }]}>Ganadas</Text>
             </View>
           </View>
-          <View style={styles.dailyStudyBlock}>
-            <View style={styles.dailyStudyHeader}>
-              <Text style={styles.dailyStudyTitle}>Estudio por dia</Text>
-              <Text style={styles.dailyStudyTotal}>{profile?.weekly_stats.total_minutes ?? 0}m total</Text>
-            </View>
-            <View style={styles.dailyStudyBars}>
-              {dailyStudyMinutes.map(day => {
-                const fillHeight = Math.max(6, Math.round((day.minutes / maxDailyMinutes) * 54));
 
-                return (
-                  <View key={day.day} style={styles.dailyStudyItem}>
-                    <View style={styles.dailyBarTrack}>
-                      <View style={[styles.dailyBarFill, { height: day.minutes > 0 ? fillHeight : 4 }]} />
-                    </View>
-                    <Text style={styles.dailyBarDay}>{day.day}</Text>
-                    <Text style={styles.dailyBarValue}>{day.minutes}m</Text>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
-          <Pressable
-            style={styles.dashboardLink}
-            onPress={() => navigation.navigate('SmartDashboard', { scope: 'global' })}
-          >
-            <View style={styles.dashboardIconBox}>
+          <Pressable style={[styles.dashboardLink, { backgroundColor: colors.background, borderColor: colors.border }]} onPress={() => navigation.navigate('SmartDashboard', { scope: 'global' })}>
+            <View style={[styles.dashboardIconBox, { backgroundColor: colors.accentSoft }]}>
               <BarChart3 color="#38bdf8" size={18} />
             </View>
             <View style={styles.dashboardTextBox}>
-              <Text style={styles.dashboardTitle}>Ver dashboard inteligente</Text>
-              <Text style={styles.dashboardSub}>Comparacion semanal e insights</Text>
+              <Text style={[styles.dashboardTitle, { color: colors.text }]}>Ver dashboard inteligente</Text>
+              <Text style={[styles.dashboardSub, { color: colors.textMuted }]}>Comparacion semanal e insights</Text>
             </View>
-            <ChevronRight color="#64748b" size={18} />
+            <ChevronRight color={colors.textSoft} size={18} />
           </Pressable>
         </View>
 
-        <Text style={styles.section}>MISIONES ACTIVAS</Text>
+        <Text style={[styles.section, { color: colors.textSoft }]}>MISIONES ACTIVAS</Text>
         {missionsLoading ? (
-          <ActivityIndicator size="small" color="#22c55e" style={{ marginTop: 10 }} />
+          <ActivityIndicator size="small" color={colors.accent} style={{ marginTop: 10 }} />
         ) : activeMissions.length === 0 ? (
           <View style={styles.emptyState}>
-            <Inbox color="#64748b" size={24} />
-            <Text style={styles.emptyText}>No hay misiones asignadas para hoy.</Text>
+            <Inbox color={colors.textSoft} size={24} />
+            <Text style={[styles.emptyText, { color: colors.textSoft }]}>No hay misiones asignadas para hoy.</Text>
           </View>
         ) : (
-          activeMissions.map(m => (
-            <MissionCard
-              key={m.id}
-              mission={m}
-              onPress={() => setMissionsVisible(true)}
-            />
-          ))
+          activeMissions.map(m => <MissionCard key={m.id} mission={m} onPress={() => setMissionsVisible(true)} />)
         )}
 
-        <MissionsModal
-          visible={missionsVisible}
-          onClose={() => setMissionsVisible(false)}
-          missions={activeMissions}
-          onClaimMission={handleClaimMission}
-          claimingMissionId={claimingMissionId}
-        />
+        <MissionsModal visible={missionsVisible} onClose={() => setMissionsVisible(false)} missions={activeMissions} onClaimMission={handleClaimMission} claimingMissionId={claimingMissionId} />
       </ScrollView>
     </ScreenLayout>
   );
 }
 
 function logLoadError(message: string, error: any) {
-  if (error instanceof SessionExpiredError) {
-    return;
-  }
-
-  const detail = String(error?.message ?? error ?? '').toLowerCase();
-
-  if (detail.includes('token invalido') || detail.includes('token inválido')) {
-    console.warn(message, error);
-    return;
-  }
-
+  if (error instanceof SessionExpiredError) return;
   console.error(message, error);
 }
 
-function getRoomAccentColor(mode: UserRoom['mode']) {
-  return mode === 'battle_royale' ? '#a855f7' : '#22c55e';
-}
+function getRoomAccentColor(mode: UserRoom['mode']) { return mode === 'battle_royale' ? '#a855f7' : '#22c55e'; }
 
 function normalizeDailyStudyMinutes(days?: Array<{ day: string; minutes: number }>) {
   const defaults = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'];
   const byDay = new Map((days ?? []).map(day => [day.day, Number(day.minutes) || 0]));
-
-  return defaults.map(day => ({
-    day,
-    minutes: byDay.get(day) ?? 0,
-  }));
+  return defaults.map(day => ({ day, minutes: byDay.get(day) ?? 0 }));
 }
 
 const styles = StyleSheet.create({
   content: { paddingVertical: 10, paddingBottom: 120 },
-  section: { color: '#64748b', fontSize: 12, fontWeight: '900', letterSpacing: 1, marginBottom: 12, marginTop: 20 },
-  weekSummaryCard: { backgroundColor: '#121826', borderRadius: 18, borderWidth: 1, borderColor: '#263248', padding: 14, marginTop: 12 },
+  section: { fontSize: 12, fontWeight: '900', letterSpacing: 1, marginBottom: 12, marginTop: 20 },
+  claimIndicator: { padding: 12, borderRadius: 16, marginVertical: 10, alignItems: 'center' },
+  claimIndicatorText: { fontWeight: '900', fontSize: 14 },
+  weekSummaryCard: { borderRadius: 18, borderWidth: 1, padding: 14, marginTop: 12 },
   weekSummaryHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, gap: 10 },
-  weekSummaryTitle: { color: '#e2e8f0', fontSize: 12, fontWeight: '900', letterSpacing: 1 },
-  claimBadge: { backgroundColor: '#14532d', paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999 },
-  claimBadgeText: { color: '#bbf7d0', fontSize: 11, fontWeight: '900' },
+  weekSummaryTitle: { fontSize: 12, fontWeight: '900', letterSpacing: 1 },
+  claimBadge: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999 },
+  claimBadgeText: { fontSize: 11, fontWeight: '900' },
   weekSummaryGrid: { flexDirection: 'row', gap: 10 },
-  weekSummaryItem: { flex: 1, backgroundColor: '#0f172a', borderRadius: 14, paddingVertical: 12, paddingHorizontal: 8, alignItems: 'center', borderWidth: 1, borderColor: '#233044' },
+  weekSummaryItem: { flex: 1, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 8, alignItems: 'center', borderWidth: 1 },
   weekIconBox: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
-  weekCoinIcon: { borderRadius: 12, backgroundColor: '#facc15', paddingTop: 1 },
-  weekSummaryValue: { color: 'white', fontSize: 16, fontWeight: '900', marginTop: 6 },
-  weekSummaryLabel: { color: '#94a3b8', fontSize: 11, fontWeight: '700', marginTop: 2 },
-  dailyStudyBlock: { marginTop: 14, backgroundColor: '#0f172a', borderRadius: 14, borderWidth: 1, borderColor: '#233044', padding: 12 },
-  dailyStudyHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 10 },
-  dailyStudyTitle: { color: '#e2e8f0', fontSize: 12, fontWeight: '900' },
-  dailyStudyTotal: { color: '#38bdf8', fontSize: 11, fontWeight: '900' },
-  dailyStudyBars: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 6 },
-  dailyStudyItem: { flex: 1, alignItems: 'center', gap: 4 },
-  dailyBarTrack: { height: 58, width: '100%', maxWidth: 20, borderRadius: 999, backgroundColor: '#1e293b', justifyContent: 'flex-end', overflow: 'hidden', borderWidth: 1, borderColor: '#334155' },
-  dailyBarFill: { width: '100%', borderRadius: 999, backgroundColor: '#38bdf8' },
-  dailyBarDay: { color: '#94a3b8', fontSize: 10, fontWeight: '900' },
-  dailyBarValue: { color: '#e2e8f0', fontSize: 9, fontWeight: '800' },
-  dashboardLink: { marginTop: 12, backgroundColor: '#0f172a', borderRadius: 14, borderWidth: 1, borderColor: '#233044', padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  dashboardIconBox: { width: 34, height: 34, borderRadius: 8, backgroundColor: '#082f49', alignItems: 'center', justifyContent: 'center' },
+  weekSummaryValue: { fontSize: 16, fontWeight: '900', marginTop: 6 },
+  weekSummaryLabel: { fontSize: 11, fontWeight: '700', marginTop: 2 },
+  dashboardLink: { marginTop: 12, borderRadius: 14, borderWidth: 1, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  dashboardIconBox: { width: 34, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   dashboardTextBox: { flex: 1 },
-  dashboardTitle: { color: '#f8fafc', fontSize: 13, fontWeight: '900' },
-  dashboardSub: { color: '#94a3b8', fontSize: 11, marginTop: 2 },
-  roomCard: { backgroundColor: '#1a1d29', borderRadius: 18, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: '#2a2f45', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  dashboardTitle: { fontSize: 13, fontWeight: '900' },
+  dashboardSub: { fontSize: 11, marginTop: 2 },
+  roomCard: { borderRadius: 18, padding: 16, marginBottom: 10, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   roomLeft: { flex: 1 },
-  roomName: { color: '#fff', fontWeight: 'bold', fontSize: 15, marginBottom: 8 },
+  roomName: { fontWeight: 'bold', fontSize: 15, marginBottom: 8 },
   roomMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   membersMeta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   codeBox: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1 },
   codeText: { fontSize: 11, fontWeight: 'bold' },
-  roomMembers: { color: '#aaa', fontSize: 12 },
-  roomMode: { color: '#aaa', fontSize: 12 },
+  roomMembers: { fontSize: 12 },
+  roomMode: { fontSize: 12 },
   roomRight: { alignItems: 'center', gap: 6 },
   emptyState: { alignItems: 'center', gap: 8, marginTop: 12 },
-  emptyText: { color: '#64748b', fontSize: 13, textAlign: 'center', marginTop: 10 },
+  emptyText: { fontSize: 13, textAlign: 'center', marginTop: 10 },
 });
