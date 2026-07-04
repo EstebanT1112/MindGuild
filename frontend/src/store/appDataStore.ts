@@ -506,6 +506,12 @@ function mapMissions(payload: any): MissionSummary[] {
     const goalValue = mission.target_value ?? 1;
     const calculatedPercentage = Math.min(100, Math.floor((currentProgress / goalValue) * 100));
 
+    // 🆕 LÓGICA DE FILTRADO DE 24HS
+    const expiresAt = mission.expires_at ? new Date(mission.expires_at).getTime() : null;
+    const isExpiredMoreThan24h = expiresAt 
+      ? (Date.now() - expiresAt) > (24 * 60 * 60 * 1000) 
+      : false;
+
     return {
       id: mission.id || mission.user_mission_id,
       title: mission.title || mission.missions?.title || 'Mision Diaria',

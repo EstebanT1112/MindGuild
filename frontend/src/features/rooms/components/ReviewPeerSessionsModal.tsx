@@ -10,6 +10,7 @@ interface ReviewPeerSessionsModalProps {
   accessToken: string | null;
   onClose: () => void;
   onRefreshRanking: () => void;
+  onReviewProcessed?: (count: number) => void; // ✅ Nuevo callback para notificar conteo actualizado
 }
 
 export default function ReviewPeerSessionsModal({
@@ -18,6 +19,7 @@ export default function ReviewPeerSessionsModal({
   accessToken,
   onClose,
   onRefreshRanking,
+  onReviewProcessed,
 }: ReviewPeerSessionsModalProps) {
   const colors = useThemeStore(state => state.colors);
   const [reviews, setReviews] = useState<PendingReviewSession[]>([]);
@@ -38,6 +40,8 @@ export default function ReviewPeerSessionsModal({
       const data = await fetchPendingSessionReviews(accessToken, roomId);
       setReviews(data);
       setImageErrors({});
+      // ✅ Notificar al padre el conteo inicial de pendientes
+      onReviewProcessed?.(data.length);
     } catch (error: any) {
       console.error('[ReviewPeerSessionsModal] Error al cargar revisiones:', error);
     } finally {
@@ -55,7 +59,15 @@ export default function ReviewPeerSessionsModal({
         vote === 'accept' ? 'Sesión Aprobada' : 'Sesión Rechazada',
         vote === 'accept' ? 'Validaste los minutos de tu compañero.' : 'Rechazaste la sesión por considerarla inválida.'
       );
-      setReviews((prev) => prev.filter((r) => r.id !== sessionId));
+      
+      // ✅ Actualizamos el estado local y notificamos al padre con el nuevo conteo
+      setReviews((prev) => {
+        const newReviews = prev.filter((r) => r.id !== sessionId);
+        // ✅ Notificar al padre el nuevo conteo (después de eliminar la sesión votada)
+        onReviewProcessed?.(newReviews.length);
+        return newReviews;
+      });
+      
       onRefreshRanking();
     } catch (error: any) {
       Alert.alert('Error', error.message ?? 'No se pudo procesar tu votación.');
