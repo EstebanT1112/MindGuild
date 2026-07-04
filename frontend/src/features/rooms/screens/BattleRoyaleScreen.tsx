@@ -94,7 +94,6 @@ export default function BattleRoyaleScreen() {
         loadRoom();
     }, [route.params?.roomId, accessToken]);
 
-    // RF-06: carga datos de sala e integrantes activos para la visualizacion.
     const loadRoom = async (options?: { force?: boolean; showLoading?: boolean }) => {
         if (!accessToken || !targetRoomId) return;
 
@@ -501,7 +500,15 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    configCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1e293b', padding: 15, borderRadius: 20, borderWidth: 1, borderColor: '#334155' },
+    configCard: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        backgroundColor: '#0f172a', // 👈 cambiado de #1e293b a #0f172a para igualar al ranking
+        padding: 15, 
+        borderRadius: 20, 
+        borderWidth: 1, 
+        borderColor: '#334155' 
+    },
     reviewCard: { marginTop: 12, borderColor: '#7e22ce' },
     configIconBox: { width: 48, height: 48, borderRadius: 12, backgroundColor: '#0f172a', alignItems: 'center', justifyContent: 'center' },
     configInfo: { flex: 1, marginLeft: 15 },
