@@ -62,7 +62,6 @@ export const FriendsRepository = {
     try {
       await client.query('BEGIN');
 
-      // 1. Actualizar estado de la solicitud
       await client.query(
         `UPDATE friend_requests 
          SET status = 'accepted', responded_at = NOW() 
@@ -70,7 +69,6 @@ export const FriendsRepository = {
         [requestId]
       );
 
-      // 2. Insertar par bidireccional en friendships (Evitamos duplicados con ON CONFLICT)
       await client.query(
         `INSERT INTO friendships (user_id, friend_id)
          VALUES ($1, $2), ($2, $1)
@@ -124,5 +122,17 @@ export const FriendsRepository = {
     `;
     const { rows } = await pool.query(query, [userId]);
     return rows;
+  },
+
+  /**
+   * ✅ Elimina la relación de amistad en ambas direcciones
+   */
+  async removeFriend(userId: string, friendId: string): Promise<void> {
+    const query = `
+      DELETE FROM friendships
+      WHERE (user_id = $1 AND friend_id = $2)
+         OR (user_id = $2 AND friend_id = $1);
+    `;
+    await pool.query(query, [userId, friendId]);
   },
 };

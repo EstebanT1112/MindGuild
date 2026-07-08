@@ -8,6 +8,7 @@ export interface FriendProfile {
   bio?: string | null;
   streak_days: number;
   total_study_minutes: number;
+  last_login_at?: string | null; // ✅ Agregado para el frontend
 }
 
 export class FriendValidationError extends Error {

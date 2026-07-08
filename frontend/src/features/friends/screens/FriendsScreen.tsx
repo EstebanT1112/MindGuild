@@ -9,6 +9,7 @@ import {
   RefreshControl,
   Modal,
   TextInput,
+  Image,
 } from 'react-native';
 import {
   Users2,
@@ -18,6 +19,7 @@ import {
   X,
   UserPlus,
   SlidersHorizontal,
+  Trash2,
 } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
@@ -88,6 +90,15 @@ const getRelativeTime = (dateString: string): string => {
   return `hace ${diffYears} año${diffYears !== 1 ? 's' : ''}`;
 };
 
+// ✅ Función para agregar cache buster a la URL (siempre devuelve string)
+const getAvatarUrlWithCache = (avatarUrl: string | null): string => {
+  if (!avatarUrl) {
+    return ''; // Retorna string vacío en lugar de null
+  }
+  const separator = avatarUrl.includes('?') ? '&' : '?';
+  return `${avatarUrl}${separator}t=${Date.now()}`;
+};
+
 export default function FriendsScreen() {
   const [isModalVisible, setModalVisible] = useState(false);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | 'none'>('none');
@@ -97,6 +108,7 @@ export default function FriendsScreen() {
   const [sendingRequest, setSendingRequest] = useState(false);
   const [pendingRequests, setPendingRequests] = useState<IncomingRequest[]>([]);
   const [friends, setFriends] = useState<Friend[]>([]);
+  const [removingFriendId, setRemovingFriendId] = useState<string | null>(null);
 
   // ✅ Estado para AppAlert
   const [alert, setAlert] = useState<{
@@ -215,6 +227,42 @@ export default function FriendsScreen() {
     });
   };
 
+  // ✅ Eliminar amigo
+  const confirmRemoveFriend = (friendId: string, username: string) => {
+    showAlert(
+      'Eliminar amigo',
+      `¿Seguro que querés eliminar a ${username} de tus amigos?`,
+      'warning',
+      () => handleRemoveFriend(friendId),
+      'Eliminar',
+      true,
+      'Cancelar'
+    );
+  };
+
+  const handleRemoveFriend = async (friendId: string) => {
+    if (!token) return;
+    setRemovingFriendId(friendId);
+    try {
+      const response = await authenticatedFetch(
+        `${API_URL}/friends/${friendId}`,
+        { method: 'DELETE' },
+        token
+      );
+      const json = await response.json();
+      if (json.success) {
+        setFriends((prev) => prev.filter((f) => f.id !== friendId));
+        showAlert('Amigo eliminado', 'El amigo fue eliminado correctamente.', 'success');
+      } else {
+        showAlert('Error', json.error || 'No se pudo eliminar el amigo.', 'error');
+      }
+    } catch (error) {
+      showAlert('Error', 'Ocurrió un error al eliminar el amigo.', 'error');
+    } finally {
+      setRemovingFriendId(null);
+    }
+  };
+
   const handleSendRequest = async () => {
     if (!searchUsername.trim()) {
       showAlert('Campos incompletos', 'Por favor ingresá un nombre de usuario.', 'warning');
@@ -283,10 +331,6 @@ export default function FriendsScreen() {
     } catch (err) {
       showAlert('Error', 'Ocurrió un error en la red al rechazar la solicitud.', 'error');
     }
-  };
-
-  const handleViewProfile = (username: string) => {
-    showAlert('Perfil', `Ver el perfil de ${username}`, 'info');
   };
 
   if (loading) {
@@ -387,11 +431,18 @@ export default function FriendsScreen() {
               <View key={friend.id} style={styles.friendCard}>
                 <View style={styles.profileRow}>
                   <View style={styles.avatarContainer}>
-                    <View style={styles.avatar}>
-                      <Text style={styles.avatarText}>
-                        {friend.username ? friend.username[0].toUpperCase() : '?'}
-                      </Text>
-                    </View>
+                    {friend.avatar_url ? (
+                      <Image 
+                        source={{ uri: getAvatarUrlWithCache(friend.avatar_url) }} 
+                        style={styles.avatarImage} 
+                      />
+                    ) : (
+                      <View style={styles.avatar}>
+                        <Text style={styles.avatarText}>
+                          {friend.username ? friend.username[0].toUpperCase() : '?'}
+                        </Text>
+                      </View>
+                    )}
                     <View
                       style={[
                         styles.statusDot,
@@ -399,7 +450,7 @@ export default function FriendsScreen() {
                       ]}
                     />
                   </View>
-                  <View>
+                  <View style={styles.friendInfo}>
                     <Text style={styles.username}>{friend.username}</Text>
                     <View style={styles.row}>
                       <View style={styles.streakBadge}>
@@ -413,6 +464,19 @@ export default function FriendsScreen() {
                         : 'Sin actividad reciente'}
                     </Text>
                   </View>
+
+                  {/* ✅ Botón Eliminar amigo */}
+                  <Pressable
+                    style={[styles.deleteBtn, { borderColor: colors.danger }]}
+                    onPress={() => confirmRemoveFriend(friend.id, friend.username)}
+                    disabled={removingFriendId === friend.id}
+                  >
+                    {removingFriendId === friend.id ? (
+                      <ActivityIndicator size="small" color={colors.danger} />
+                    ) : (
+                      <Trash2 color={colors.danger} size={18} />
+                    )}
+                  </Pressable>
                 </View>
               </View>
             ))
@@ -585,10 +649,15 @@ const createStyles = (colors: any) =>
     profileRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 15,
+      gap: 12,
+    },
+    friendInfo: {
+      flex: 1,
     },
     avatarContainer: {
       position: 'relative',
+      width: 45,
+      height: 45,
     },
     avatar: {
       width: 45,
@@ -597,6 +666,13 @@ const createStyles = (colors: any) =>
       backgroundColor: colors.avatarAccent,
       alignItems: 'center',
       justifyContent: 'center',
+      borderWidth: 2,
+      borderColor: colors.accent,
+    },
+    avatarImage: {
+      width: 45,
+      height: 45,
+      borderRadius: 22,
       borderWidth: 2,
       borderColor: colors.accent,
     },
@@ -654,6 +730,14 @@ const createStyles = (colors: any) =>
       color: colors.textMuted,
       fontSize: 12,
       marginTop: 4,
+    },
+    deleteBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
     },
     actions: {
       flexDirection: 'row',

@@ -60,4 +60,21 @@ export const FriendsService = {
   async getIncomingRequests(userId: string) {
     return await FriendsRepository.getReceivedRequests(userId);
   },
+
+  /**
+   * ✅ Elimina un amigo (elimina la relación bidireccional)
+   */
+  async removeFriend(userId: string, friendId: string): Promise<{ success: boolean; error?: string }> {
+    // Verificar que son amigos
+    const areFriends = await FriendsRepository.areFriends(userId, friendId);
+
+    if (!areFriends) {
+      return { success: false, error: 'No existe una relación de amistad entre estos usuarios' };
+    }
+
+    // Eliminar ambas direcciones de la tabla friendships
+    await FriendsRepository.removeFriend(userId, friendId);
+
+    return { success: true };
+  },
 };

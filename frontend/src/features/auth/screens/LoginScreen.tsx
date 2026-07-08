@@ -10,6 +10,7 @@ import {
     ScrollView,
     StatusBar,
     ActivityIndicator,
+    Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -17,7 +18,6 @@ import { Mail, Lock, Eye, EyeOff, ShieldCheck } from 'lucide-react-native';
 import { login, loginWithGoogle } from '../services/authService';
 import { useAuthStore } from '../../../store/authStore';
 import { useThemeStore } from '../../../store/themeStore';
-import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
 
 export default function LoginScreen() {
     const navigation = useNavigation<any>();
@@ -31,51 +31,9 @@ export default function LoginScreen() {
     const [loading, setLoading] = useState(false);
     const [googleLoading, setGoogleLoading] = useState(false);
 
-    // ✅ Estado para AppAlert
-    const [alert, setAlert] = useState<{
-        visible: boolean;
-        title: string;
-        message: string;
-        type: AlertType;
-        onConfirm?: () => void;
-        confirmText?: string;
-        showCancel?: boolean;
-        cancelText?: string;
-        onCancel?: () => void;
-    }>({
-        visible: false,
-        title: '',
-        message: '',
-        type: 'info',
-    });
-
-    // ✅ Función para mostrar alertas personalizadas
-    const showAlert = (
-        title: string,
-        message: string,
-        type: AlertType = 'info',
-        onConfirm?: () => void,
-        confirmText?: string,
-        showCancel?: boolean,
-        cancelText?: string,
-        onCancel?: () => void
-    ) => {
-        setAlert({
-            visible: true,
-            title,
-            message,
-            type,
-            onConfirm,
-            confirmText: confirmText || 'Aceptar',
-            showCancel: showCancel || false,
-            cancelText: cancelText || 'Cancelar',
-            onCancel,
-        });
-    };
-
     const handleLogin = async () => {
         if (!email.trim() || !password.trim()) {
-            showAlert('Campos incompletos', 'Completá todos los campos para continuar.', 'warning');
+            Alert.alert('Campos incompletos', 'Completá todos los campos para continuar.');
             return;
         }
 
@@ -84,7 +42,7 @@ export default function LoginScreen() {
             const result = await login(email.trim(), password);
             setSession(result.auth_user_id, result.email, result.access_token, result.profile);
         } catch (error: any) {
-            showAlert('Error al iniciar sesión', error.message ?? 'Ocurrió un error inesperado.', 'error');
+            Alert.alert('Error al iniciar sesión', error.message ?? 'Ocurrió un error inesperado.');
         } finally {
             setLoading(false);
         }
@@ -97,7 +55,7 @@ export default function LoginScreen() {
             setSession(result.auth_user_id, result.email, result.access_token, result.profile);
         } catch (error: any) {
             if (error.code !== 'auth_cancelled') {
-                showAlert('Error con Google', error.message ?? 'Ocurrió un error inesperado.', 'error');
+                Alert.alert('Error con Google', error.message ?? 'Ocurrió un error inesperado.');
             }
         } finally {
             setGoogleLoading(false);
@@ -355,26 +313,6 @@ export default function LoginScreen() {
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
-
-            {/* ✅ AppAlert personalizado */}
-            <AppAlert
-                visible={alert.visible}
-                title={alert.title}
-                message={alert.message}
-                type={alert.type}
-                onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
-                onConfirm={() => {
-                    if (alert.onConfirm) alert.onConfirm();
-                    setAlert(prev => ({ ...prev, visible: false }));
-                }}
-                onCancel={() => {
-                    if (alert.onCancel) alert.onCancel();
-                    setAlert(prev => ({ ...prev, visible: false }));
-                }}
-                confirmText={alert.confirmText || 'Aceptar'}
-                cancelText={alert.cancelText || 'Cancelar'}
-                showCancel={alert.showCancel || false}
-            />
         </SafeAreaView>
     );
 }
