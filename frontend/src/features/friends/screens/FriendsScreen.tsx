@@ -20,6 +20,7 @@ import {
   UserPlus,
   SlidersHorizontal,
   Trash2,
+  Search,
 } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
@@ -93,7 +94,7 @@ const getRelativeTime = (dateString: string): string => {
 // ✅ Función para agregar cache buster a la URL (siempre devuelve string)
 const getAvatarUrlWithCache = (avatarUrl: string | null): string => {
   if (!avatarUrl) {
-    return ''; // Retorna string vacío en lugar de null
+    return '';
   }
   const separator = avatarUrl.includes('?') ? '&' : '?';
   return `${avatarUrl}${separator}t=${Date.now()}`;
@@ -109,6 +110,9 @@ export default function FriendsScreen() {
   const [pendingRequests, setPendingRequests] = useState<IncomingRequest[]>([]);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [removingFriendId, setRemovingFriendId] = useState<string | null>(null);
+
+  // ✅ Estado para búsqueda de amigos
+  const [friendSearchQuery, setFriendSearchQuery] = useState('');
 
   // ✅ Estado para AppAlert
   const [alert, setAlert] = useState<{
@@ -212,12 +216,22 @@ export default function FriendsScreen() {
     loadData(false);
   }, [token]);
 
+  // ✅ Primero definimos sortedFriends
   const sortedFriends = useMemo(() => {
     const result = [...friends];
     if (sortOrder === 'asc') result.sort((a, b) => a.total_study_minutes - b.total_study_minutes);
     if (sortOrder === 'desc') result.sort((a, b) => b.total_study_minutes - a.total_study_minutes);
     return result;
   }, [friends, sortOrder]);
+
+  // ✅ Luego definimos filteredFriends (que depende de sortedFriends)
+  const filteredFriends = useMemo(() => {
+    if (!friendSearchQuery.trim()) return sortedFriends;
+    const query = friendSearchQuery.toLowerCase().trim();
+    return sortedFriends.filter(friend => 
+      friend.username.toLowerCase().includes(query)
+    );
+  }, [sortedFriends, friendSearchQuery]);
 
   const toggleSort = () => {
     setSortOrder((prev) => {
@@ -421,13 +435,35 @@ export default function FriendsScreen() {
             </Pressable>
           </View>
 
-          {friends.length === 0 ? (
+          {/* ✅ Buscador de amigos */}
+          <View style={[styles.searchContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Search color={colors.textMuted} size={20} />
+            <TextInput
+              style={[styles.searchInput, { color: colors.text }]}
+              placeholder="Buscar amigo..."
+              placeholderTextColor={colors.textMuted}
+              value={friendSearchQuery}
+              onChangeText={setFriendSearchQuery}
+              clearButtonMode="while-editing"
+            />
+            {friendSearchQuery.length > 0 && (
+              <Pressable onPress={() => setFriendSearchQuery('')}>
+                <Text style={[styles.clearText, { color: colors.accent }]}>✕</Text>
+              </Pressable>
+            )}
+          </View>
+
+          {filteredFriends.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Users2 size={40} color={colors.textMuted} style={styles.emptyIcon} />
-              <Text style={styles.emptyText}>Aún no tienes amigos agregados.</Text>
+              <Text style={styles.emptyText}>
+                {friendSearchQuery.length > 0 
+                  ? 'No se encontraron amigos con esa búsqueda.' 
+                  : 'Aún no tienes amigos agregados.'}
+              </Text>
             </View>
           ) : (
-            sortedFriends.map((friend) => (
+            filteredFriends.map((friend) => (
               <View key={friend.id} style={styles.friendCard}>
                 <View style={styles.profileRow}>
                   <View style={styles.avatarContainer}>
@@ -628,6 +664,26 @@ const createStyles = (colors: any) =>
     },
     filterTextActive: {
       color: colors.accent,
+    },
+    searchContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderRadius: 12,
+      borderWidth: 1,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      marginBottom: 12,
+      gap: 10,
+    },
+    searchInput: {
+      flex: 1,
+      fontSize: 15,
+      padding: 0,
+    },
+    clearText: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      paddingHorizontal: 4,
     },
     requestCard: {
       flexDirection: 'row',

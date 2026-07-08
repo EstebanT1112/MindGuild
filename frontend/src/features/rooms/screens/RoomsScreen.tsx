@@ -1,7 +1,7 @@
-import React, { useCallback, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { Inbox, LogIn, Plus, Users, Mail } from 'lucide-react-native';
+import { Inbox, LogIn, Plus, Users, Mail, Search } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
 import { SessionExpiredError } from '../../../services/authenticatedFetch';
@@ -63,7 +63,21 @@ export default function RoomsScreen() {
         type: 'info',
     });
 
+    // ✅ Estado para búsqueda
+    const [searchQuery, setSearchQuery] = useState('');
+
     const myRooms = rooms.map(mapUserRoomToCard);
+
+    // ✅ Filtro de salas por búsqueda
+    const filteredRooms = useMemo(() => {
+        if (!searchQuery.trim()) return myRooms;
+        const query = searchQuery.toLowerCase().trim();
+        return myRooms.filter(room => 
+            room.name.toLowerCase().includes(query) ||
+            room.code.toLowerCase().includes(query) ||
+            room.mode.toLowerCase().includes(query)
+        );
+    }, [myRooms, searchQuery]);
 
     // ✅ Función para mostrar alertas personalizadas
     const showAlert = (
@@ -92,6 +106,8 @@ export default function RoomsScreen() {
     useFocusEffect(useCallback(() => {
         loadInitialRooms(true);
         checkPendingInvitations();
+        // ✅ Resetear búsqueda al entrar
+        setSearchQuery('');
     }, [accessToken]));
 
     const loadInitialRooms = async (force = false) => {
@@ -237,15 +253,37 @@ export default function RoomsScreen() {
                     />
                 }
             >
-                <Text style={[styles.sectionTitle, { color: colors.textSoft }]}>MIS SALAS ({myRooms.length})</Text>
+                <Text style={[styles.sectionTitle, { color: colors.textSoft }]}>MIS SALAS ({filteredRooms.length})</Text>
 
-                {myRooms.length === 0 ? (
+                {/* ✅ Buscador de salas */}
+                <View style={[styles.searchContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <Search color={colors.textMuted} size={20} />
+                    <TextInput
+                        style={[styles.searchInput, { color: colors.text }]}
+                        placeholder="Buscar sala..."
+                        placeholderTextColor={colors.textMuted}
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        clearButtonMode="while-editing"
+                    />
+                    {searchQuery.length > 0 && (
+                        <Pressable onPress={() => setSearchQuery('')}>
+                            <Text style={[styles.clearText, { color: colors.accent }]}>✕</Text>
+                        </Pressable>
+                    )}
+                </View>
+
+                {filteredRooms.length === 0 ? (
                     <View style={styles.emptyState}>
                         <Inbox color={colors.textSoft} size={28} />
-                        <Text style={[styles.emptyText, { color: colors.textSoft }]}>Todavía no tenés salas.</Text>
+                        <Text style={[styles.emptyText, { color: colors.textSoft }]}>
+                            {searchQuery.length > 0 
+                                ? 'No se encontraron salas con esa búsqueda.' 
+                                : 'Todavía no tenés salas.'}
+                        </Text>
                     </View>
                 ) : (
-                    myRooms.map(room => (
+                    filteredRooms.map(room => (
                         <RoomCard
                             key={room.id}
                             room={room}
@@ -366,6 +404,27 @@ const styles = StyleSheet.create({
         fontWeight: '900',
         marginVertical: 15,
         letterSpacing: 1,
+    },
+    // ✅ Estilos del buscador
+    searchContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderRadius: 12,
+        borderWidth: 1,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        marginBottom: 12,
+        gap: 10,
+    },
+    searchInput: {
+        flex: 1,
+        fontSize: 15,
+        padding: 0,
+    },
+    clearText: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        paddingHorizontal: 4,
     },
     emptyState: { alignItems: 'center', gap: 8, paddingVertical: 28 },
     emptyText: { fontSize: 13, fontWeight: 'bold' },
