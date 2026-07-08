@@ -14,9 +14,11 @@ import {
   Crown,
   GraduationCap,
   UsersRound,
+  Globe,
+  Users,
 } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
-import { type RankingEntry, type RankingType } from '../../../services/apiConfig';
+import { type RankingEntry, type RankingType, type RankingScope } from '../../../services/apiConfig';
 import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
 import { useThemeStore } from '../../../store/themeStore';
@@ -75,6 +77,7 @@ interface RankingScreenProps {
 export default function RankingScreen({ roomMode }: RankingScreenProps) {
   const accessToken = useAuthStore((state) => state.access_token);
   const [activeType, setActiveType] = useState<VisibleRankingType>('time');
+  const [scope, setScope] = useState<RankingScope>('global');
   const [data, setData] = useState<RankingEntryWithTrend[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const ranking = useAppDataStore((state) => state.globalRanking.data ?? []);
@@ -110,7 +113,7 @@ export default function RankingScreen({ roomMode }: RankingScreenProps) {
   useEffect(() => {
     previousPositionsRef.current = new Map();
     loadRanking(true);
-  }, [activeType, accessToken]);
+  }, [activeType, scope, accessToken]);
 
   useEffect(() => {
     setData(applyRankingTrends(ranking));
@@ -142,7 +145,7 @@ export default function RankingScreen({ roomMode }: RankingScreenProps) {
     if (!accessToken) return;
 
     try {
-      await loadGlobalRanking(accessToken, { force, type: activeType });
+      await loadGlobalRanking(accessToken, { force, type: activeType, scope, limit: 50 });
     } catch (error) {
       console.error('Error al cargar ranking:', error);
       setData([]);
@@ -172,6 +175,28 @@ export default function RankingScreen({ roomMode }: RankingScreenProps) {
 
   return (
     <ScreenLayout title="RANKING" type="rankings" hideBackButton={true}>
+      {/* Selector de ámbito */}
+      <View style={styles.scopeTabs}>
+        <Pressable
+          style={[styles.scopeTab, scope === 'global' && styles.scopeTabActive]}
+          onPress={() => setScope('global')}
+        >
+          <Globe size={16} color={scope === 'global' ? colors.accent : colors.textMuted} />
+          <Text style={[styles.scopeTabText, scope === 'global' && styles.scopeTabTextActive]}>
+            Global
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.scopeTab, scope === 'friends' && styles.scopeTabActive]}
+          onPress={() => setScope('friends')}
+        >
+          <Users size={16} color={scope === 'friends' ? colors.accent : colors.textMuted} />
+          <Text style={[styles.scopeTabText, scope === 'friends' && styles.scopeTabTextActive]}>
+            Amigos
+          </Text>
+        </Pressable>
+      </View>
+
       <View style={styles.tabs}>
         {filteredTabs.map((tab) => {
           const isActive = activeType === tab.type;
@@ -193,7 +218,9 @@ export default function RankingScreen({ roomMode }: RankingScreenProps) {
         <SummaryIcon color={colors.accent} size={22} />
         <View style={styles.summaryText}>
           <Text style={styles.title}>{activeTab?.title ?? 'Ranking'}</Text>
-          <Text style={styles.description}>{activeTab?.description ?? ''}</Text>
+          <Text style={styles.description}>
+            {scope === 'global' ? activeTab?.description : 'Ranking entre tus amigos'}
+          </Text>
         </View>
       </View>
 
@@ -215,7 +242,11 @@ export default function RankingScreen({ roomMode }: RankingScreenProps) {
           {data.length === 0 ? (
             <View style={styles.emptyState}>
               <UsersRound color={colors.textMuted} size={28} />
-              <Text style={styles.emptyText}>Todavía no hay usuarios para mostrar.</Text>
+              <Text style={styles.emptyText}>
+                {scope === 'global'
+                  ? 'Todavía no hay usuarios para mostrar.'
+                  : 'Aún no tienes amigos. ¡Agrega algunos para ver su progreso!'}
+              </Text>
             </View>
           ) : (
             data.map((item, index) => (
@@ -238,10 +269,39 @@ export default function RankingScreen({ roomMode }: RankingScreenProps) {
 
 const createStyles = (colors: any) =>
   StyleSheet.create({
+    scopeTabs: {
+      flexDirection: 'row',
+      gap: 8,
+      marginBottom: 12,
+      marginTop: 4,
+    },
+    scopeTab: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 8,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    scopeTabActive: {
+      borderColor: colors.accent,
+      backgroundColor: colors.accentSoft,
+    },
+    scopeTabText: {
+      color: colors.textMuted,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    scopeTabTextActive: {
+      color: colors.accentStrong,
+    },
     tabs: {
       flexDirection: 'row',
       gap: 8,
-      marginTop: 4,
       marginBottom: 6,
     },
     tabButton: {

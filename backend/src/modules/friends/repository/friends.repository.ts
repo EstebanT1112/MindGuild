@@ -4,7 +4,7 @@ import type { FriendProfile } from '../types/friends.types.js';
 export const FriendsRepository = {
   async findProfileByUsername(username: string): Promise<FriendProfile | null> {
     const query = `
-      SELECT id, username, avatar_url, streak_days, total_study_minutes
+      SELECT id, username, avatar_url, streak_days, total_study_minutes, last_login_at
       FROM profiles
       WHERE username = $1
       LIMIT 1;
@@ -98,7 +98,7 @@ export const FriendsRepository = {
 
   async getFriends(userId: string): Promise<FriendProfile[]> {
     const query = `
-      SELECT p.id, p.username, p.avatar_url, p.streak_days, p.total_study_minutes
+      SELECT p.id, p.username, p.avatar_url, p.streak_days, p.total_study_minutes, p.last_login_at
       FROM friendships f
       INNER JOIN profiles p ON p.id = f.friend_id
       WHERE f.user_id = $1;
@@ -115,7 +115,8 @@ export const FriendsRepository = {
         json_build_object(
           'id', p.id,
           'username', p.username,
-          'avatar_url', p.avatar_url
+          'avatar_url', p.avatar_url,
+          'last_login_at', p.last_login_at
         ) as sender
       FROM friend_requests fr
       INNER JOIN profiles p ON p.id = fr.sender_id
