@@ -48,7 +48,6 @@ export const UsersRepository = {
   },
 
   async resetExpiredStreak(userId: string): Promise<void> {
-    // Mantiene la racha consistente al consultar perfil sin depender de un job externo.
     await pool.query(
       `
         UPDATE profiles
@@ -81,10 +80,9 @@ export const UsersRepository = {
   },
 
   async findProfileById(userId: string): Promise<BasicProfile | null> {
-    // Obtiene los datos base editables y calculados desde profiles.
     const { rows } = await pool.query(
       `
-        SELECT id, username, email, avatar_url, bio, streak_days, total_study_minutes, coins_balance, expo_push_token
+        SELECT id, username, email, avatar_url, bio, streak_days, total_study_minutes, coins_balance, expo_push_token, last_login_at
         FROM profiles
         WHERE id = $1 AND is_active = true
         LIMIT 1;
@@ -96,7 +94,6 @@ export const UsersRepository = {
   },
 
   async findProfileByUsername(username: string): Promise<{ id: string } | null> {
-    // Verifica unicidad de username antes de actualizar.
     const { rows } = await pool.query(
       `
         SELECT id
@@ -111,7 +108,6 @@ export const UsersRepository = {
   },
 
   async getWeeklyStats(userId: string, weekYear: string): Promise<WeeklyStats | null> {
-    // Lee los acumulados semanales; si no hay fila, el service aplica defaults.
     const { rows } = await pool.query(
       `
         SELECT total_minutes, consistency_score, academic_score, bosses_count, 0 AS coins_earned
@@ -197,7 +193,6 @@ export const UsersRepository = {
   },
 
   async getVillageState(userId: string): Promise<VillageState | null> {
-    // Lee el nivel visual de aldea; si falta, el service devuelve nivel 1.
     const { rows } = await pool.query(
       `
         SELECT village_level
@@ -212,7 +207,6 @@ export const UsersRepository = {
   },
 
   async getAuthProviders(userId: string): Promise<string[]> {
-    // Devuelve proveedores vinculados y contempla usuarios previos sin auth_identities.
     const { rows } = await pool.query(
       `
         SELECT provider
@@ -275,7 +269,6 @@ export const UsersRepository = {
     };
   },
 
-  //REQ 15 PUSH
   async getExpoPushToken(userId: string) {
     const { rows } = await pool.query(
       `
@@ -291,7 +284,6 @@ export const UsersRepository = {
   },
 
   async updateProfile(userId: string, data: UpdateProfileDTO): Promise<BasicProfile | null> {
-    // Construye un UPDATE dinamico para modificar solo campos enviados.
     const fields: string[] = [];
     const values: Array<string | null> = [];
 
@@ -309,8 +301,7 @@ export const UsersRepository = {
       values.push(data.bio ?? null);
       fields.push(`bio = $${values.length}`);
     }
-    
-    //Lo agrego para el REQ 15
+
     if (Object.prototype.hasOwnProperty.call(data, 'expo_push_token')) {
       values.push(data.expo_push_token ?? null);
       fields.push(`expo_push_token = $${values.length}`);
@@ -327,7 +318,7 @@ export const UsersRepository = {
         UPDATE profiles
         SET ${fields.join(', ')}
         WHERE id = $${values.length} AND is_active = true
-        RETURNING id, username, email, avatar_url, bio, streak_days, total_study_minutes, coins_balance;
+        RETURNING id, username, email, avatar_url, bio, streak_days, total_study_minutes, coins_balance, last_login_at;
       `,
       values
     );

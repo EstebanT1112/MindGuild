@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, Pressable, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, Modal, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import { X, UserPlus, Users } from 'lucide-react-native';
 import { roomInvitationsService } from '../services/roomInvitationsService';
 import Constants from 'expo-constants';
 import { authenticatedFetch } from '../../../services/authenticatedFetch';
 import { useThemeStore } from '../../../store/themeStore';
+import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
 
 interface Friend {
   id: string;
@@ -36,6 +37,48 @@ export default function InviteFriendsModal({ visible, onClose, roomId, accessTok
   const [loading, setLoading] = useState(false);
   const [invitingId, setInvitingId] = useState<string | null>(null);
 
+  // ✅ Estado para AppAlert
+  const [alert, setAlert] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: AlertType;
+    onConfirm?: () => void;
+    confirmText?: string;
+    showCancel?: boolean;
+    cancelText?: string;
+    onCancel?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+  });
+
+  // ✅ Función para mostrar alertas personalizadas
+  const showAlert = (
+    title: string,
+    message: string,
+    type: AlertType = 'info',
+    onConfirm?: () => void,
+    confirmText?: string,
+    showCancel?: boolean,
+    cancelText?: string,
+    onCancel?: () => void
+  ) => {
+    setAlert({
+      visible: true,
+      title,
+      message,
+      type,
+      onConfirm,
+      confirmText: confirmText || 'Aceptar',
+      showCancel: showCancel || false,
+      cancelText: cancelText || 'Cancelar',
+      onCancel,
+    });
+  };
+
   const loadFriendsList = async () => {
     if (!accessToken || !visible) return;
     try {
@@ -60,72 +103,97 @@ export default function InviteFriendsModal({ visible, onClose, roomId, accessTok
     try {
       setInvitingId(friendId);
       await roomInvitationsService.sendRoomInvitation(accessToken, roomId, friendId);
-      Alert.alert('Invitación enviada', `Se envió la invitación a ${username} correctamente.`);
+      showAlert('Invitación enviada', `Se envió la invitación a ${username} correctamente.`, 'success');
     } catch (error: any) {
-      Alert.alert('Atención', error.message || 'No se pudo enviar la invitación a la sala.');
+      showAlert('Atención', error.message || 'No se pudo enviar la invitación a la sala.', 'error');
     } finally {
       setInvitingId(null);
     }
   };
 
   return (
-    <Modal animationType="fade" transparent={true} visible={visible} onRequestClose={onClose}>
-      <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
-        <View style={[styles.content, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
-          <View style={styles.header}>
-            <Text style={[styles.title, { color: colors.text }]}>Invitar Amigos</Text>
-            <Pressable style={[styles.closeBtn, { backgroundColor: colors.background, borderColor: colors.border }]} onPress={onClose}>
-              <X color={colors.textMuted} size={20} />
-            </Pressable>
-          </View>
-
-          <Text style={[styles.subtitle, { color: colors.textSoft }]}>Seleccioná un compañero de tu lista para sumarlo a la sesión.</Text>
-
-          {loading ? (
-            <View style={styles.center}>
-              <ActivityIndicator size="large" color={colors.accent} />
+    <>
+      <Modal animationType="fade" transparent={true} visible={visible} onRequestClose={onClose}>
+        <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+          <View style={[styles.content, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+            <View style={styles.header}>
+              <Text style={[styles.title, { color: colors.text }]}>Invitar Amigos</Text>
+              <Pressable style={[styles.closeBtn, { backgroundColor: colors.background, borderColor: colors.border }]} onPress={onClose}>
+                <X color={colors.textMuted} size={20} />
+              </Pressable>
             </View>
-          ) : friends.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Users size={36} color={colors.textSoft} style={styles.emptyIcon} />
-              <Text style={[styles.emptyText, { color: colors.textSoft }]}>No tenés amigos para invitar.</Text>
-            </View>
-          ) : (
-            <ScrollView showsVerticalScrollIndicator={false} style={styles.list}>
-              {friends.map(friend => (
-                <View key={friend.id} style={[styles.friendRow, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                  <View style={styles.profileBox}>
-                    <View style={[styles.avatar, { backgroundColor: colors.surfaceElevated, borderColor: colors.accent }]}>
-                      <Text style={[styles.avatarText, { color: colors.text }]}>
-                        {friend.username ? friend.username[0].toUpperCase() : '?'}
+
+            <Text style={[styles.subtitle, { color: colors.textSoft }]}>Seleccioná un compañero de tu lista para sumarlo a la sesión.</Text>
+
+            {loading ? (
+              <View style={styles.center}>
+                <ActivityIndicator size="large" color={colors.accent} />
+              </View>
+            ) : friends.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Users size={36} color={colors.textSoft} style={styles.emptyIcon} />
+                <Text style={[styles.emptyText, { color: colors.textSoft }]}>No tenés amigos para invitar.</Text>
+              </View>
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false} style={styles.list}>
+                {friends.map(friend => (
+                  <View key={friend.id} style={[styles.friendRow, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                    <View style={styles.profileBox}>
+                      <View style={[styles.avatar, { backgroundColor: colors.surfaceElevated, borderColor: colors.accent }]}>
+                        <Text style={[styles.avatarText, { color: colors.text }]}>
+                          {friend.username ? friend.username[0].toUpperCase() : '?'}
+                        </Text>
+                      </View>
+                      <Text style={[styles.username, { color: colors.text }]} numberOfLines={1}>
+                        {friend.username}
                       </Text>
                     </View>
-                    <Text style={[styles.username, { color: colors.text }]} numberOfLines={1}>
-                      {friend.username}
-                    </Text>
-                  </View>
 
-                  <Pressable 
-                    style={[styles.inviteBtn, { backgroundColor: colors.accent }, invitingId === friend.id && { opacity: 0.7 }]}
-                    onPress={() => handleSendInvite(friend.id, friend.username)}
-                    disabled={invitingId !== null}
-                  >
-                    {invitingId === friend.id ? (
-                      <ActivityIndicator size="small" color={colors.background} />
-                    ) : (
-                      <>
-                        <UserPlus size={14} color={colors.background} />
-                        <Text style={[styles.inviteBtnText, { color: colors.background }]}>Invitar</Text>
-                      </>
-                    )}
-                  </Pressable>
-                </View>
-              ))}
-            </ScrollView>
-          )}
+                    <Pressable 
+                      style={[styles.inviteBtn, { backgroundColor: colors.accent }, invitingId === friend.id && { opacity: 0.7 }]}
+                      onPress={() => handleSendInvite(friend.id, friend.username)}
+                      disabled={invitingId !== null}
+                    >
+                      {invitingId === friend.id ? (
+                        <ActivityIndicator size="small" color={colors.background} />
+                      ) : (
+                        <>
+                          <UserPlus size={14} color={colors.background} />
+                          <Text style={[styles.inviteBtnText, { color: colors.background }]}>Invitar</Text>
+                        </>
+                      )}
+                    </Pressable>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+          </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+
+      {/* ✅ AppAlert personalizado */}
+      <AppAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        type={alert.type}
+        onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+        onConfirm={() => {
+          if (alert.onConfirm) {
+            alert.onConfirm();
+          } else {
+            setAlert(prev => ({ ...prev, visible: false }));
+          }
+        }}
+        onCancel={() => {
+          if (alert.onCancel) alert.onCancel();
+          setAlert(prev => ({ ...prev, visible: false }));
+        }}
+        confirmText={alert.confirmText || 'Aceptar'}
+        cancelText={alert.cancelText || 'Cancelar'}
+        showCancel={alert.showCancel || false}
+      />
+    </>
   );
 }
 

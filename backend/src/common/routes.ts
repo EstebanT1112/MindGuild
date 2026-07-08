@@ -15,10 +15,8 @@ import analyticsRoutes from '../modules/analytics/analytics.routes.js';
 import vaultRoutes from '../modules/vault/vault.routes.js';
 import teamsRoutes from '../modules/teams/teams.routes.js';
 import notificationRoutes from '../modules/notifications/notifications.routes.js';
-
-// --- INVITACIONES A SALAS ---
+import { FriendsController } from '../modules/friends/controller/friends.controller.js'; // ✅ Solo una vez
 import RoomInvitationsController from '../modules/room-invitations/controller/room-invitations.controller.js';
-import { FriendsController } from '../modules/friends/controller/friends.controller.js';
 
 const router = Router();
 
@@ -54,7 +52,6 @@ router.get('/rooms/:roomId', RoomsController.getRoomDetails);
 router.use('/study', studyRoutes);
 
 // --- SESSIONS (RF-10) ---
-// Se agrega checkAuth aquí para proteger todas las operaciones de forma unificada
 router.use('/sessions', checkAuth, sessionRoutes);
 
 // --- BATTLE ROYALE (RF-02) PROTEGIDO ---
@@ -88,11 +85,13 @@ router.get('/room-invitations', checkAuth, RoomInvitationsController.getReceived
 router.post('/room-invitations', checkAuth, RoomInvitationsController.createInvitation);
 router.post('/room-invitations/:invitationId/accept', checkAuth, RoomInvitationsController.acceptInvitation);
 router.post('/room-invitations/:invitationId/reject', checkAuth, RoomInvitationsController.rejectInvitation);
+
 // --- SISTEMA DE AMIGOS (RF-04) PROTEGIDO ---
 router.get('/friends', checkAuth, FriendsController.getFriends);
 router.get('/friends/requests', checkAuth, FriendsController.getRequests);
 router.post('/friends/requests', checkAuth, FriendsController.sendRequest);
 router.post('/friends/requests/:requestId/accept', checkAuth, FriendsController.acceptRequest);
 router.post('/friends/requests/:requestId/reject', checkAuth, FriendsController.rejectRequest);
+router.delete('/friends/:friendId', checkAuth, FriendsController.removeFriend); // ✅ Usamos checkAuth en lugar de authenticate
 
 export default router;

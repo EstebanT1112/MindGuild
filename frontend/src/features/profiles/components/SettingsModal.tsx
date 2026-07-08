@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { Modal, View, Text, StyleSheet, Pressable, Switch, ScrollView, Alert } from 'react-native';
+import { Modal, View, Text, StyleSheet, Pressable, Switch, ScrollView } from 'react-native';
 import { X, LogOut, Lock, Globe } from 'lucide-react-native';
 import { useAuthStore } from '../../../store/authStore';
 import { useAppDataStore } from '../../../store/appDataStore';
 import { useThemeStore } from '../../../store/themeStore';
 import { linkGoogleAccount, requestPasswordReset } from '../../auth/services/authService';
+import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
 
 interface SettingsModalProps {
   visible: boolean;
@@ -38,32 +39,75 @@ export default function SettingsModal({
   const hasGoogleLinked = authProviders.includes('google-oauth2');
   const canLinkGoogle = canResetPassword && !hasGoogleLinked;
 
+  // ✅ Estado para AppAlert
+  const [alert, setAlert] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: AlertType;
+    onConfirm?: () => void;
+    confirmText?: string;
+    showCancel?: boolean;
+    cancelText?: string;
+    onCancel?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+  });
+
+  // ✅ Función para mostrar alertas personalizadas
+  const showAlert = (
+    title: string,
+    message: string,
+    type: AlertType = 'info',
+    onConfirm?: () => void,
+    confirmText?: string,
+    showCancel?: boolean,
+    cancelText?: string,
+    onCancel?: () => void
+  ) => {
+    setAlert({
+      visible: true,
+      title,
+      message,
+      type,
+      onConfirm,
+      confirmText: confirmText || 'Aceptar',
+      showCancel: showCancel || false,
+      cancelText: cancelText || 'Cancelar',
+      onCancel,
+    });
+  };
+
   const handleLogout = () => {
-    Alert.alert('Cerrar sesión', 'Vas a salir de tu cuenta.', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Cerrar sesión',
-        style: 'destructive',
-        onPress: async () => {
-          onClose();
-          clearAppData();
-          logout();
-        },
+    showAlert(
+      'Cerrar sesión',
+      'Vas a salir de tu cuenta.',
+      'warning',
+      () => {
+        onClose();
+        clearAppData();
+        logout();
       },
-    ]);
+      'Cerrar sesión',
+      true,
+      'Cancelar'
+    );
   };
 
   const handlePasswordReset = async () => {
     if (!email) {
-      Alert.alert('Email no disponible', 'No pudimos identificar el email de tu cuenta.');
+      showAlert('Email no disponible', 'No pudimos identificar el email de tu cuenta.', 'error');
       return;
     }
     setPasswordResetLoading(true);
     try {
       await requestPasswordReset(email);
-      Alert.alert('Revisá tu correo', 'Si tu cuenta usa contraseña, recibirás instrucciones para cambiarla.');
+      showAlert('Revisá tu correo', 'Si tu cuenta usa contraseña, recibirás instrucciones para cambiarla.', 'info');
     } catch (error: any) {
-      Alert.alert('No se pudo enviar el correo', error.message ?? 'Intentá nuevamente en unos minutos.');
+      showAlert('No se pudo enviar el correo', error.message ?? 'Intentá nuevamente en unos minutos.', 'error');
     } finally {
       setPasswordResetLoading(false);
     }
@@ -71,17 +115,17 @@ export default function SettingsModal({
 
   const handleLinkGoogle = async () => {
     if (!accessToken) {
-      Alert.alert('Sesión no disponible', 'Inicia sesión nuevamente para vincular Google.');
+      showAlert('Sesión no disponible', 'Iniciá sesión nuevamente para vincular Google.', 'error');
       return;
     }
     setLinkGoogleLoading(true);
     try {
       const result = await linkGoogleAccount(accessToken);
-      Alert.alert('Google vinculado', 'Ahora también podes iniciar sesión con Google.');
+      showAlert('Google vinculado', 'Ahora también podés iniciar sesión con Google.', 'success');
       onAuthProvidersChanged?.(result.auth_providers);
     } catch (error: any) {
       if (error.code !== 'auth_cancelled') {
-        Alert.alert('No se pudo vincular Google', error.message ?? 'Intentá nuevamente en unos minutos.');
+        showAlert('No se pudo vincular Google', error.message ?? 'Intentá nuevamente en unos minutos.', 'error');
       }
     } finally {
       setLinkGoogleLoading(false);
@@ -142,7 +186,7 @@ export default function SettingsModal({
           borderColor: colors.border,
         },
         destructiveCard: {
-          borderColor: colors.danger + '44', // semitransparente
+          borderColor: colors.danger + '44',
         },
         settingInfo: {
           flex: 1,
@@ -204,84 +248,109 @@ export default function SettingsModal({
   );
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
-      <View style={styles.overlay}>
-        <View style={styles.content}>
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>Configuración</Text>
-            <Pressable onPress={onClose} style={styles.closeBtn}>
-              <X color={colors.text} size={20} />
-            </Pressable>
-          </View>
+    <>
+      <Modal visible={visible} animationType="slide" transparent>
+        <View style={styles.overlay}>
+          <View style={styles.content}>
+            <View style={styles.header}>
+              <Text style={styles.headerTitle}>Configuración</Text>
+              <Pressable onPress={onClose} style={styles.closeBtn}>
+                <X color={colors.text} size={20} />
+              </Pressable>
+            </View>
 
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 40 }}
-          >
-            <Text style={styles.sectionLabel}>APARIENCIA</Text>
-            <SettingSwitch
-              title="Modo Claro"
-              sub={themeMode === 'light' ? 'Activado' : 'Desactivado'}
-              value={themeMode === 'light'}
-              onValueChange={toggleThemeMode}
-            />
-
-            <Text style={styles.sectionLabel}>PREFERENCIAS</Text>
-            <SettingSwitch
-              title="Notificaciones"
-              sub="Recibe alertas de retos y salas"
-              value={notifications}
-              onValueChange={setNotifications}
-            />
-            <SettingSwitch
-              title="Perfil Público"
-              sub="Otros usuarios pueden ver tu perfil"
-              value={publicProfile}
-              onValueChange={setPublicProfile}
-            />
-
-            <Text style={styles.sectionLabel}>CUENTA</Text>
-
-            {canResetPassword ? (
-              <AccountOption
-                title={passwordResetLoading ? 'Enviando...' : 'Cambiar Contraseña'}
-                sub="Recibirás un correo para actualizar tu acceso"
-                icon={Lock}
-                onPress={passwordResetLoading ? undefined : handlePasswordReset}
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 40 }}
+            >
+              <Text style={styles.sectionLabel}>APARIENCIA</Text>
+              <SettingSwitch
+                title="Modo Claro"
+                sub={themeMode === 'light' ? 'Activado' : 'Desactivado'}
+                value={themeMode === 'light'}
+                onValueChange={toggleThemeMode}
               />
-            ) : (
-              <View style={styles.settingCard}>
-                <View style={styles.settingInfo}>
-                  <Text style={styles.settingTitle}>Acceso con Google</Text>
-                  <Text style={styles.settingSub}>Tu contraseña se gestiona desde Google</Text>
+
+              <Text style={styles.sectionLabel}>PREFERENCIAS</Text>
+              <SettingSwitch
+                title="Notificaciones"
+                sub="Recibe alertas de retos y salas"
+                value={notifications}
+                onValueChange={setNotifications}
+              />
+              <SettingSwitch
+                title="Perfil Público"
+                sub="Otros usuarios pueden ver tu perfil"
+                value={publicProfile}
+                onValueChange={setPublicProfile}
+              />
+
+              <Text style={styles.sectionLabel}>CUENTA</Text>
+
+              {canResetPassword ? (
+                <AccountOption
+                  title={passwordResetLoading ? 'Enviando...' : 'Cambiar Contraseña'}
+                  sub="Recibirás un correo para actualizar tu acceso"
+                  icon={Lock}
+                  onPress={passwordResetLoading ? undefined : handlePasswordReset}
+                />
+              ) : (
+                <View style={styles.settingCard}>
+                  <View style={styles.settingInfo}>
+                    <Text style={styles.settingTitle}>Acceso con Google</Text>
+                    <Text style={styles.settingSub}>Tu contraseña se gestiona desde Google</Text>
+                  </View>
+                  <Lock color={colors.textMuted} size={20} />
                 </View>
-                <Lock color={colors.textMuted} size={20} />
-              </View>
-            )}
+              )}
 
-            {canLinkGoogle && (
+              {canLinkGoogle && (
+                <AccountOption
+                  title={linkGoogleLoading ? 'Vinculando...' : 'Vincular Google'}
+                  sub="Usa el mismo email para iniciar sesión con Google"
+                  icon={Globe}
+                  onPress={linkGoogleLoading ? undefined : handleLinkGoogle}
+                />
+              )}
+
+              <AccountOption title="Idioma" sub="Español" icon={Globe} />
+
               <AccountOption
-                title={linkGoogleLoading ? 'Vinculando...' : 'Vincular Google'}
-                sub="Usa el mismo email para iniciar sesión con Google"
-                icon={Globe}
-                onPress={linkGoogleLoading ? undefined : handleLinkGoogle}
+                title="Cerrar Sesión"
+                sub="Salir de tu cuenta"
+                icon={LogOut}
+                isDestructive={true}
+                onPress={handleLogout}
               />
-            )}
 
-            <AccountOption title="Idioma" sub="Español" icon={Globe} />
-
-            <AccountOption
-              title="Cerrar Sesión"
-              sub="Salir de tu cuenta"
-              icon={LogOut}
-              isDestructive={true}
-              onPress={handleLogout}
-            />
-
-            <Text style={styles.versionText}>Versión 1.0.0</Text>
-          </ScrollView>
+              <Text style={styles.versionText}>Versión 1.0.0</Text>
+            </ScrollView>
+          </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+
+      {/* ✅ AppAlert personalizado */}
+      <AppAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        type={alert.type}
+        onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+        onConfirm={() => {
+          if (alert.onConfirm) {
+            alert.onConfirm();
+          } else {
+            setAlert(prev => ({ ...prev, visible: false }));
+          }
+        }}
+        onCancel={() => {
+          if (alert.onCancel) alert.onCancel();
+          setAlert(prev => ({ ...prev, visible: false }));
+        }}
+        confirmText={alert.confirmText || 'Aceptar'}
+        cancelText={alert.cancelText || 'Cancelar'}
+        showCancel={alert.showCancel || false}
+      />
+    </>
   );
 }

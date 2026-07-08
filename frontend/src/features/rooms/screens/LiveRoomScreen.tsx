@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { BarChart3, ChevronRight, FolderOpen, Info, MessageCircle, Settings, UserPlus, Users, CheckCircle } from 'lucide-react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
+import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
 import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
 import InviteFriendsModal from '../components/InviteFriendsModal';
@@ -20,7 +21,7 @@ import EvidenceUploadModal from '../components/EvidenceUploadModal';
 import ReviewPeerSessionsModal from '../components/ReviewPeerSessionsModal';
 import RoomChatModal from '../components/RoomChatModal';
 import { fetchPendingSessionReviews } from '../services/sessionsService';
-import { fetchRoomMessages, sendRoomMessage, type RoomMessage } from '../services/chatService'; // ✅ Importamos para polling y envío
+import { fetchRoomMessages, sendRoomMessage, type RoomMessage } from '../services/chatService';
 
 const POLLING_INTERVAL_MS = 60000; // 60 segundos
 
@@ -61,6 +62,48 @@ export default function LiveRoomScreen() {
 
     const [sessionType, setSessionType] = useState<'pomodoro' | 'free'>('pomodoro');
     const [durationMinutes, setDurationMinutes] = useState(30);
+
+    // ✅ Estado para AppAlert
+    const [alert, setAlert] = useState<{
+        visible: boolean;
+        title: string;
+        message: string;
+        type: AlertType;
+        onConfirm?: () => void;
+        confirmText?: string;
+        showCancel?: boolean;
+        cancelText?: string;
+        onCancel?: () => void;
+    }>({
+        visible: false,
+        title: '',
+        message: '',
+        type: 'info',
+    });
+
+    // ✅ Función para mostrar alertas personalizadas
+    const showAlert = (
+        title: string,
+        message: string,
+        type: AlertType = 'info',
+        onConfirm?: () => void,
+        confirmText?: string,
+        showCancel?: boolean,
+        cancelText?: string,
+        onCancel?: () => void
+    ) => {
+        setAlert({
+            visible: true,
+            title,
+            message,
+            type,
+            onConfirm,
+            confirmText: confirmText || 'Aceptar',
+            showCancel: showCancel || false,
+            cancelText: cancelText || 'Cancelar',
+            onCancel,
+        });
+    };
 
     // ── Funciones de polling ──
     const fetchNewMessages = async () => {
@@ -128,16 +171,17 @@ export default function LiveRoomScreen() {
             setMessages(prev => [...prev, newMsg].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
             setLastMessageCreatedAt(newMsg.created_at);
         } catch (error: any) {
-            Alert.alert('Error', error.message ?? 'No se pudo enviar el mensaje.');
+            showAlert('Error', error.message ?? 'No se pudo enviar el mensaje.', 'error');
         }
     };
 
     // ── Manejo de sesión ──
     const handleSessionEnded = (result: any) => {
         if (result.status === 'invalid') {
-            Alert.alert(
+            showAlert(
                 'Sesión Guardada',
-                `Estudiaste ${result.duration_minutes} minutos. Recordá que se necesita un mínimo de tiempo enfocado para acumular puntos en el ranking de la sala.`
+                `Estudiaste ${result.duration_minutes} minutos. Recordá que se necesita un mínimo de tiempo enfocado para acumular puntos en el ranking de la sala.`,
+                'info'
             );
             if (targetRoomId) {
                 invalidateAfterValidStudySession(targetRoomId);
@@ -156,11 +200,12 @@ export default function LiveRoomScreen() {
             invalidateAfterValidStudySession(targetRoomId);
         }
 
-        Alert.alert(
-            'Sesion Finalizada',
+        showAlert(
+            'Sesión Finalizada',
             result.valid
                 ? `Se acreditaron ${result.duration_minutes} minutos.`
-                : `Estudiaste ${result.duration_minutes} minutos. Para sumar al ranking necesitas al menos 30 minutos.`
+                : `Estudiaste ${result.duration_minutes} minutos. Para sumar al ranking necesitas al menos 30 minutos.`,
+            result.valid ? 'success' : 'warning'
         );
     };
 
@@ -222,7 +267,7 @@ export default function LiveRoomScreen() {
             }
         } catch (error: any) {
             console.error('Error critico al cargar detalles de la sala:', error);
-            Alert.alert('Error de sala', error.message ?? 'No se pudo cargar la sala.');
+            showAlert('Error de sala', error.message ?? 'No se pudo cargar la sala.', 'error');
         } finally {
             if (shouldShowLoading) setLoading(false);
         }
@@ -253,7 +298,7 @@ export default function LiveRoomScreen() {
 
     const handleSaveConfig = (newConfig: SessionConfigData) => {
         if (status !== 'idle') {
-            Alert.alert('Accion bloqueada', 'No podes cambiar la configuracion en medio de una sesion activa.');
+            showAlert('Acción bloqueada', 'No podes cambiar la configuración en medio de una sesión activa.', 'warning');
             return;
         }
 
@@ -397,7 +442,7 @@ export default function LiveRoomScreen() {
 
                 {!isEnfocused && (
                     <>
-                        <RoomRanking roomId={room?.id} />
+                        <RoomRanking roomId={room?.id} roomType="survival"  />
 
                         <Pressable
                             style={styles.dashboardBtn}
@@ -537,7 +582,6 @@ export default function LiveRoomScreen() {
                 onReviewProcessed={(count) => setPendingReviewsCount(count)}
             />
 
-            {/* ✅ RoomChatModal recibe los mensajes y el último timestamp, y ya no hace polling interno */}
             {room && (
                 <RoomChatModal
                     visible={chatVisible}
@@ -546,13 +590,32 @@ export default function LiveRoomScreen() {
                     accentColor="#22c55e"
                     onClose={() => {
                         setChatVisible(false);
-                        // Si quieres resetear el badge al cerrar, ya lo haces al abrir.
                     }}
                     messages={messages}
                     onSendMessage={handleSendMessage}
-                    sending={false} // opcional
+                    sending={false}
                 />
             )}
+
+            {/* ✅ AppAlert personalizado */}
+            <AppAlert
+                visible={alert.visible}
+                title={alert.title}
+                message={alert.message}
+                type={alert.type}
+                onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+                onConfirm={() => {
+                    if (alert.onConfirm) alert.onConfirm();
+                    setAlert(prev => ({ ...prev, visible: false }));
+                }}
+                onCancel={() => {
+                    if (alert.onCancel) alert.onCancel();
+                    setAlert(prev => ({ ...prev, visible: false }));
+                }}
+                confirmText={alert.confirmText || 'Aceptar'}
+                cancelText={alert.cancelText || 'Cancelar'}
+                showCancel={alert.showCancel || false}
+            />
         </ScreenLayout>
     );
 }

@@ -51,6 +51,7 @@ export const walletRepository = {
           si.description,
           si.price,
           si.item_type AS category,
+          si.item_type,  -- ✅ Agregamos el campo original para el frontend
           EXISTS (
             SELECT 1
             FROM user_cosmetic_items uci
@@ -78,6 +79,7 @@ export const walletRepository = {
       description: row.description ?? null,
       price: Number(row.price) || 0,
       category: row.category ?? null,
+      item_type: row.item_type ?? null, // ✅ Mapeamos el nuevo campo
       owned: Boolean(row.owned),
       is_equipped: Boolean(row.is_equipped),
     }));
@@ -104,7 +106,7 @@ export const walletRepository = {
         );
 
         if (ownedRows[0]) {
-          throw new WalletConflictError('El cosmetico ya fue comprado');
+          throw new WalletConflictError('El cosmético ya fue comprado');
         }
       }
 
@@ -114,7 +116,7 @@ export const walletRepository = {
         type: 'purchase',
         referenceType: 'shop_item',
         referenceId: item.id,
-        description: `Compra de cosmetico: ${item.name}`,
+        description: `Compra de cosmético: ${item.name}`,
       });
 
       if (item.category === 'streak_shield') {
@@ -161,7 +163,7 @@ export const walletRepository = {
       const item = await findActiveStoreItem(client, itemId);
 
       if (!item.category || !EQUIPPABLE_SHOP_ITEM_TYPES.includes(item.category)) {
-        throw new WalletValidationError('Este cosmetico no se puede equipar');
+        throw new WalletValidationError('Este cosmético no se puede equipar');
       }
 
       const { rows: ownedRows } = await client.query(
@@ -176,7 +178,7 @@ export const walletRepository = {
       );
 
       if (!ownedRows[0]) {
-        throw new WalletConflictError('Primero tenes que comprar este cosmetico');
+        throw new WalletConflictError('Primero tenés que comprar este cosmético');
       }
 
       await client.query(
@@ -340,6 +342,7 @@ async function findActiveStoreItem(client: DbClient, itemId: string): Promise<St
         description,
         price,
         item_type AS category,
+        item_type,  -- ✅ Agregamos el campo original
         metadata
       FROM shop_items
       WHERE id = $1
@@ -353,7 +356,7 @@ async function findActiveStoreItem(client: DbClient, itemId: string): Promise<St
   const item = rows[0];
 
   if (!item) {
-    throw new WalletNotFoundError('Cosmetico no encontrado');
+    throw new WalletNotFoundError('Cosmético no encontrado');
   }
 
   return {
@@ -362,6 +365,7 @@ async function findActiveStoreItem(client: DbClient, itemId: string): Promise<St
     description: item.description ?? null,
     price: Number(item.price) || 0,
     category: item.category ?? null,
+    item_type: item.item_type ?? null, // ✅ Mapeamos el nuevo campo
     owned: false,
     is_equipped: false,
     metadata: item.metadata ?? null,

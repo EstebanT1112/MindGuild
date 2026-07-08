@@ -46,15 +46,19 @@ export interface RankingResponse {
 }
 
 export type RankingType = 'time' | 'qa' | 'academic' | 'boss' | 'semanal' | 'racha' | 'academico' | 'jefes';
+export type RankingScope = 'global' | 'friends';
 
 export async function fetchRanking(
     type: RankingType,
     token?: string,
-    roomId?: string
+    roomId?: string,
+    scope: RankingScope = 'global',
+    limit?: number
 ): Promise<RankingResponse> {
     try {
-        const query = new URLSearchParams({ type });
+        const query = new URLSearchParams({ type, scope });
         if (roomId) query.set('roomId', roomId);
+        if (limit) query.set('limit', String(limit));
 
         const response = await fetch(`${API_BASE_URL}/ranking?${query.toString()}`, {
             method: 'GET',

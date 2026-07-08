@@ -1,5 +1,8 @@
 export type RankingType = 'time' | 'qa' | 'academic' | 'boss' | 'semanal' | 'racha' | 'academico' | 'jefes';
 
+// ✅ Nuevo tipo para el scope
+export type RankingScope = 'global' | 'friends';
+
 export interface RankingEntry {
   user_id: string;
   username: string;

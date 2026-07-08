@@ -164,4 +164,56 @@ export const FriendsController = {
       return res.status(500).json({ error: 'Error interno al rechazar solicitud' });
     }
   },
+
+  /**
+   * ✅ Elimina un amigo de la lista del usuario autenticado.
+   * DELETE /api/friends/:friendId
+   */
+  async removeFriend(req: Request, res: Response): Promise<Response | void> {
+    try {
+      const userId = (req as any).user?.id;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'No autorizado. No se encontró un usuario válido en el token.',
+        });
+      }
+
+      // ✅ CORREGIDO: Asegurar que friendId sea string
+      const friendId = Array.isArray(req.params.friendId) 
+        ? req.params.friendId[0] 
+        : req.params.friendId;
+
+      if (!friendId) {
+        return res.status(400).json({
+          success: false,
+          error: 'ID de amigo requerido',
+        });
+      }
+
+      const result = await FriendsService.removeFriend(userId, friendId);
+
+      if (result.success) {
+        return res.status(200).json({ success: true });
+      } else {
+        return res.status(404).json({
+          success: false,
+          error: result.error || 'No se pudo eliminar el amigo',
+        });
+      }
+    } catch (error: any) {
+      console.error('❌ Error en FriendsController.removeFriend:', error);
+      if (error instanceof FriendValidationError) {
+        return res.status(400).json({ error: error.message });
+      }
+      if (error instanceof FriendNotFoundError) {
+        return res.status(404).json({ error: error.message });
+      }
+      if (error instanceof FriendConflictError) {
+        return res.status(409).json({ error: error.message });
+      }
+      return res.status(500).json({ error: 'Error interno al eliminar amigo' });
+    }
+  },
 };

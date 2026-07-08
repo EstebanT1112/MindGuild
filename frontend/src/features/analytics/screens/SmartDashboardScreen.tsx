@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import { BarChart3, BrainCircuit, CalendarDays, Clock3, Target, TrendingDown, TrendingUp } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
+import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
 import { useAuthStore } from '../../../store/authStore';
 import { useThemeStore, ThemeColors } from '../../../store/themeStore';
 import {
@@ -24,6 +25,48 @@ export default function SmartDashboardScreen() {
   // 🎨 Colores dinámicos del tema activo
   const colors = useThemeStore((state) => state.colors);
   const styles = useMemo(() => createStyles(colors), [colors]);
+
+  // ✅ Estado para AppAlert
+  const [alert, setAlert] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: AlertType;
+    onConfirm?: () => void;
+    confirmText?: string;
+    showCancel?: boolean;
+    cancelText?: string;
+    onCancel?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+  });
+
+  // ✅ Función para mostrar alertas personalizadas
+  const showAlert = (
+    title: string,
+    message: string,
+    type: AlertType = 'info',
+    onConfirm?: () => void,
+    confirmText?: string,
+    showCancel?: boolean,
+    cancelText?: string,
+    onCancel?: () => void
+  ) => {
+    setAlert({
+      visible: true,
+      title,
+      message,
+      type,
+      onConfirm,
+      confirmText: confirmText || 'Aceptar',
+      showCancel: showCancel || false,
+      cancelText: cancelText || 'Cancelar',
+      onCancel,
+    });
+  };
 
   const [data, setData] = useState<DashboardResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -49,7 +92,7 @@ export default function SmartDashboardScreen() {
 
       setData(result);
     } catch (error: any) {
-      Alert.alert('Dashboard', error.message ?? 'No se pudo cargar el dashboard');
+      showAlert('Dashboard', error.message ?? 'No se pudo cargar el dashboard', 'error');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -90,7 +133,7 @@ export default function SmartDashboardScreen() {
             <Text style={styles.heroCopy}>
               {scope === 'room' && roomMode === 'survival'
                 ? 'Lectura semanal de tiempo, sesiones y constancia dentro de esta sala.'
-                : 'Lectura semanal de estudio, actividad y rendimiento academico.'}
+                : 'Lectura semanal de estudio, actividad y rendimiento académico.'}
             </Text>
           </View>
 
@@ -117,7 +160,7 @@ export default function SmartDashboardScreen() {
                 <MetricCard
                   colors={colors}
                   styles={styles}
-                  label="Dias activos"
+                  label="Días activos"
                   value={String(data.summary.days_active)}
                   previous={data.previous_week?.days_active}
                   delta={formatSignedNumber(data.deltas.days_active_delta)}
@@ -152,7 +195,7 @@ export default function SmartDashboardScreen() {
                 </View>
                 <View style={styles.academicTextBox}>
                   <Text style={styles.academicLabel}>
-                    {showAcademicMetrics ? 'Puntaje academico' : 'Resumen de supervivencia'}
+                    {showAcademicMetrics ? 'Puntaje académico' : 'Resumen de supervivencia'}
                   </Text>
                   <Text style={styles.academicValue}>
                     {showAcademicMetrics ? Math.round(data.summary.academic_score) : `${data.summary.total_minutes}m`}
@@ -180,6 +223,26 @@ export default function SmartDashboardScreen() {
           )}
         </ScrollView>
       )}
+
+      {/* ✅ AppAlert personalizado */}
+      <AppAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        type={alert.type}
+        onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+        onConfirm={() => {
+          if (alert.onConfirm) alert.onConfirm();
+          setAlert(prev => ({ ...prev, visible: false }));
+        }}
+        onCancel={() => {
+          if (alert.onCancel) alert.onCancel();
+          setAlert(prev => ({ ...prev, visible: false }));
+        }}
+        confirmText={alert.confirmText || 'Aceptar'}
+        cancelText={alert.cancelText || 'Cancelar'}
+        showCancel={alert.showCancel || false}
+      />
     </ScreenLayout>
   );
 }
@@ -235,21 +298,21 @@ function formatSignedNumber(value: number | null) {
 
 function getAcademicDeltaText(data: DashboardResult) {
   if (!data.previous_week || data.deltas.academic_percent === null) {
-    return 'Sin comparacion suficiente contra la semana anterior.';
+    return 'Sin comparación suficiente contra la semana anterior.';
   }
 
   const delta = Math.round(data.deltas.academic_percent);
-  if (delta > 0) return `Subio ${delta}% respecto de la semana anterior.`;
-  if (delta < 0) return `Bajo ${Math.abs(delta)}% respecto de la semana anterior.`;
+  if (delta > 0) return `Subió ${delta}% respecto de la semana anterior.`;
+  if (delta < 0) return `Bajó ${Math.abs(delta)}% respecto de la semana anterior.`;
   return 'Se mantuvo estable respecto de la semana anterior.';
 }
 
 function getSurvivalSummaryText(summary: DashboardSummary) {
   if (summary.sessions_count === 0) {
-    return 'Todavia no hay sesiones validadas en esta sala durante la semana.';
+    return 'Todavía no hay sesiones validadas en esta sala durante la semana.';
   }
 
-  return `${summary.sessions_count} sesiones validadas en ${summary.days_active} dias activos.`;
+  return `${summary.sessions_count} sesiones validadas en ${summary.days_active} días activos.`;
 }
 
 // 🎨 ESTILOS DINÁMICOS: se generan a partir de los tokens del themeStore.

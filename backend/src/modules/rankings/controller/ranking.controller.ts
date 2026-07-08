@@ -7,6 +7,7 @@ import {
   RankingNotFoundError,
   RankingValidationError,
   type RankingType,
+  type RankingScope, // ✅ Importamos el tipo
 } from '../types/ranking.types.js';
 
 export const rankingsController = {
@@ -14,13 +15,15 @@ export const rankingsController = {
     try {
       const type = (req.query.type as RankingType) || 'semanal';
       const roomId = (req.query.roomId || req.query.room_id) as string | undefined;
+      const scope = (req.query.scope as RankingScope) || 'global'; // ✅ Extraemos el scope
       const userId = (req as any).user?.id;
 
       if (!userId) {
         return res.status(401).json({ success: false, error: 'Usuario no autenticado o sesion invalida' });
       }
 
-      const result = await rankingsService.getRanking(type, userId, roomId);
+      // ✅ Pasamos el scope al servicio
+      const result = await rankingsService.getRanking(type, userId, roomId, scope);
 
       return res.status(200).json({
         success: true,

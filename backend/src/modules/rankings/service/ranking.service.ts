@@ -7,11 +7,13 @@ import {
   type CloseWeekInput,
   type RankingEntry,
   type RankingType,
+  type RankingScope, // ✅ Importamos el tipo
   type RoomTimeRankingEntry,
 } from '../types/ranking.types.js';
 
 export const rankingsService = {
-  async getRanking(type: RankingType, userId: string, roomId?: string) {
+  // ✅ Agregamos el parámetro scope
+  async getRanking(type: RankingType, userId: string, roomId?: string, scope: RankingScope = 'global') {
     const normalizedType = normalizeRankingType(type);
 
     if (roomId) {
@@ -20,10 +22,18 @@ export const rankingsService = {
         throw new Error('No tienes acceso al ranking de esta sala');
       }
     }
-    // FIX: Cambiamos "this" por el nombre del objeto para fijar el contexto puro
+
     const weekYear = rankingsService.getCurrentWeekYear();
     const legacyWeekYear = rankingsService.getLegacyWeekYear();
-    const rawData = await rankingsRepository.getRankingData(normalizedType, [weekYear, legacyWeekYear], roomId);
+    
+    // ✅ Pasamos el scope y userId al repositorio
+    const rawData = await rankingsRepository.getRankingData(
+      normalizedType,
+      [weekYear, legacyWeekYear],
+      roomId,
+      scope,
+      userId
+    );
 
     const formattedRanking: RankingEntry[] = rawData.map((item, index) => {
       let value = 0;
@@ -46,9 +56,12 @@ export const rankingsService = {
       };
     });
 
+    // ✅ El scope real (si es room, se mantiene; si no, usamos el scope solicitado)
+    const effectiveScope = roomId ? 'room' : scope;
+
     return {
       type: normalizedType,
-      scope: roomId ? 'room' : 'global',
+      scope: effectiveScope,
       week: weekYear,
       data: formattedRanking,
     };

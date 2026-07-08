@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
+  Alert, // ✅ Mantenemos Alert para casos puntuales
   Modal,
   Pressable,
   RefreshControl,
@@ -16,6 +16,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useRoute } from '@react-navigation/native';
 import { Download, FileText, FolderOpen, Plus, Search, Trash2, Upload, X } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
+import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
 import { useAuthStore } from '../../../store/authStore';
 import { useThemeStore } from '../../../store/themeStore';
 import {
@@ -37,7 +38,6 @@ export default function RoomVaultScreen() {
   const roomName = String(route.params?.roomName ?? 'Sala');
   const accentColor = route.params?.accentColor ? String(route.params.accentColor) : '#22c55e';
 
-  // 👇 Tema
   const { colors } = useThemeStore();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -48,6 +48,48 @@ export default function RoomVaultScreen() {
   const [uploadVisible, setUploadVisible] = useState(false);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<VaultResourceType | 'all'>('all');
+
+  // ✅ Estado para AppAlert
+  const [alert, setAlert] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: AlertType;
+    onConfirm?: () => void;
+    confirmText?: string;
+    showCancel?: boolean;
+    cancelText?: string;
+    onCancel?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+  });
+
+  // ✅ Función para mostrar alertas personalizadas
+  const showAlert = (
+    title: string,
+    message: string,
+    type: AlertType = 'info',
+    onConfirm?: () => void,
+    confirmText?: string,
+    showCancel?: boolean,
+    cancelText?: string,
+    onCancel?: () => void
+  ) => {
+    setAlert({
+      visible: true,
+      title,
+      message,
+      type,
+      onConfirm,
+      confirmText: confirmText || 'Aceptar',
+      showCancel: showCancel || false,
+      cancelText: cancelText || 'Cancelar',
+      onCancel,
+    });
+  };
 
   const loadVault = async (showLoading = true) => {
     if (!accessToken || !roomId) return;
@@ -64,7 +106,7 @@ export default function RoomVaultScreen() {
       setMaterials(materialsData);
       setTopics(topicsData);
     } catch (error: any) {
-      Alert.alert('The Vault', error.message ?? 'No se pudo cargar The Vault');
+      showAlert('The Vault', error.message ?? 'No se pudo cargar The Vault', 'error');
     } finally {
       if (showLoading) setLoading(false);
     }
@@ -96,136 +138,163 @@ export default function RoomVaultScreen() {
       const savedUri = await saveFileToDevice(safeName, file.mime_type, file.file_base64);
 
       if (savedUri) {
-        Alert.alert('Material descargado', `Se guardó como ${safeName}`);
+        showAlert('Material descargado', `Se guardó como ${safeName}`, 'success');
       }
     } catch (error: any) {
-      Alert.alert('The Vault', error.message ?? 'No se pudo descargar el material');
+      showAlert('The Vault', error.message ?? 'No se pudo descargar el material', 'error');
     }
   };
 
   const handleDelete = (material: VaultMaterial) => {
     if (!accessToken) return;
 
-    Alert.alert('Eliminar material', `¿Eliminar "${material.title}" de The Vault?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Eliminar',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteVaultMaterial(accessToken, roomId, material.id);
-            setMaterials((current) => current.filter((item) => item.id !== material.id));
-          } catch (error: any) {
-            Alert.alert('The Vault', error.message ?? 'No se pudo eliminar el material');
-          }
-        },
+    showAlert(
+      'Eliminar material',
+      `¿Eliminar "${material.title}" de The Vault?`,
+      'warning',
+      async () => {
+        try {
+          await deleteVaultMaterial(accessToken, roomId, material.id);
+          setMaterials((current) => current.filter((item) => item.id !== material.id));
+          showAlert('The Vault', 'Material eliminado correctamente.', 'success');
+        } catch (error: any) {
+          showAlert('The Vault', error.message ?? 'No se pudo eliminar el material', 'error');
+        }
       },
-    ]);
+      'Eliminar',
+      true,
+      'Cancelar'
+    );
   };
 
   return (
-    <ScreenLayout title="THE VAULT" type="rooms" icon={<FolderOpen color={accentColor} size={22} />}>
-      <ScrollView
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={accentColor}
-            colors={[accentColor]}
-          />
-        }
-      >
-        <View style={styles.header}>
-          <Text style={styles.roomName}>{roomName}</Text>
-          <Text style={styles.subtitle}>Materiales compartidos por la sala</Text>
-        </View>
-
-        <View style={styles.searchRow}>
-          <View style={styles.searchBox}>
-            <Search color={colors.textMuted} size={18} />
-            <TextInput
-              value={search}
-              onChangeText={setSearch}
-              placeholder="Buscar por archivo o categoría"
-              placeholderTextColor={colors.textMuted}
-              style={styles.searchInput}
-              returnKeyType="search"
-              onSubmitEditing={handleSearch}
+    <>
+      <ScreenLayout title="THE VAULT" type="rooms" icon={<FolderOpen color={accentColor} size={22} />}>
+        <ScrollView
+          contentContainerStyle={styles.container}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={accentColor}
+              colors={[accentColor]}
             />
+          }
+        >
+          <View style={styles.header}>
+            <Text style={styles.roomName}>{roomName}</Text>
+            <Text style={styles.subtitle}>Materiales compartidos por la sala</Text>
           </View>
-          <Pressable style={[styles.searchBtn, { backgroundColor: accentColor }]} onPress={handleSearch}>
-            <Search color="#ffffff" size={18} />
-          </Pressable>
-        </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
-          {(['all', 'pdf', 'image', 'text', 'other'] as const).map((type) => (
-            <Pressable
-              key={type}
-              style={[
-                styles.filterChip,
-                typeFilter === type && { borderColor: accentColor, backgroundColor: `${accentColor}22` },
-              ]}
-              onPress={() => setTypeFilter(type)}
-            >
-              <Text style={[styles.filterText, typeFilter === type && { color: accentColor }]}>
-                {getTypeLabel(type)}
-              </Text>
+          <View style={styles.searchRow}>
+            <View style={styles.searchBox}>
+              <Search color={colors.textMuted} size={18} />
+              <TextInput
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Buscar por archivo o categoría"
+                placeholderTextColor={colors.textMuted}
+                style={styles.searchInput}
+                returnKeyType="search"
+                onSubmitEditing={handleSearch}
+              />
+            </View>
+            <Pressable style={[styles.searchBtn, { backgroundColor: accentColor }]} onPress={handleSearch}>
+              <Search color="#ffffff" size={18} />
             </Pressable>
-          ))}
+          </View>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
+            {(['all', 'pdf', 'image', 'text', 'other'] as const).map((type) => (
+              <Pressable
+                key={type}
+                style={[
+                  styles.filterChip,
+                  typeFilter === type && { borderColor: accentColor, backgroundColor: `${accentColor}22` },
+                ]}
+                onPress={() => setTypeFilter(type)}
+              >
+                <Text style={[styles.filterText, typeFilter === type && { color: accentColor }]}>
+                  {getTypeLabel(type)}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+
+          <Pressable style={[styles.uploadBtn, { backgroundColor: accentColor }]} onPress={() => setUploadVisible(true)}>
+            <Plus color="#ffffff" size={22} />
+            <Text style={styles.uploadBtnText}>Agregar material</Text>
+          </Pressable>
+
+          {loading ? (
+            <View style={styles.loadingState}>
+              <ActivityIndicator color={accentColor} />
+              <Text style={styles.mutedText}>Cargando materiales...</Text>
+            </View>
+          ) : materials.length === 0 ? (
+            <View style={styles.emptyState}>
+              <FolderOpen color={colors.textMuted} size={36} />
+              <Text style={styles.emptyTitle}>Sin materiales</Text>
+              <Text style={styles.emptyText}>Los archivos que suban los miembros activos van a aparecer acá.</Text>
+            </View>
+          ) : (
+            <View style={styles.list}>
+              {materials.map((material) => (
+                <MaterialCard
+                  key={material.id}
+                  material={material}
+                  accentColor={accentColor}
+                  onDownload={() => handleDownload(material)}
+                  onDelete={() => handleDelete(material)}
+                  colors={colors}
+                  styles={styles}
+                />
+              ))}
+            </View>
+          )}
         </ScrollView>
 
-        <Pressable style={[styles.uploadBtn, { backgroundColor: accentColor }]} onPress={() => setUploadVisible(true)}>
-          <Plus color="#ffffff" size={22} />
-          <Text style={styles.uploadBtnText}>Agregar material</Text>
-        </Pressable>
+        <UploadMaterialModal
+          visible={uploadVisible}
+          roomId={roomId}
+          accessToken={accessToken}
+          accentColor={accentColor}
+          topics={topics}
+          onClose={() => setUploadVisible(false)}
+          onCreated={(material) => {
+            setMaterials((current) => [material, ...current]);
+            setUploadVisible(false);
+          }}
+          onTopicCreated={(topic) => setTopics((current) => [...current, topic])}
+          colors={colors}
+          styles={styles}
+        />
+      </ScreenLayout>
 
-        {loading ? (
-          <View style={styles.loadingState}>
-            <ActivityIndicator color={accentColor} />
-            <Text style={styles.mutedText}>Cargando materiales...</Text>
-          </View>
-        ) : materials.length === 0 ? (
-          <View style={styles.emptyState}>
-            <FolderOpen color={colors.textMuted} size={36} />
-            <Text style={styles.emptyTitle}>Sin materiales</Text>
-            <Text style={styles.emptyText}>Los archivos que suban los miembros activos van a aparecer acá.</Text>
-          </View>
-        ) : (
-          <View style={styles.list}>
-            {materials.map((material) => (
-              <MaterialCard
-                key={material.id}
-                material={material}
-                accentColor={accentColor}
-                onDownload={() => handleDownload(material)}
-                onDelete={() => handleDelete(material)}
-                colors={colors}
-                styles={styles}
-              />
-            ))}
-          </View>
-        )}
-      </ScrollView>
-
-      <UploadMaterialModal
-        visible={uploadVisible}
-        roomId={roomId}
-        accessToken={accessToken}
-        accentColor={accentColor}
-        topics={topics}
-        onClose={() => setUploadVisible(false)}
-        onCreated={(material) => {
-          setMaterials((current) => [material, ...current]);
-          setUploadVisible(false);
+      {/* ✅ AppAlert personalizado */}
+      <AppAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        type={alert.type}
+        onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+        onConfirm={() => {
+          if (alert.onConfirm) {
+            alert.onConfirm();
+          } else {
+            setAlert(prev => ({ ...prev, visible: false }));
+          }
         }}
-        onTopicCreated={(topic) => setTopics((current) => [...current, topic])}
-        colors={colors}
-        styles={styles}
+        onCancel={() => {
+          if (alert.onCancel) alert.onCancel();
+          setAlert(prev => ({ ...prev, visible: false }));
+        }}
+        confirmText={alert.confirmText || 'Aceptar'}
+        cancelText={alert.cancelText || 'Cancelar'}
+        showCancel={alert.showCancel || false}
       />
-    </ScreenLayout>
+    </>
   );
 }
 
@@ -319,6 +388,47 @@ function UploadMaterialModal({
   const [fileBase64, setFileBase64] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // ✅ Estado para AppAlert interno
+  const [alert, setAlert] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: AlertType;
+    onConfirm?: () => void;
+    confirmText?: string;
+    showCancel?: boolean;
+    cancelText?: string;
+    onCancel?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+  });
+
+  const showAlertInternal = (
+    title: string,
+    message: string,
+    type: AlertType = 'info',
+    onConfirm?: () => void,
+    confirmText?: string,
+    showCancel?: boolean,
+    cancelText?: string,
+    onCancel?: () => void
+  ) => {
+    setAlert({
+      visible: true,
+      title,
+      message,
+      type,
+      onConfirm,
+      confirmText: confirmText || 'Aceptar',
+      showCancel: showCancel || false,
+      cancelText: cancelText || 'Cancelar',
+      onCancel,
+    });
+  };
+
   const canSave = useMemo(
     () => Boolean(accessToken && title.trim().length >= 2 && selectedFile && fileBase64 && !saving),
     [accessToken, title, selectedFile, fileBase64, saving]
@@ -350,7 +460,7 @@ function UploadMaterialModal({
 
     const asset = result.assets[0];
     if (asset.size && asset.size > MAX_FILE_SIZE_BYTES) {
-      Alert.alert('Archivo demasiado grande', 'El archivo no puede superar 5 MB.');
+      showAlertInternal('Archivo demasiado grande', 'El archivo no puede superar 5 MB.', 'warning');
       return;
     }
 
@@ -386,7 +496,7 @@ function UploadMaterialModal({
         current.includes(existingTopic.id) ? current : [...current, existingTopic.id]
       );
       setNewTopicName('');
-      Alert.alert('Tema existente', 'Ese tema ya existe y fue seleccionado.');
+      showAlertInternal('Tema existente', 'Ese tema ya existe y fue seleccionado.', 'info');
       return;
     }
 
@@ -396,7 +506,7 @@ function UploadMaterialModal({
       setSelectedTopicIds((current) => [...current, topic.id]);
       setNewTopicName('');
     } catch (error: any) {
-      Alert.alert('The Vault', error.message ?? 'No se pudo crear el tema');
+      showAlertInternal('The Vault', error.message ?? 'No se pudo crear el tema', 'error');
     }
   };
 
@@ -417,101 +527,126 @@ function UploadMaterialModal({
       reset();
       onCreated(material);
     } catch (error: any) {
-      Alert.alert('The Vault', error.message ?? 'No se pudo guardar el material');
+      showAlertInternal('The Vault', error.message ?? 'No se pudo guardar el material', 'error');
       setSaving(false);
     }
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Agregar material</Text>
-            <Pressable style={styles.closeBtn} onPress={handleClose}>
-              <X color={colors.textMuted} size={20} />
-            </Pressable>
-          </View>
-
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalBody}>
-            <Text style={styles.inputLabel}>Archivo</Text>
-            <Pressable style={styles.filePicker} onPress={handlePickFile}>
-              <Upload color={accentColor} size={22} />
-              <View style={styles.filePickerTextBox}>
-                <Text style={styles.filePickerTitle}>{selectedFile?.name ?? 'Seleccionar archivo'}</Text>
-                <Text style={styles.filePickerSub}>PDF, imagen o texto · máximo 5 MB</Text>
-              </View>
-            </Pressable>
-
-            <Text style={styles.inputLabel}>Título</Text>
-            <TextInput
-              value={title}
-              onChangeText={setTitle}
-              placeholder="Ej: Resumen unidad 2"
-              placeholderTextColor={colors.textMuted}
-              style={styles.input}
-              maxLength={80}
-            />
-
-            <Text style={styles.inputLabel}>Descripción</Text>
-            <TextInput
-              value={description}
-              onChangeText={setDescription}
-              placeholder="Detalle opcional"
-              placeholderTextColor={colors.textMuted}
-              style={[styles.input, styles.textArea]}
-              multiline
-              maxLength={300}
-            />
-
-            <Text style={styles.inputLabel}>Temas</Text>
-            <View style={styles.topicSelector}>
-              {topics.length === 0 ? (
-                <Text style={styles.noTopicText}>Todavía no hay temas en esta sala.</Text>
-              ) : (
-                topics.map((topic) => {
-                  const selected = selectedTopicIds.includes(topic.id);
-                  return (
-                    <Pressable
-                      key={topic.id}
-                      style={[
-                        styles.selectableTopic,
-                        selected && { borderColor: accentColor, backgroundColor: `${accentColor}22` },
-                      ]}
-                      onPress={() => toggleTopic(topic.id)}
-                    >
-                      <Text style={[styles.topicText, selected && { color: accentColor }]}>{topic.name}</Text>
-                    </Pressable>
-                  );
-                })
-              )}
-            </View>
-
-            <View style={styles.newTopicRow}>
-              <TextInput
-                value={newTopicName}
-                onChangeText={setNewTopicName}
-                placeholder="Crear tema"
-                placeholderTextColor={colors.textMuted}
-                style={[styles.input, styles.newTopicInput]}
-                maxLength={50}
-              />
-              <Pressable style={[styles.createTopicBtn, { backgroundColor: accentColor }]} onPress={handleCreateTopic}>
-                <Plus color="#ffffff" size={18} />
+    <>
+      <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Agregar material</Text>
+              <Pressable style={styles.closeBtn} onPress={handleClose}>
+                <X color={colors.textMuted} size={20} />
               </Pressable>
             </View>
-          </ScrollView>
 
-          <Pressable
-            style={[styles.saveBtn, { backgroundColor: canSave ? accentColor : colors.border }]}
-            disabled={!canSave}
-            onPress={handleSave}
-          >
-            {saving ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.saveBtnText}>Guardar en The Vault</Text>}
-          </Pressable>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalBody}>
+              <Text style={styles.inputLabel}>Archivo</Text>
+              <Pressable style={styles.filePicker} onPress={handlePickFile}>
+                <Upload color={accentColor} size={22} />
+                <View style={styles.filePickerTextBox}>
+                  <Text style={styles.filePickerTitle}>{selectedFile?.name ?? 'Seleccionar archivo'}</Text>
+                  <Text style={styles.filePickerSub}>PDF, imagen o texto · máximo 5 MB</Text>
+                </View>
+              </Pressable>
+
+              <Text style={styles.inputLabel}>Título</Text>
+              <TextInput
+                value={title}
+                onChangeText={setTitle}
+                placeholder="Ej: Resumen unidad 2"
+                placeholderTextColor={colors.textMuted}
+                style={styles.input}
+                maxLength={80}
+              />
+
+              <Text style={styles.inputLabel}>Descripción</Text>
+              <TextInput
+                value={description}
+                onChangeText={setDescription}
+                placeholder="Detalle opcional"
+                placeholderTextColor={colors.textMuted}
+                style={[styles.input, styles.textArea]}
+                multiline
+                maxLength={300}
+              />
+
+              <Text style={styles.inputLabel}>Temas</Text>
+              <View style={styles.topicSelector}>
+                {topics.length === 0 ? (
+                  <Text style={styles.noTopicText}>Todavía no hay temas en esta sala.</Text>
+                ) : (
+                  topics.map((topic) => {
+                    const selected = selectedTopicIds.includes(topic.id);
+                    return (
+                      <Pressable
+                        key={topic.id}
+                        style={[
+                          styles.selectableTopic,
+                          selected && { borderColor: accentColor, backgroundColor: `${accentColor}22` },
+                        ]}
+                        onPress={() => toggleTopic(topic.id)}
+                      >
+                        <Text style={[styles.topicText, selected && { color: accentColor }]}>{topic.name}</Text>
+                      </Pressable>
+                    );
+                  })
+                )}
+              </View>
+
+              <View style={styles.newTopicRow}>
+                <TextInput
+                  value={newTopicName}
+                  onChangeText={setNewTopicName}
+                  placeholder="Crear tema"
+                  placeholderTextColor={colors.textMuted}
+                  style={[styles.input, styles.newTopicInput]}
+                  maxLength={50}
+                />
+                <Pressable style={[styles.createTopicBtn, { backgroundColor: accentColor }]} onPress={handleCreateTopic}>
+                  <Plus color="#ffffff" size={18} />
+                </Pressable>
+              </View>
+            </ScrollView>
+
+            <Pressable
+              style={[styles.saveBtn, { backgroundColor: canSave ? accentColor : colors.border }]}
+              disabled={!canSave}
+              onPress={handleSave}
+            >
+              {saving ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.saveBtnText}>Guardar en The Vault</Text>}
+            </Pressable>
+          </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+
+      {/* ✅ AppAlert interno para el modal */}
+      <AppAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        type={alert.type}
+        onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+        onConfirm={() => {
+          if (alert.onConfirm) {
+            alert.onConfirm();
+          } else {
+            setAlert(prev => ({ ...prev, visible: false }));
+          }
+        }}
+        onCancel={() => {
+          if (alert.onCancel) alert.onCancel();
+          setAlert(prev => ({ ...prev, visible: false }));
+        }}
+        confirmText={alert.confirmText || 'Aceptar'}
+        cancelText={alert.cancelText || 'Cancelar'}
+        showCancel={alert.showCancel || false}
+      />
+    </>
   );
 }
 
@@ -525,6 +660,7 @@ function inferMimeType(fileName: string): string {
   return 'application/octet-stream';
 }
 
+// ✅ Función auxiliar que usa Alert del sistema (no puede usar el estado de React)
 async function saveFileToDevice(fileName: string, mimeType: string, base64: string): Promise<string | null> {
   const saf = FileSystem.StorageAccessFramework;
 

@@ -4,7 +4,7 @@ import type { FriendProfile } from '../types/friends.types.js';
 export const FriendsRepository = {
   async findProfileByUsername(username: string): Promise<FriendProfile | null> {
     const query = `
-      SELECT id, username, avatar_url, streak_days, total_study_minutes
+      SELECT id, username, avatar_url, streak_days, total_study_minutes, last_login_at
       FROM profiles
       WHERE username = $1
       LIMIT 1;
@@ -62,7 +62,6 @@ export const FriendsRepository = {
     try {
       await client.query('BEGIN');
 
-      // 1. Actualizar estado de la solicitud
       await client.query(
         `UPDATE friend_requests 
          SET status = 'accepted', responded_at = NOW() 
@@ -70,7 +69,6 @@ export const FriendsRepository = {
         [requestId]
       );
 
-      // 2. Insertar par bidireccional en friendships (Evitamos duplicados con ON CONFLICT)
       await client.query(
         `INSERT INTO friendships (user_id, friend_id)
          VALUES ($1, $2), ($2, $1)
@@ -98,7 +96,7 @@ export const FriendsRepository = {
 
   async getFriends(userId: string): Promise<FriendProfile[]> {
     const query = `
-      SELECT p.id, p.username, p.avatar_url, p.streak_days, p.total_study_minutes
+      SELECT p.id, p.username, p.avatar_url, p.streak_days, p.total_study_minutes, p.last_login_at
       FROM friendships f
       INNER JOIN profiles p ON p.id = f.friend_id
       WHERE f.user_id = $1;
@@ -115,7 +113,8 @@ export const FriendsRepository = {
         json_build_object(
           'id', p.id,
           'username', p.username,
-          'avatar_url', p.avatar_url
+          'avatar_url', p.avatar_url,
+          'last_login_at', p.last_login_at
         ) as sender
       FROM friend_requests fr
       INNER JOIN profiles p ON p.id = fr.sender_id
@@ -123,5 +122,17 @@ export const FriendsRepository = {
     `;
     const { rows } = await pool.query(query, [userId]);
     return rows;
+  },
+
+  /**
+   * ✅ Elimina la relación de amistad en ambas direcciones
+   */
+  async removeFriend(userId: string, friendId: string): Promise<void> {
+    const query = `
+      DELETE FROM friendships
+      WHERE (user_id = $1 AND friend_id = $2)
+         OR (user_id = $2 AND friend_id = $1);
+    `;
+    await pool.query(query, [userId, friendId]);
   },
 };

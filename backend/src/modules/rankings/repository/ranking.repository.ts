@@ -1,5 +1,6 @@
 import { pool } from '../../../common/config/db.js';
 import { walletRepository } from '../../wallet/repository/wallet.repository.js';
+import type { RankingScope } from '../types/ranking.types.js';
 
 export const rankingsRepository = {
   async roomExists(roomId: string): Promise<boolean> {
@@ -11,7 +12,6 @@ export const rankingsRepository = {
     return rows.length > 0;
   },
 
-  // RF-11: Validar si el usuario es miembro activo de la sala
   async getMemberStatus(roomId: string, userId: string) {
     const { rows } = await pool.query(
       `SELECT is_active FROM room_members WHERE room_id = $1 AND user_id = $2 LIMIT 1`,
@@ -20,120 +20,214 @@ export const rankingsRepository = {
     return rows[0] || null;
   },
 
-  async getRankingData(type: string, weekYears: string[], roomId?: string) {
+  // ✅ Agregamos scope y userId como parámetros
+  async getRankingData(
+    type: string,
+    weekYears: string[],
+    roomId?: string,
+    scope: RankingScope = 'global',
+    userId?: string
+  ) {
     const normalizedType = normalizeRankingType(type);
+    const isFriends = scope === 'friends' && userId;
+
+    // Función auxiliar para agregar el JOIN de amigos
+    const getFriendsJoin = () => {
+      if (!isFriends) return '';
+      return `
+        INNER JOIN friendships f ON (
+          (f.user_id = $${getParamIndex()} AND f.friend_id = p.id) OR
+          (f.friend_id = $${getParamIndex()} AND f.user_id = p.id)
+        )
+      `;
+    };
+
+    let paramIndex = 3; // Empezamos después de los parámetros base
+    const getParamIndex = () => paramIndex++;
+
+    // Construimos los parámetros base
+    const baseParams: any[] = [weekYears];
+    let params = [...baseParams];
 
     if (normalizedType === 'time' && !roomId) {
-      const { rows } = await pool.query(
-        `
-          SELECT
-            p.id,
-            p.username,
-            p.avatar_url,
-            COALESCE(SUM(uws.total_minutes), 0)::int AS total_minutes
-          FROM profiles p
-          LEFT JOIN user_weekly_stats uws
-            ON uws.user_id = p.id
-            AND uws.week_year = ANY($1::text[])
-          GROUP BY p.id, p.username, p.avatar_url
-          ORDER BY COALESCE(SUM(uws.total_minutes), 0) DESC, p.username ASC
-          LIMIT 50;
-        `,
-        [weekYears]
-      );
+      // ✅ Ranking de tiempo global con filtro de amigos
+      let query = `
+        SELECT
+          p.id,
+          p.username,
+          p.avatar_url,
+          COALESCE(SUM(uws.total_minutes), 0)::int AS total_minutes
+        FROM profiles p
+        LEFT JOIN user_weekly_stats uws
+          ON uws.user_id = p.id
+          AND uws.week_year = ANY($1::text[])
+      `;
 
+      if (isFriends) {
+        params.push(userId);
+        query += `
+          INNER JOIN friendships f ON (
+            (f.user_id = $${params.length} AND f.friend_id = p.id) OR
+            (f.friend_id = $${params.length} AND f.user_id = p.id)
+          )
+        `;
+      }
+
+      query += `
+        GROUP BY p.id, p.username, p.avatar_url
+        ORDER BY COALESCE(SUM(uws.total_minutes), 0) DESC, p.username ASC
+        LIMIT 50;
+      `;
+
+      const { rows } = await pool.query(query, params);
       return rows;
     }
 
     if (normalizedType === 'racha') {
-      const { rows } = await pool.query(
-        `SELECT id, username, avatar_url, streak_days 
-         FROM profiles 
-         ORDER BY streak_days DESC 
-         LIMIT 50`
-      );
+      // ✅ Ranking de racha con filtro de amigos
+      let query = `
+        SELECT id, username, avatar_url, streak_days 
+        FROM profiles p
+      `;
+
+      if (isFriends) {
+        params.push(userId);
+        query += `
+          INNER JOIN friendships f ON (
+            (f.user_id = $${params.length} AND f.friend_id = p.id) OR
+            (f.friend_id = $${params.length} AND f.user_id = p.id)
+          )
+        `;
+      }
+
+      query += `
+        ORDER BY streak_days DESC 
+        LIMIT 50
+      `;
+
+      const { rows } = await pool.query(query, params);
       return rows;
     }
 
     if (!roomId && normalizedType === 'qa') {
-      const { rows } = await pool.query(
-        `
-          SELECT
-            p.id,
-            p.username,
-            p.avatar_url,
-            COALESCE(SUM(rws.quiz_score), 0)::int AS quiz_score
-          FROM profiles p
-          JOIN room_members rm
-            ON rm.user_id = p.id
-            AND rm.is_active = true
-          JOIN rooms r
-            ON r.id = rm.room_id
-            AND r.is_active = true
-          LEFT JOIN room_user_weekly_stats rws
-            ON rws.user_id = p.id
-            AND rws.room_id = rm.room_id
-            AND rws.week_year = ANY($1::text[])
-          GROUP BY p.id, p.username, p.avatar_url
-          ORDER BY COALESCE(SUM(rws.quiz_score), 0) DESC, p.username ASC
-          LIMIT 50;
-        `,
-        [weekYears]
-      );
+      // ✅ Ranking Q&A global con filtro de amigos
+      let query = `
+        SELECT
+          p.id,
+          p.username,
+          p.avatar_url,
+          COALESCE(SUM(rws.quiz_score), 0)::int AS quiz_score
+        FROM profiles p
+        JOIN room_members rm
+          ON rm.user_id = p.id
+          AND rm.is_active = true
+        JOIN rooms r
+          ON r.id = rm.room_id
+          AND r.is_active = true
+        LEFT JOIN room_user_weekly_stats rws
+          ON rws.user_id = p.id
+          AND rws.room_id = rm.room_id
+          AND rws.week_year = ANY($1::text[])
+      `;
+
+      if (isFriends) {
+        params.push(userId);
+        query += `
+          INNER JOIN friendships f ON (
+            (f.user_id = $${params.length} AND f.friend_id = p.id) OR
+            (f.friend_id = $${params.length} AND f.user_id = p.id)
+          )
+        `;
+      }
+
+      query += `
+        GROUP BY p.id, p.username, p.avatar_url
+        ORDER BY COALESCE(SUM(rws.quiz_score), 0) DESC, p.username ASC
+        LIMIT 50;
+      `;
+
+      const { rows } = await pool.query(query, params);
       return rows;
     }
 
     if (!roomId && normalizedType === 'academic') {
-      const { rows } = await pool.query(
-        `
-          SELECT
-            p.id,
-            p.username,
-            p.avatar_url,
-            COALESCE(SUM(rws.academic_score), 0)::int AS academic_score
-          FROM profiles p
-          JOIN room_members rm
-            ON rm.user_id = p.id
-            AND rm.is_active = true
-          JOIN rooms r
-            ON r.id = rm.room_id
-            AND r.is_active = true
-          LEFT JOIN room_user_weekly_stats rws
-            ON rws.user_id = p.id
-            AND rws.room_id = rm.room_id
-            AND rws.week_year = ANY($1::text[])
-          GROUP BY p.id, p.username, p.avatar_url
-          ORDER BY COALESCE(SUM(rws.academic_score), 0) DESC, p.username ASC
-          LIMIT 50;
-        `,
-        [weekYears]
-      );
+      // ✅ Ranking académico global con filtro de amigos
+      let query = `
+        SELECT
+          p.id,
+          p.username,
+          p.avatar_url,
+          COALESCE(SUM(rws.academic_score), 0)::int AS academic_score
+        FROM profiles p
+        JOIN room_members rm
+          ON rm.user_id = p.id
+          AND rm.is_active = true
+        JOIN rooms r
+          ON r.id = rm.room_id
+          AND r.is_active = true
+        LEFT JOIN room_user_weekly_stats rws
+          ON rws.user_id = p.id
+          AND rws.room_id = rm.room_id
+          AND rws.week_year = ANY($1::text[])
+      `;
+
+      if (isFriends) {
+        params.push(userId);
+        query += `
+          INNER JOIN friendships f ON (
+            (f.user_id = $${params.length} AND f.friend_id = p.id) OR
+            (f.friend_id = $${params.length} AND f.user_id = p.id)
+          )
+        `;
+      }
+
+      query += `
+        GROUP BY p.id, p.username, p.avatar_url
+        ORDER BY COALESCE(SUM(rws.academic_score), 0) DESC, p.username ASC
+        LIMIT 50;
+      `;
+
+      const { rows } = await pool.query(query, params);
       return rows;
     }
 
     if (!roomId && normalizedType === 'boss') {
-      const { rows } = await pool.query(
-        `
-          SELECT
-            p.id,
-            p.username,
-            p.avatar_url,
-            COALESCE(SUM(rws.bosses_count), 0)::int AS bosses_count
-          FROM profiles p
-          JOIN room_members rm
-            ON rm.user_id = p.id
-            AND rm.is_active = true
-          JOIN rooms r
-            ON r.id = rm.room_id
-            AND r.is_active = true
-          LEFT JOIN room_user_weekly_stats rws
-            ON rws.user_id = p.id
-            AND rws.room_id = rm.room_id
-          GROUP BY p.id, p.username, p.avatar_url
-          ORDER BY COALESCE(SUM(rws.bosses_count), 0) DESC, p.username ASC
-          LIMIT 50;
-        `
-      );
+      // ✅ Ranking de jefes global con filtro de amigos
+      let query = `
+        SELECT
+          p.id,
+          p.username,
+          p.avatar_url,
+          COALESCE(SUM(rws.bosses_count), 0)::int AS bosses_count
+        FROM profiles p
+        JOIN room_members rm
+          ON rm.user_id = p.id
+          AND rm.is_active = true
+        JOIN rooms r
+          ON r.id = rm.room_id
+          AND r.is_active = true
+        LEFT JOIN room_user_weekly_stats rws
+          ON rws.user_id = p.id
+          AND rws.room_id = rm.room_id
+      `;
+
+      if (isFriends) {
+        params.push(userId);
+        query += `
+          INNER JOIN friendships f ON (
+            (f.user_id = $${params.length} AND f.friend_id = p.id) OR
+            (f.friend_id = $${params.length} AND f.user_id = p.id)
+          )
+        `;
+      }
+
+      query += `
+        GROUP BY p.id, p.username, p.avatar_url
+        ORDER BY COALESCE(SUM(rws.bosses_count), 0) DESC, p.username ASC
+        LIMIT 50;
+      `;
+
+      const { rows } = await pool.query(query, params);
       return rows;
     }
 
@@ -192,64 +286,84 @@ export const rankingsRepository = {
       return rows;
     }
 
-    const query = roomId
-      ? `
-        SELECT
-          p.id,
-          p.username,
-          p.avatar_url,
-          team.name AS team_name,
-          team.color AS team_color,
-          tr.role_label AS temporary_role,
-          COALESCE(bw.boss_user_id = p.id, false) AS is_boss,
-          COALESCE(SUM(ru.total_minutes), 0)::int AS total_minutes,
-          COALESCE(SUM(ru.quiz_score), 0)::int AS quiz_score,
-          COALESCE(SUM(ru.academic_score), 0)::int AS academic_score,
-          COALESCE(SUM(ru.bosses_count), 0)::int AS bosses_count
-        FROM room_members rm
-        INNER JOIN profiles p ON p.id = rm.user_id
-        LEFT JOIN team_members tm
-          ON tm.room_id = rm.room_id
-          AND tm.user_id = rm.user_id
-          AND tm.is_active = true
-        LEFT JOIN teams team
-          ON team.id = tm.team_id
-          AND team.room_id = rm.room_id
-          AND team.is_active = true
-        LEFT JOIN room_user_weekly_stats ru
-          ON ru.room_id = rm.room_id
-          AND ru.user_id = rm.user_id
-          AND ru.week_year = ANY($1::text[])
-        LEFT JOIN boss_weeks bw
-          ON bw.room_id = rm.room_id
-          AND bw.week_year = $3
-        LEFT JOIN room_member_temporary_roles tr
-          ON tr.room_id = rm.room_id
-          AND tr.user_id = rm.user_id
-          AND tr.week_year = $3
-        WHERE rm.room_id = $2
-          AND rm.is_active = true
-        GROUP BY p.id, p.username, p.avatar_url, team.name, team.color, tr.role_label, bw.boss_user_id
-        ORDER BY COALESCE(SUM(ru.${column}), 0) DESC, p.username ASC
-        LIMIT 50;
-      `
-      : `
-        SELECT
-          ru.total_minutes,
-          ru.quiz_score,
-          ru.academic_score,
-          ru.bosses_count,
-          p.id,
-          p.username,
-          p.avatar_url
-        FROM user_weekly_stats ru
-        INNER JOIN profiles p ON ru.user_id = p.id
-        WHERE ru.week_year = ANY($1::text[])
-        ORDER BY ru.${column} DESC
-        LIMIT 50;
-      `;
+    // ✅ Ranking de sala con posibles filtros (no se aplica filtro de amigos en salas)
+    if (roomId) {
+      const { rows } = await pool.query(
+        `
+          SELECT
+            p.id,
+            p.username,
+            p.avatar_url,
+            team.name AS team_name,
+            team.color AS team_color,
+            tr.role_label AS temporary_role,
+            COALESCE(bw.boss_user_id = p.id, false) AS is_boss,
+            COALESCE(SUM(ru.total_minutes), 0)::int AS total_minutes,
+            COALESCE(SUM(ru.quiz_score), 0)::int AS quiz_score,
+            COALESCE(SUM(ru.academic_score), 0)::int AS academic_score,
+            COALESCE(SUM(ru.bosses_count), 0)::int AS bosses_count
+          FROM room_members rm
+          INNER JOIN profiles p ON p.id = rm.user_id
+          LEFT JOIN team_members tm
+            ON tm.room_id = rm.room_id
+            AND tm.user_id = rm.user_id
+            AND tm.is_active = true
+          LEFT JOIN teams team
+            ON team.id = tm.team_id
+            AND team.room_id = rm.room_id
+            AND team.is_active = true
+          LEFT JOIN room_user_weekly_stats ru
+            ON ru.room_id = rm.room_id
+            AND ru.user_id = rm.user_id
+            AND ru.week_year = ANY($1::text[])
+          LEFT JOIN boss_weeks bw
+            ON bw.room_id = rm.room_id
+            AND bw.week_year = $3
+          LEFT JOIN room_member_temporary_roles tr
+            ON tr.room_id = rm.room_id
+            AND tr.user_id = rm.user_id
+            AND tr.week_year = $3
+          WHERE rm.room_id = $2
+            AND rm.is_active = true
+          GROUP BY p.id, p.username, p.avatar_url, team.name, team.color, tr.role_label, bw.boss_user_id
+          ORDER BY COALESCE(SUM(ru.${column}), 0) DESC, p.username ASC
+          LIMIT 50;
+        `,
+        [weekYears, roomId, weekYears[0]]
+      );
+      return rows;
+    }
 
-    const params = roomId ? [weekYears, roomId, weekYears[0]] : [weekYears];
+    // ✅ Ranking global por defecto (con filtro de amigos aplicado)
+    let query = `
+      SELECT
+        ru.total_minutes,
+        ru.quiz_score,
+        ru.academic_score,
+        ru.bosses_count,
+        p.id,
+        p.username,
+        p.avatar_url
+      FROM user_weekly_stats ru
+      INNER JOIN profiles p ON ru.user_id = p.id
+    `;
+
+    if (isFriends) {
+      params.push(userId);
+      query += `
+        INNER JOIN friendships f ON (
+          (f.user_id = $${params.length} AND f.friend_id = p.id) OR
+          (f.friend_id = $${params.length} AND f.user_id = p.id)
+        )
+      `;
+    }
+
+    query += `
+      WHERE ru.week_year = ANY($1::text[])
+      ORDER BY ru.${column} DESC
+      LIMIT 50;
+    `;
+
     const { rows } = await pool.query(query, params);
     return rows;
   },

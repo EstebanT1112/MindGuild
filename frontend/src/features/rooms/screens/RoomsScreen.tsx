@@ -1,8 +1,9 @@
-import React, { useCallback, useState } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { Inbox, LogIn, Plus, Users, Mail } from 'lucide-react-native';
+import { Inbox, LogIn, Plus, Users, Mail, Search } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
+import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
 import { SessionExpiredError } from '../../../services/authenticatedFetch';
 import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
@@ -44,11 +45,69 @@ export default function RoomsScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [favoriteLoadingId, setFavoriteLoadingId] = useState<string | null>(null);
 
+    // ✅ Estado para AppAlert
+    const [alert, setAlert] = useState<{
+        visible: boolean;
+        title: string;
+        message: string;
+        type: AlertType;
+        onConfirm?: () => void;
+        confirmText?: string;
+        showCancel?: boolean;
+        cancelText?: string;
+        onCancel?: () => void;
+    }>({
+        visible: false,
+        title: '',
+        message: '',
+        type: 'info',
+    });
+
+    // ✅ Estado para búsqueda
+    const [searchQuery, setSearchQuery] = useState('');
+
     const myRooms = rooms.map(mapUserRoomToCard);
+
+    // ✅ Filtro de salas por búsqueda
+    const filteredRooms = useMemo(() => {
+        if (!searchQuery.trim()) return myRooms;
+        const query = searchQuery.toLowerCase().trim();
+        return myRooms.filter(room => 
+            room.name.toLowerCase().includes(query) ||
+            room.code.toLowerCase().includes(query) ||
+            room.mode.toLowerCase().includes(query)
+        );
+    }, [myRooms, searchQuery]);
+
+    // ✅ Función para mostrar alertas personalizadas
+    const showAlert = (
+        title: string,
+        message: string,
+        type: AlertType = 'info',
+        onConfirm?: () => void,
+        confirmText?: string,
+        showCancel?: boolean,
+        cancelText?: string,
+        onCancel?: () => void
+    ) => {
+        setAlert({
+            visible: true,
+            title,
+            message,
+            type,
+            onConfirm,
+            confirmText: confirmText || 'Aceptar',
+            showCancel: showCancel || false,
+            cancelText: cancelText || 'Cancelar',
+            onCancel,
+        });
+    };
 
     useFocusEffect(useCallback(() => {
         loadInitialRooms(true);
         checkPendingInvitations();
+        // ✅ Resetear búsqueda al entrar
+        setSearchQuery('');
     }, [accessToken]));
 
     const loadInitialRooms = async (force = false) => {
@@ -56,7 +115,7 @@ export default function RoomsScreen() {
         try {
             await loadRoomsFromStore(accessToken, { force });
         } catch (error: any) {
-            Alert.alert('Error al cargar salas', error.message ?? 'No se pudieron cargar tus salas.');
+            showAlert('Error al cargar salas', error.message ?? 'No se pudieron cargar tus salas.', 'error');
         }
     };
 
@@ -84,7 +143,7 @@ export default function RoomsScreen() {
             await loadRoomsFromStore(accessToken, { force: true });
             await checkPendingInvitations();
         } catch (error: any) {
-            Alert.alert('Error al cargar salas', error.message ?? 'No se pudieron cargar tus salas.');
+            showAlert('Error al cargar salas', error.message ?? 'No se pudieron cargar tus salas.', 'error');
         } finally {
             setRefreshing(false);
         }
@@ -99,9 +158,9 @@ export default function RoomsScreen() {
             addOrReplaceRoom(room);
             invalidateAfterRoomParticipation();
             setCreateVisible(false);
-            Alert.alert('Sala creada', `Codigo de invitacion: ${room.invite_code}`);
+            showAlert('Sala creada', `Código de invitación: ${room.invite_code}`, 'success');
         } catch (error: any) {
-            Alert.alert('Error al crear sala', error.message ?? 'No se pudo crear la sala.');
+            showAlert('Error al crear sala', error.message ?? 'No se pudo crear la sala.', 'error');
         } finally {
             setCreating(false);
         }
@@ -116,9 +175,9 @@ export default function RoomsScreen() {
             addOrReplaceRoom(room);
             invalidateAfterRoomParticipation();
             setJoinVisible(false);
-            Alert.alert('Te uniste a la sala', room.name);
+            showAlert('Te uniste a la sala', room.name, 'success');
         } catch (error: any) {
-            Alert.alert('Error al unirse', error.message ?? 'No se pudo unir a la sala.');
+            showAlert('Error al unirse', error.message ?? 'No se pudo unir a la sala.', 'error');
         } finally {
             setJoining(false);
         }
@@ -139,7 +198,7 @@ export default function RoomsScreen() {
             addOrReplaceRoom(updatedRoom);
         } catch (error: any) {
             setRoomFavorite(room.id, Boolean(room.isFavorite));
-            Alert.alert('Error de favorita', error.message ?? 'No se pudo actualizar la sala favorita.');
+            showAlert('Error de favorita', error.message ?? 'No se pudo actualizar la sala favorita.', 'error');
         } finally {
             setFavoriteLoadingId(null);
         }
@@ -159,7 +218,7 @@ export default function RoomsScreen() {
 
             <Pressable style={[styles.joinMainBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]} onPress={() => setJoinVisible(true)}>
                 <LogIn color="#3b82f6" size={22} />
-                <Text style={styles.joinBtnText}>Unirse con Codigo</Text>
+                <Text style={styles.joinBtnText}>Unirse con Código</Text>
             </Pressable>
 
             <Pressable
@@ -194,15 +253,37 @@ export default function RoomsScreen() {
                     />
                 }
             >
-                <Text style={[styles.sectionTitle, { color: colors.textSoft }]}>MIS SALAS ({myRooms.length})</Text>
+                <Text style={[styles.sectionTitle, { color: colors.textSoft }]}>MIS SALAS ({filteredRooms.length})</Text>
 
-                {myRooms.length === 0 ? (
+                {/* ✅ Buscador de salas */}
+                <View style={[styles.searchContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <Search color={colors.textMuted} size={20} />
+                    <TextInput
+                        style={[styles.searchInput, { color: colors.text }]}
+                        placeholder="Buscar sala..."
+                        placeholderTextColor={colors.textMuted}
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        clearButtonMode="while-editing"
+                    />
+                    {searchQuery.length > 0 && (
+                        <Pressable onPress={() => setSearchQuery('')}>
+                            <Text style={[styles.clearText, { color: colors.accent }]}>✕</Text>
+                        </Pressable>
+                    )}
+                </View>
+
+                {filteredRooms.length === 0 ? (
                     <View style={styles.emptyState}>
                         <Inbox color={colors.textSoft} size={28} />
-                        <Text style={[styles.emptyText, { color: colors.textSoft }]}>Todavia no tenes salas.</Text>
+                        <Text style={[styles.emptyText, { color: colors.textSoft }]}>
+                            {searchQuery.length > 0 
+                                ? 'No se encontraron salas con esa búsqueda.' 
+                                : 'Todavía no tenés salas.'}
+                        </Text>
                     </View>
                 ) : (
-                    myRooms.map(room => (
+                    filteredRooms.map(room => (
                         <RoomCard
                             key={room.id}
                             room={room}
@@ -240,6 +321,26 @@ export default function RoomsScreen() {
                     onInvitationProcessed={handleRefresh}
                 />
             )}
+
+            {/* ✅ AppAlert personalizado */}
+            <AppAlert
+                visible={alert.visible}
+                title={alert.title}
+                message={alert.message}
+                type={alert.type}
+                onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+                onConfirm={() => {
+                    if (alert.onConfirm) alert.onConfirm();
+                    setAlert(prev => ({ ...prev, visible: false }));
+                }}
+                onCancel={() => {
+                    if (alert.onCancel) alert.onCancel();
+                    setAlert(prev => ({ ...prev, visible: false }));
+                }}
+                confirmText={alert.confirmText || 'Aceptar'}
+                cancelText={alert.cancelText || 'Cancelar'}
+                showCancel={alert.showCancel || false}
+            />
         </ScreenLayout>
     );
 }
@@ -304,9 +405,29 @@ const styles = StyleSheet.create({
         marginVertical: 15,
         letterSpacing: 1,
     },
+    // ✅ Estilos del buscador
+    searchContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderRadius: 12,
+        borderWidth: 1,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        marginBottom: 12,
+        gap: 10,
+    },
+    searchInput: {
+        flex: 1,
+        fontSize: 15,
+        padding: 0,
+    },
+    clearText: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        paddingHorizontal: 4,
+    },
     emptyState: { alignItems: 'center', gap: 8, paddingVertical: 28 },
     emptyText: { fontSize: 13, fontWeight: 'bold' },
-    // Nuevos estilos para el badge de invitaciones
     mailContainer: {
         flexDirection: 'row',
         alignItems: 'center',

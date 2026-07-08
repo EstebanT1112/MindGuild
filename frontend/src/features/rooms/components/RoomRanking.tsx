@@ -1,12 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { BrainCircuit, ChevronDown, ChevronUp, Clock, Crown, GraduationCap } from 'lucide-react-native';
 import { fetchRanking, type RankingEntry, type RankingType } from '../../../services/apiConfig';
 import { useAuthStore } from '../../../store/authStore';
-import { useThemeStore } from '../../../store/themeStore'; //
+import { useThemeStore } from '../../../store/themeStore';
 
 interface Props {
   roomId?: string;
+  roomType?: 'survival' | 'battle_royale' | string; // ✅ Agregamos roomType
 }
 
 const fallbackAvatar = 'https://ui-avatars.com/api/?background=1e293b&color=ffffff&name=MG';
@@ -26,17 +27,35 @@ const rankingTabs: Array<{
   { type: 'boss', label: 'Jefes', title: 'Ranking de jefes', subtitle: 'Jefaturas ganadas en la sala', itemLabel: 'Jefaturas acumuladas', icon: Crown },
 ];
 
-export default function RoomRanking({ roomId }: Props) {
-  const colors = useThemeStore(state => state.colors); //
+export default function RoomRanking({ roomId, roomType }: Props) {
+  const colors = useThemeStore(state => state.colors);
   const accessToken = useAuthStore(state => state.access_token);
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeType, setActiveType] = useState<VisibleRankingType>('time');
   const [ranking, setRanking] = useState<RankingEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
-  const activeTab = rankingTabs.find(tab => tab.type === activeType) ?? rankingTabs[0];
-  const HeaderIcon = activeTab.icon;
+
+  // ✅ Filtramos los tabs según el tipo de sala
+  const filteredTabs = useMemo(() => {
+    // Si es survival, solo mostramos 'time' y 'boss'
+    if (roomType === 'survival') {
+      return rankingTabs.filter(tab => tab.type === 'time' || tab.type === 'boss');
+    }
+    // Para battle_royale o cualquier otro, mostramos todos
+    return rankingTabs;
+  }, [roomType]);
+
+  const activeTab = filteredTabs.find(tab => tab.type === activeType) ?? filteredTabs[0] ?? rankingTabs[0];
+  const HeaderIcon = activeTab?.icon ?? Clock;
+
+  // ✅ Asegurar que activeType sea válido en filteredTabs
+  useEffect(() => {
+    const firstTab = filteredTabs[0];
+    if (firstTab && !filteredTabs.some(tab => tab.type === activeType)) {
+      setActiveType(firstTab.type);
+    }
+  }, [filteredTabs, activeType]);
 
   useEffect(() => {
     if (isExpanded) loadRanking();
@@ -57,14 +76,19 @@ export default function RoomRanking({ roomId }: Props) {
     }
   };
 
+  // Si no hay tabs disponibles, no renderizamos nada
+  if (filteredTabs.length === 0) {
+    return null;
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       <Pressable style={styles.header} onPress={() => setIsExpanded(!isExpanded)}>
         <View style={styles.titleRow}>
           <HeaderIcon color={colors.accent} size={20} />
           <View>
-            <Text style={[styles.title, { color: colors.text }]}>{activeTab.title}</Text>
-            <Text style={[styles.subtitle, { color: colors.textMuted }]}>{activeTab.subtitle}</Text>
+            <Text style={[styles.title, { color: colors.text }]}>{activeTab?.title ?? 'Ranking'}</Text>
+            <Text style={[styles.subtitle, { color: colors.textMuted }]}>{activeTab?.subtitle ?? ''}</Text>
           </View>
         </View>
         {isExpanded ? <ChevronUp color={colors.textMuted} size={20} /> : <ChevronDown color={colors.textMuted} size={20} />}
@@ -73,15 +97,27 @@ export default function RoomRanking({ roomId }: Props) {
       {isExpanded && (
         <View style={styles.content}>
           <View style={styles.tabs}>
-            {rankingTabs.map(tab => {
+            {filteredTabs.map(tab => {
               const isActive = activeType === tab.type;
               return (
                 <Pressable
                   key={tab.type}
-                  style={[styles.tabButton, { backgroundColor: colors.background, borderColor: colors.border }, isActive && { borderColor: colors.accent, backgroundColor: `${colors.accent}20` }]}
+                  style={[
+                    styles.tabButton,
+                    { backgroundColor: colors.background, borderColor: colors.border },
+                    isActive && { borderColor: colors.accent, backgroundColor: `${colors.accent}20` }
+                  ]}
                   onPress={() => setActiveType(tab.type)}
                 >
-                  <Text style={[styles.tabText, { color: colors.textMuted }, isActive && { color: colors.accent }]}>{tab.label}</Text>
+                  <Text
+                    style={[
+                      styles.tabText,
+                      { color: colors.textMuted },
+                      isActive && { color: colors.accent }
+                    ]}
+                  >
+                    {tab.label}
+                  </Text>
                 </Pressable>
               );
             })}
@@ -98,10 +134,12 @@ export default function RoomRanking({ roomId }: Props) {
               <Image source={{ uri: item.avatar_url || fallbackAvatar }} style={styles.avatar} />
               <View style={styles.info}>
                 <Text style={[styles.name, { color: colors.text }]}>@{item.username}</Text>
-                <Text style={[styles.sub, { color: colors.textMuted }]}>{activeTab.itemLabel}</Text>
+                <Text style={[styles.sub, { color: colors.textMuted }]}>{activeTab?.itemLabel ?? ''}</Text>
               </View>
               <View style={styles.stats}>
-                <Text style={[styles.mainStat, { color: colors.accent }]}>{formatRankingValue(item.value, activeType)}</Text>
+                <Text style={[styles.mainStat, { color: colors.accent }]}>
+                  {formatRankingValue(item.value, activeType)}
+                </Text>
               </View>
             </View>
           ))}

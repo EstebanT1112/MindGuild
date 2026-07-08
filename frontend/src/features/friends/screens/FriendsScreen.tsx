@@ -5,11 +5,11 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  Alert,
   ActivityIndicator,
   RefreshControl,
   Modal,
   TextInput,
+  Image,
 } from 'react-native';
 import {
   Users2,
@@ -19,12 +19,15 @@ import {
   X,
   UserPlus,
   SlidersHorizontal,
+  Trash2,
+  Search,
 } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
+import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
 import { authenticatedFetch } from '../../../services/authenticatedFetch';
 import Constants from 'expo-constants';
 import { useAuthStore } from '../../../store/authStore';
-import { useThemeStore } from '../../../store/themeStore'; // 👈 Importamos el theme
+import { useThemeStore } from '../../../store/themeStore';
 
 interface Friend {
   id: string;
@@ -33,6 +36,7 @@ interface Friend {
   streak_days: number;
   total_study_minutes: number;
   status: 'online' | 'offline';
+  last_login_at?: string | null;
 }
 
 interface IncomingRequest {
@@ -51,7 +55,7 @@ interface AuthState {
   user: any;
 }
 
-// 🌐 Configuración de API (igual que antes)
+// 🌐 Configuración de API
 const getApiUrl = (): string => {
   const debuggerHost =
     Constants.expoConfig?.hostUri ||
@@ -64,6 +68,38 @@ const getApiUrl = (): string => {
 };
 const API_URL = getApiUrl();
 
+// ✅ Función para obtener tiempo relativo
+const getRelativeTime = (dateString: string): string => {
+  if (!dateString) return 'Sin actividad reciente';
+  
+  const now = new Date();
+  const past = new Date(dateString);
+  const diffMs = now.getTime() - past.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  const diffWeeks = Math.floor(diffDays / 7);
+  const diffMonths = Math.floor(diffDays / 30);
+  const diffYears = Math.floor(diffDays / 365);
+
+  if (diffMins < 1) return 'hace unos segundos';
+  if (diffMins < 60) return `hace ${diffMins} minuto${diffMins !== 1 ? 's' : ''}`;
+  if (diffHours < 24) return `hace ${diffHours} hora${diffHours !== 1 ? 's' : ''}`;
+  if (diffDays < 7) return `hace ${diffDays} día${diffDays !== 1 ? 's' : ''}`;
+  if (diffWeeks < 4) return `hace ${diffWeeks} semana${diffWeeks !== 1 ? 's' : ''}`;
+  if (diffMonths < 12) return `hace ${diffMonths} mes${diffMonths !== 1 ? 'es' : ''}`;
+  return `hace ${diffYears} año${diffYears !== 1 ? 's' : ''}`;
+};
+
+// ✅ Función para agregar cache buster a la URL (siempre devuelve string)
+const getAvatarUrlWithCache = (avatarUrl: string | null): string => {
+  if (!avatarUrl) {
+    return '';
+  }
+  const separator = avatarUrl.includes('?') ? '&' : '?';
+  return `${avatarUrl}${separator}t=${Date.now()}`;
+};
+
 export default function FriendsScreen() {
   const [isModalVisible, setModalVisible] = useState(false);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | 'none'>('none');
@@ -73,15 +109,58 @@ export default function FriendsScreen() {
   const [sendingRequest, setSendingRequest] = useState(false);
   const [pendingRequests, setPendingRequests] = useState<IncomingRequest[]>([]);
   const [friends, setFriends] = useState<Friend[]>([]);
+  const [removingFriendId, setRemovingFriendId] = useState<string | null>(null);
+
+  // ✅ Estado para búsqueda de amigos
+  const [friendSearchQuery, setFriendSearchQuery] = useState('');
+
+  // ✅ Estado para AppAlert
+  const [alert, setAlert] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: AlertType;
+    onConfirm?: () => void;
+    confirmText?: string;
+    showCancel?: boolean;
+    cancelText?: string;
+    onCancel?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+  });
 
   const auth = useAuthStore() as unknown as AuthState;
   const token = auth?.access_token || auth?.token;
 
-  // 👇 Obtenemos los colores del tema actual
   const { colors } = useThemeStore();
-
-  // 👇 Estilos dinámicos que se reconstruyen al cambiar el tema
   const styles = useMemo(() => createStyles(colors), [colors]);
+
+  // ✅ Función para mostrar alertas personalizadas
+  const showAlert = (
+    title: string,
+    message: string,
+    type: AlertType = 'info',
+    onConfirm?: () => void,
+    confirmText?: string,
+    showCancel?: boolean,
+    cancelText?: string,
+    onCancel?: () => void
+  ) => {
+    setAlert({
+      visible: true,
+      title,
+      message,
+      type,
+      onConfirm,
+      confirmText: confirmText || 'Aceptar',
+      showCancel: showCancel || false,
+      cancelText: cancelText || 'Cancelar',
+      onCancel,
+    });
+  };
 
   const loadData = async (showLoadingIndicator = true) => {
     if (!token) {
@@ -103,6 +182,7 @@ export default function FriendsScreen() {
           streak_days: Number(f.streak_days || 0),
           total_study_minutes: Number(f.total_study_minutes || 0),
           status: 'offline',
+          last_login_at: f.last_login_at || null,
         }));
         setFriends(mappedFriends);
       }
@@ -120,7 +200,7 @@ export default function FriendsScreen() {
       }
     } catch (error) {
       console.error('❌ Error cargando datos de amigos:', error);
-      Alert.alert('Error', 'No se pudieron sincronizar los datos sociales.');
+      showAlert('Error', 'No se pudieron sincronizar los datos sociales.', 'error');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -136,12 +216,22 @@ export default function FriendsScreen() {
     loadData(false);
   }, [token]);
 
+  // ✅ Primero definimos sortedFriends
   const sortedFriends = useMemo(() => {
     const result = [...friends];
     if (sortOrder === 'asc') result.sort((a, b) => a.total_study_minutes - b.total_study_minutes);
     if (sortOrder === 'desc') result.sort((a, b) => b.total_study_minutes - a.total_study_minutes);
     return result;
   }, [friends, sortOrder]);
+
+  // ✅ Luego definimos filteredFriends (que depende de sortedFriends)
+  const filteredFriends = useMemo(() => {
+    if (!friendSearchQuery.trim()) return sortedFriends;
+    const query = friendSearchQuery.toLowerCase().trim();
+    return sortedFriends.filter(friend => 
+      friend.username.toLowerCase().includes(query)
+    );
+  }, [sortedFriends, friendSearchQuery]);
 
   const toggleSort = () => {
     setSortOrder((prev) => {
@@ -151,9 +241,45 @@ export default function FriendsScreen() {
     });
   };
 
+  // ✅ Eliminar amigo
+  const confirmRemoveFriend = (friendId: string, username: string) => {
+    showAlert(
+      'Eliminar amigo',
+      `¿Seguro que querés eliminar a ${username} de tus amigos?`,
+      'warning',
+      () => handleRemoveFriend(friendId),
+      'Eliminar',
+      true,
+      'Cancelar'
+    );
+  };
+
+  const handleRemoveFriend = async (friendId: string) => {
+    if (!token) return;
+    setRemovingFriendId(friendId);
+    try {
+      const response = await authenticatedFetch(
+        `${API_URL}/friends/${friendId}`,
+        { method: 'DELETE' },
+        token
+      );
+      const json = await response.json();
+      if (json.success) {
+        setFriends((prev) => prev.filter((f) => f.id !== friendId));
+        showAlert('Amigo eliminado', 'El amigo fue eliminado correctamente.', 'success');
+      } else {
+        showAlert('Error', json.error || 'No se pudo eliminar el amigo.', 'error');
+      }
+    } catch (error) {
+      showAlert('Error', 'Ocurrió un error al eliminar el amigo.', 'error');
+    } finally {
+      setRemovingFriendId(null);
+    }
+  };
+
   const handleSendRequest = async () => {
     if (!searchUsername.trim()) {
-      Alert.alert('Campos incompletos', 'Por favor ingresá un nombre de usuario.');
+      showAlert('Campos incompletos', 'Por favor ingresá un nombre de usuario.', 'warning');
       return;
     }
     try {
@@ -169,15 +295,15 @@ export default function FriendsScreen() {
       );
       const json = (await response.json()) as { success: boolean; error?: string };
       if (json.success) {
-        Alert.alert('Solicitud enviada', `Se envió la solicitud a ${searchUsername.trim()} correctamente.`);
+        showAlert('Solicitud enviada', `Se envió la solicitud a ${searchUsername.trim()} correctamente.`, 'success');
         setSearchUsername('');
         setModalVisible(false);
         loadData(false);
       } else {
-        Alert.alert('Atención', json.error || 'No se pudo procesar la solicitud.');
+        showAlert('Atención', json.error || 'No se pudo procesar la solicitud.', 'error');
       }
     } catch (err) {
-      Alert.alert('Error', 'Fallo de conexión con el servidor.');
+      showAlert('Error', 'Fallo de conexión con el servidor.', 'error');
     } finally {
       setSendingRequest(false);
     }
@@ -194,12 +320,12 @@ export default function FriendsScreen() {
       if (json.success) {
         setPendingRequests((prev) => prev.filter((r) => r.id !== id));
         loadData(false);
-        Alert.alert('Éxito', `Ahora eres amigo de ${username}`);
+        showAlert('Éxito', `Ahora eres amigo de ${username}`, 'success');
       } else {
-        Alert.alert('Error', json.error || 'No se pudo aceptar la solicitud.');
+        showAlert('Error', json.error || 'No se pudo aceptar la solicitud.', 'error');
       }
     } catch (err) {
-      Alert.alert('Error', 'Ocurrió un error en la red al aceptar la solicitud.');
+      showAlert('Error', 'Ocurrió un error en la red al aceptar la solicitud.', 'error');
     }
   };
 
@@ -214,10 +340,10 @@ export default function FriendsScreen() {
       if (json.success) {
         setPendingRequests((prev) => prev.filter((r) => r.id !== id));
       } else {
-        Alert.alert('Error', json.error || 'No se pudo rechazar la solicitud.');
+        showAlert('Error', json.error || 'No se pudo rechazar la solicitud.', 'error');
       }
     } catch (err) {
-      Alert.alert('Error', 'Ocurrió un error en la red al rechazar la solicitud.');
+      showAlert('Error', 'Ocurrió un error en la red al rechazar la solicitud.', 'error');
     }
   };
 
@@ -232,7 +358,7 @@ export default function FriendsScreen() {
   }
 
   return (
-    <ScreenLayout title="Amigos">
+    <ScreenLayout title="Amigos" hideBackButton={true}>
       <ScrollView
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
@@ -309,21 +435,50 @@ export default function FriendsScreen() {
             </Pressable>
           </View>
 
-          {friends.length === 0 ? (
+          {/* ✅ Buscador de amigos */}
+          <View style={[styles.searchContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Search color={colors.textMuted} size={20} />
+            <TextInput
+              style={[styles.searchInput, { color: colors.text }]}
+              placeholder="Buscar amigo..."
+              placeholderTextColor={colors.textMuted}
+              value={friendSearchQuery}
+              onChangeText={setFriendSearchQuery}
+              clearButtonMode="while-editing"
+            />
+            {friendSearchQuery.length > 0 && (
+              <Pressable onPress={() => setFriendSearchQuery('')}>
+                <Text style={[styles.clearText, { color: colors.accent }]}>✕</Text>
+              </Pressable>
+            )}
+          </View>
+
+          {filteredFriends.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Users2 size={40} color={colors.textMuted} style={styles.emptyIcon} />
-              <Text style={styles.emptyText}>Aún no tienes amigos agregados.</Text>
+              <Text style={styles.emptyText}>
+                {friendSearchQuery.length > 0 
+                  ? 'No se encontraron amigos con esa búsqueda.' 
+                  : 'Aún no tienes amigos agregados.'}
+              </Text>
             </View>
           ) : (
-            sortedFriends.map((friend) => (
+            filteredFriends.map((friend) => (
               <View key={friend.id} style={styles.friendCard}>
                 <View style={styles.profileRow}>
                   <View style={styles.avatarContainer}>
-                    <View style={styles.avatar}>
-                      <Text style={styles.avatarText}>
-                        {friend.username ? friend.username[0].toUpperCase() : '?'}
-                      </Text>
-                    </View>
+                    {friend.avatar_url ? (
+                      <Image 
+                        source={{ uri: getAvatarUrlWithCache(friend.avatar_url) }} 
+                        style={styles.avatarImage} 
+                      />
+                    ) : (
+                      <View style={styles.avatar}>
+                        <Text style={styles.avatarText}>
+                          {friend.username ? friend.username[0].toUpperCase() : '?'}
+                        </Text>
+                      </View>
+                    )}
                     <View
                       style={[
                         styles.statusDot,
@@ -331,7 +486,7 @@ export default function FriendsScreen() {
                       ]}
                     />
                   </View>
-                  <View>
+                  <View style={styles.friendInfo}>
                     <Text style={styles.username}>{friend.username}</Text>
                     <View style={styles.row}>
                       <View style={styles.streakBadge}>
@@ -339,24 +494,24 @@ export default function FriendsScreen() {
                         <Text style={styles.streakLabel}>{friend.streak_days} d</Text>
                       </View>
                     </View>
+                    <Text style={styles.lastLoginText}>
+                      {friend.last_login_at
+                        ? `Última conexión: ${getRelativeTime(friend.last_login_at)}`
+                        : 'Sin actividad reciente'}
+                    </Text>
                   </View>
-                </View>
 
-                <View style={styles.statsRow}>
-                  <View style={styles.statInfo}>
-                    <Trophy size={16} color={colors.rankGold} />
-                    <View>
-                      <Text style={styles.statLabel}>TIEMPO TOTAL</Text>
-                      <Text style={styles.statValue}>
-                        {(friend.total_study_minutes / 60).toFixed(1)}h
-                      </Text>
-                    </View>
-                  </View>
+                  {/* ✅ Botón Eliminar amigo */}
                   <Pressable
-                    style={styles.profileBtn}
-                    onPress={() => Alert.alert('Perfil', `Ver el perfil de ${friend.username}`)}
+                    style={[styles.deleteBtn, { borderColor: colors.danger }]}
+                    onPress={() => confirmRemoveFriend(friend.id, friend.username)}
+                    disabled={removingFriendId === friend.id}
                   >
-                    <Text style={styles.profileBtnText}>Ver</Text>
+                    {removingFriendId === friend.id ? (
+                      <ActivityIndicator size="small" color={colors.danger} />
+                    ) : (
+                      <Trash2 color={colors.danger} size={18} />
+                    )}
                   </Pressable>
                 </View>
               </View>
@@ -413,11 +568,31 @@ export default function FriendsScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* ✅ AppAlert personalizado */}
+      <AppAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        type={alert.type}
+        onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+        onConfirm={() => {
+          if (alert.onConfirm) alert.onConfirm();
+          setAlert(prev => ({ ...prev, visible: false }));
+        }}
+        onCancel={() => {
+          if (alert.onCancel) alert.onCancel();
+          setAlert(prev => ({ ...prev, visible: false }));
+        }}
+        confirmText={alert.confirmText || 'Aceptar'}
+        cancelText={alert.cancelText || 'Cancelar'}
+        showCancel={alert.showCancel || false}
+      />
     </ScreenLayout>
   );
 }
 
-// 👇 Función que construye los estilos dinámicamente a partir de los colores del tema
+// 👇 Función que construye los estilos dinámicamente
 const createStyles = (colors: any) =>
   StyleSheet.create({
     center: {
@@ -490,6 +665,26 @@ const createStyles = (colors: any) =>
     filterTextActive: {
       color: colors.accent,
     },
+    searchContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderRadius: 12,
+      borderWidth: 1,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      marginBottom: 12,
+      gap: 10,
+    },
+    searchInput: {
+      flex: 1,
+      fontSize: 15,
+      padding: 0,
+    },
+    clearText: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      paddingHorizontal: 4,
+    },
     requestCard: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -510,10 +705,15 @@ const createStyles = (colors: any) =>
     profileRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 15,
+      gap: 12,
+    },
+    friendInfo: {
+      flex: 1,
     },
     avatarContainer: {
       position: 'relative',
+      width: 45,
+      height: 45,
     },
     avatar: {
       width: 45,
@@ -522,6 +722,13 @@ const createStyles = (colors: any) =>
       backgroundColor: colors.avatarAccent,
       alignItems: 'center',
       justifyContent: 'center',
+      borderWidth: 2,
+      borderColor: colors.accent,
+    },
+    avatarImage: {
+      width: 45,
+      height: 45,
+      borderRadius: 22,
       borderWidth: 2,
       borderColor: colors.accent,
     },
@@ -575,39 +782,18 @@ const createStyles = (colors: any) =>
       fontSize: 12,
       fontWeight: 'bold',
     },
-    statsRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginTop: 15,
-      backgroundColor: colors.surface,
-      padding: 15,
-      borderRadius: 20,
-    },
-    statInfo: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-    },
-    statLabel: {
+    lastLoginText: {
       color: colors.textMuted,
-      fontSize: 11,
-    },
-    statValue: {
-      color: colors.rankGold,
-      fontSize: 16,
-      fontWeight: '900',
-    },
-    profileBtn: {
-      backgroundColor: colors.accentStrong,
-      paddingHorizontal: 15,
-      paddingVertical: 8,
-      borderRadius: 12,
-    },
-    profileBtnText: {
-      color: colors.accent,
       fontSize: 12,
-      fontWeight: 'bold',
+      marginTop: 4,
+    },
+    deleteBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
     },
     actions: {
       flexDirection: 'row',

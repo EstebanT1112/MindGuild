@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, Pressable, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, Modal, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import { X, Check, Trash2, MailOpen } from 'lucide-react-native';
 import { roomInvitationsService } from '../services/roomInvitationsService';
 import { useNavigation } from '@react-navigation/native';
 import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
 import { useThemeStore } from '../../../store/themeStore';
+import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
 
 interface RoomInvitation {
   id: string;
@@ -42,6 +43,48 @@ export default function RoomInvitationsModal({ visible, onClose, accessToken, on
   const [loading, setLoading] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
+  // ✅ Estado para AppAlert
+  const [alert, setAlert] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: AlertType;
+    onConfirm?: () => void;
+    confirmText?: string;
+    showCancel?: boolean;
+    cancelText?: string;
+    onCancel?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+  });
+
+  // ✅ Función para mostrar alertas personalizadas
+  const showAlert = (
+    title: string,
+    message: string,
+    type: AlertType = 'info',
+    onConfirm?: () => void,
+    confirmText?: string,
+    showCancel?: boolean,
+    cancelText?: string,
+    onCancel?: () => void
+  ) => {
+    setAlert({
+      visible: true,
+      title,
+      message,
+      type,
+      onConfirm,
+      confirmText: confirmText || 'Aceptar',
+      showCancel: showCancel || false,
+      cancelText: cancelText || 'Cancelar',
+      onCancel,
+    });
+  };
+
   const loadInvitations = async () => {
     const token = currentAccessToken ?? accessToken;
     if (!token || !visible) return;
@@ -70,7 +113,7 @@ export default function RoomInvitationsModal({ visible, onClose, accessToken, on
         onInvitationProcessed();
         setInvitations(prev => prev.filter(item => item.id !== invitationId));
         
-        Alert.alert('Éxito', `Te uniste a la sala ${roomName}`);
+        showAlert('Éxito', `Te uniste a la sala ${roomName}`, 'success');
         onClose();
 
         if (roomMode === 'battle_royale') {
@@ -80,7 +123,7 @@ export default function RoomInvitationsModal({ visible, onClose, accessToken, on
         }
       }
     } catch (error: any) {
-      Alert.alert('No se pudo unir', error.message || 'La sala podría estar llena o inactiva.');
+      showAlert('No se pudo unir', error.message || 'La sala podría estar llena o inactiva.', 'error');
     } finally {
       setProcessingId(null);
     }
@@ -93,80 +136,105 @@ export default function RoomInvitationsModal({ visible, onClose, accessToken, on
       setInvitations(prev => prev.filter(item => item.id !== invitationId));
       onInvitationProcessed();
     } catch (error: any) {
-      Alert.alert('Error', 'No se pudo rechazar la invitación.');
+      showAlert('Error', 'No se pudo rechazar la invitación.', 'error');
     } finally {
       setProcessingId(null);
     }
   };
 
   return (
-    <Modal animationType="fade" transparent={true} visible={visible} onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={[styles.content, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
-          <View style={styles.header}>
-            <Text style={[styles.title, { color: colors.text }]}>Invitaciones de Sala</Text>
-            <Pressable style={[styles.closeBtn, { backgroundColor: colors.background, borderColor: colors.border }]} onPress={onClose}>
-              <X color={colors.textMuted} size={20} />
-            </Pressable>
+    <>
+      <Modal animationType="fade" transparent={true} visible={visible} onRequestClose={onClose}>
+        <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+          <View style={[styles.content, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+            <View style={styles.header}>
+              <Text style={[styles.title, { color: colors.text }]}>Invitaciones de Sala</Text>
+              <Pressable style={[styles.closeBtn, { backgroundColor: colors.background, borderColor: colors.border }]} onPress={onClose}>
+                <X color={colors.textMuted} size={20} />
+              </Pressable>
+            </View>
+
+            {loading ? (
+              <View style={styles.center}>
+                <ActivityIndicator size="large" color={colors.accent} />
+              </View>
+            ) : invitations.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <MailOpen size={36} color={colors.textSoft} style={styles.emptyIcon} />
+                <Text style={[styles.emptyText, { color: colors.textSoft }]}>No tenés invitaciones pendientes.</Text>
+              </View>
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false} style={styles.list}>
+                {invitations.map(invite => (
+                  <View key={invite.id} style={[styles.card, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                    <View style={styles.infoBox}>
+                      <Text style={[styles.roomName, { color: colors.text }]} numberOfLines={1}>{invite.room.name}</Text>
+                      <Text style={[styles.senderText, { color: colors.textMuted }]}>Invitado por: <Text style={[styles.username, { color: colors.accent }]}>{invite.sender.username}</Text></Text>
+                      <Text style={[styles.modeText, { color: colors.textSoft }]}>Modo: {invite.room.mode === 'battle_royale' ? 'Battle Royale' : 'Supervivencia'}</Text>
+                      <Text style={[styles.countText, { color: colors.textSoft }]}>Capacidad: {invite.room.members_count}/{invite.room.max_members}</Text>
+                    </View>
+
+                    <View style={styles.actions}>
+                      <Pressable 
+                        style={[styles.actionBtn, styles.acceptBtn, processingId !== null && styles.disabledBtn]}
+                        onPress={() => handleAccept(invite.id, invite.room.name, invite.room.id, invite.room.mode)}
+                        disabled={processingId !== null}
+                      >
+                        {processingId === invite.id ? (
+                          <ActivityIndicator size="small" color="#ffffff" />
+                        ) : (
+                          <Check size={16} color="#ffffff" />
+                        )}
+                      </Pressable>
+
+                      <Pressable 
+                        style={[styles.actionBtn, styles.rejectBtn, { backgroundColor: colors.surface, borderColor: colors.border }, processingId !== null && styles.disabledBtn]}
+                        onPress={() => handleReject(invite.id)}
+                        disabled={processingId !== null}
+                      >
+                        {processingId === invite.id ? (
+                          <ActivityIndicator size="small" color="#ffffff" />
+                        ) : (
+                          <Trash2 size={16} color={colors.danger} />
+                        )}
+                      </Pressable>
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
           </View>
-
-          {loading ? (
-            <View style={styles.center}>
-              <ActivityIndicator size="large" color={colors.accent} />
-            </View>
-          ) : invitations.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <MailOpen size={36} color={colors.textSoft} style={styles.emptyIcon} />
-              <Text style={[styles.emptyText, { color: colors.textSoft }]}>No tenés invitaciones pendientes.</Text>
-            </View>
-          ) : (
-            <ScrollView showsVerticalScrollIndicator={false} style={styles.list}>
-              {invitations.map(invite => (
-                <View key={invite.id} style={[styles.card, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                  <View style={styles.infoBox}>
-                    <Text style={[styles.roomName, { color: colors.text }]} numberOfLines={1}>{invite.room.name}</Text>
-                    <Text style={[styles.senderText, { color: colors.textMuted }]}>Invitado por: <Text style={[styles.username, { color: colors.accent }]}>{invite.sender.username}</Text></Text>
-                    <Text style={[styles.modeText, { color: colors.textSoft }]}>Modo: {invite.room.mode === 'battle_royale' ? 'Battle Royale' : 'Supervivencia'}</Text>
-                    <Text style={[styles.countText, { color: colors.textSoft }]}>Capacidad: {invite.room.members_count}/{invite.room.max_members}</Text>
-                  </View>
-
-                  <View style={styles.actions}>
-                    <Pressable 
-                      style={[styles.actionBtn, styles.acceptBtn, processingId !== null && styles.disabledBtn]}
-                      onPress={() => handleAccept(invite.id, invite.room.name, invite.room.id, invite.room.mode)}
-                      disabled={processingId !== null}
-                    >
-                      {processingId === invite.id ? (
-                        <ActivityIndicator size="small" color="#ffffff" />
-                      ) : (
-                        <Check size={16} color="#ffffff" />
-                      )}
-                    </Pressable>
-
-                    <Pressable 
-                      style={[styles.actionBtn, styles.rejectBtn, { backgroundColor: colors.surface, borderColor: colors.border }, processingId !== null && styles.disabledBtn]}
-                      onPress={() => handleReject(invite.id)}
-                      disabled={processingId !== null}
-                    >
-                      {processingId === invite.id ? (
-                        <ActivityIndicator size="small" color="#ffffff" />
-                      ) : (
-                        <Trash2 size={16} color={colors.danger} />
-                      )}
-                    </Pressable>
-                  </View>
-                </View>
-              ))}
-            </ScrollView>
-          )}
         </View>
-      </View>
-    </Modal>
+      </Modal>
+
+      {/* ✅ AppAlert personalizado */}
+      <AppAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        type={alert.type}
+        onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+        onConfirm={() => {
+          if (alert.onConfirm) {
+            alert.onConfirm();
+          } else {
+            setAlert(prev => ({ ...prev, visible: false }));
+          }
+        }}
+        onCancel={() => {
+          if (alert.onCancel) alert.onCancel();
+          setAlert(prev => ({ ...prev, visible: false }));
+        }}
+        confirmText={alert.confirmText || 'Aceptar'}
+        cancelText={alert.cancelText || 'Cancelar'}
+        showCancel={alert.showCancel || false}
+      />
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(15, 17, 26, 0.7)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  overlay: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   content: { width: '100%', maxWidth: 360, padding: 24, borderRadius: 24, borderWidth: 1, maxHeight: '70%' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   title: { fontSize: 20, fontWeight: '900' },

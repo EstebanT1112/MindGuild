@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { AppState, AppStateStatus, Alert } from 'react-native';
+import { AppState, AppStateStatus } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../../../store/authStore';
 import { useAppDataStore } from '../../../store/appDataStore';
@@ -9,6 +9,7 @@ import {
   resumeStudySession,
   endStudySession,
 } from '../services/sessionsService';
+import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
 
 export type TimerStatus = 'idle' | 'starting' | 'running' | 'paused' | 'finishing' | 'error';
 
@@ -40,6 +41,48 @@ export function useStudyTimer({
 
   const timerIntervalRef = useRef<any>(null);
   const appStateRef = useRef(AppState.currentState);
+
+  // ✅ Estado para AppAlert
+  const [alert, setAlert] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: AlertType;
+    onConfirm?: () => void;
+    confirmText?: string;
+    showCancel?: boolean;
+    cancelText?: string;
+    onCancel?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+  });
+
+  // ✅ Función para mostrar alertas personalizadas
+  const showAlert = (
+    title: string,
+    message: string,
+    type: AlertType = 'info',
+    onConfirm?: () => void,
+    confirmText?: string,
+    showCancel?: boolean,
+    cancelText?: string,
+    onCancel?: () => void
+  ) => {
+    setAlert({
+      visible: true,
+      title,
+      message,
+      type,
+      onConfirm,
+      confirmText: confirmText || 'Aceptar',
+      showCancel: showCancel || false,
+      cancelText: cancelText || 'Cancelar',
+      onCancel,
+    });
+  };
 
   const stateRef = useRef({ status, sessionId, startTime, accumulatedSeconds, displaySeconds, initialMode, initialDurationMinutes });
   useEffect(() => {
@@ -76,7 +119,6 @@ export function useStudyTimer({
     }
 
     const minutesStudied = Math.max(0, Math.floor(totalSecondsStudied / 60));
-    // Umbral oficial de 30 minutos según reglas del requerimiento
     const finalStatus = minutesStudied >= 30 ? 'pending' : 'invalid';
 
     if (finalStatus === 'invalid') {
@@ -85,8 +127,7 @@ export function useStudyTimer({
       setStartTime(null);
       setAccumulatedSeconds(0);
     }
-    // 3. 🚀 DISPARO OPTIMISTA INSTANTÁNEO: Reseteamos la UI local y mandamos el callback
-    // para que salte el Alert sin esperar la respuesta HTTP de Supabase.
+    
     setStatus('idle');
     setSessionId(null);
     setActiveStudySession(null);
@@ -160,7 +201,7 @@ export function useStudyTimer({
         setDisplaySeconds((prev) => {
           if (prev <= 1) {
             clearLocalInterval();
-            Alert.alert('Tiempo cumplido', 'Finalizá la sesión para guardar el tiempo de estudio.');
+            showAlert('Tiempo cumplido', 'Finalizá la sesión para guardar el tiempo de estudio.', 'info');
             return 0;
           }
           return prev - 1;
@@ -195,7 +236,7 @@ export function useStudyTimer({
       setStatus('idle');
       setStartTime(null);
       setDisplaySeconds(initialMode === 'pomodoro' ? initialDurationMinutes * 60 : 0);
-      Alert.alert('Error de sesión', error.message ?? 'No se pudo sincronizar el inicio con el servidor.');
+      showAlert('Error de sesión', error.message ?? 'No se pudo sincronizar el inicio con el servidor.', 'error');
     }
   };
 
@@ -211,7 +252,7 @@ export function useStudyTimer({
     } catch (error: any) {
       setStatus('running');
       startLocalTimer();
-      Alert.alert('Error', error.message ?? 'No se pudo registrar la pausa.');
+      showAlert('Error', error.message ?? 'No se pudo registrar la pausa.', 'error');
     }
   };
 
@@ -226,7 +267,7 @@ export function useStudyTimer({
       startLocalTimer();
     } catch (error: any) {
       startLocalTimer();
-      Alert.alert('Error', 'Se reanudó localmente pero el servidor no impactó el cambio.');
+      showAlert('Error', 'Se reanudó localmente pero el servidor no impactó el cambio.', 'warning');
     }
   };
 
@@ -245,10 +286,8 @@ export function useStudyTimer({
     }
 
     const finalMinutes = Math.max(0, Math.floor(totalSecondsStudied / 60));
-    // Umbral oficial alineado a 30 minutos
     const finalStatus = finalMinutes >= 30 ? 'pending' : 'invalid';
 
-    // Disparamos callback hacia la pantalla
     onSessionEnded({
       status: finalStatus,
       duration_minutes: finalMinutes,
@@ -263,7 +302,6 @@ export function useStudyTimer({
           duration_minutes: finalMinutes,
           paused_seconds: 0, 
         });
-        // Si fue inválida corta, reseteamos el estado al instante para liberar la UI
         setStatus('idle');
         setSessionId(null);
         setStartTime(null);
@@ -293,8 +331,8 @@ export function useStudyTimer({
 
   return {
     status,
-    setStatus, // Exportado para que el modal limpie la UI al terminar la subida
-    setSessionId, // Exportado para liberar el ID
+    setStatus,
+    setSessionId,
     sessionId,
     displaySeconds,
     setDisplaySeconds,
@@ -302,5 +340,8 @@ export function useStudyTimer({
     pauseSession,
     resumeSession,
     endSession,
+    // ✅ Exponemos el alert para que las pantallas puedan mostrarlo si es necesario
+    alert,
+    showAlert,
   };
 }

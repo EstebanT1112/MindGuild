@@ -10,14 +10,14 @@ import {
     ScrollView,
     StatusBar,
     ActivityIndicator,
-    Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { User, Mail, Lock, Eye, EyeOff, ArrowLeft, ShieldCheck } from 'lucide-react-native'; // Reemplazamos el emoji por ShieldCheck
+import { User, Mail, Lock, Eye, EyeOff, ArrowLeft, ShieldCheck } from 'lucide-react-native';
 import { loginWithGoogle, register } from '../services/authService';
 import { useAuthStore } from '../../../store/authStore';
 import { useThemeStore } from '../../../store/themeStore';
+import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
 
 export default function RegisterScreen() {
     const navigation = useNavigation<any>();
@@ -32,26 +32,70 @@ export default function RegisterScreen() {
     const [loading, setLoading] = useState(false);
     const [googleLoading, setGoogleLoading] = useState(false);
 
+    // ✅ Estado para AppAlert
+    const [alert, setAlert] = useState<{
+        visible: boolean;
+        title: string;
+        message: string;
+        type: AlertType;
+        onConfirm?: () => void;
+        confirmText?: string;
+        showCancel?: boolean;
+        cancelText?: string;
+        onCancel?: () => void;
+    }>({
+        visible: false,
+        title: '',
+        message: '',
+        type: 'info',
+    });
+
+    // ✅ Función para mostrar alertas personalizadas
+    const showAlert = (
+        title: string,
+        message: string,
+        type: AlertType = 'info',
+        onConfirm?: () => void,
+        confirmText?: string,
+        showCancel?: boolean,
+        cancelText?: string,
+        onCancel?: () => void
+    ) => {
+        setAlert({
+            visible: true,
+            title,
+            message,
+            type,
+            onConfirm,
+            confirmText: confirmText || 'Aceptar',
+            showCancel: showCancel || false,
+            cancelText: cancelText || 'Cancelar',
+            onCancel,
+        });
+    };
+
     const handleRegister = async () => {
         if (!username.trim() || !email.trim() || !password.trim()) {
-            Alert.alert('Campos incompletos', 'Completá todos los campos para continuar.');
+            showAlert('Campos incompletos', 'Completá todos los campos para continuar.', 'warning');
             return;
         }
         if (password.length < 8) {
-            Alert.alert('Contraseña muy corta', 'La contraseña debe tener al menos 8 caracteres.');
+            showAlert('Contraseña muy corta', 'La contraseña debe tener al menos 8 caracteres.', 'warning');
             return;
         }
 
         setLoading(true);
         try {
             await register(email.trim(), password, username.trim());
-            Alert.alert(
+            showAlert(
                 'Cuenta creada',
-                'Tu cuenta fue creada correctamente. Inicia sesion para continuar.',
-                [{ text: 'Iniciar sesion', onPress: () => navigation.replace('Login') }]
+                'Tu cuenta fue creada correctamente. Iniciá sesión para continuar.',
+                'success',
+                () => navigation.replace('Login'),
+                'Iniciar sesión'
             );
         } catch (error: any) {
-            Alert.alert('Error al registrarse', error.message ?? 'Ocurrió un error inesperado.');
+            showAlert('Error al registrarse', error.message ?? 'Ocurrió un error inesperado.', 'error');
         } finally {
             setLoading(false);
         }
@@ -64,7 +108,7 @@ export default function RegisterScreen() {
             setSession(result.auth_user_id, result.email, result.access_token, result.profile);
         } catch (error: any) {
             if (error.code !== 'auth_cancelled') {
-                Alert.alert('Error con Google', error.message ?? 'Ocurrió un error inesperado.');
+                showAlert('Error con Google', error.message ?? 'Ocurrió un error inesperado.', 'error');
             }
         } finally {
             setGoogleLoading(false);
@@ -87,7 +131,7 @@ export default function RegisterScreen() {
                 },
                 header: {
                     alignItems: 'center',
-                    marginBottom: 32, // Ajustado para igualar el espacio de LoginScreen
+                    marginBottom: 32,
                     marginTop: 20,
                 },
                 backBtn: {
@@ -107,7 +151,7 @@ export default function RegisterScreen() {
                     width: 80,
                     height: 80,
                     borderRadius: 40,
-                    backgroundColor: colors.surface, // Mismo que en Login
+                    backgroundColor: colors.surface,
                     alignItems: 'center',
                     justifyContent: 'center',
                     marginBottom: 16,
@@ -118,7 +162,6 @@ export default function RegisterScreen() {
                     fontWeight: '900',
                     letterSpacing: 4,
                 },
-                // Se eliminó el tagline
                 card: {
                     backgroundColor: colors.surfaceElevated,
                     borderRadius: 28,
@@ -248,7 +291,6 @@ export default function RegisterScreen() {
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
                 >
-                    {/* Header ahora idéntico al de LoginScreen, solo con botón atrás adicional */}
                     <View style={styles.header}>
                         <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
                             <ArrowLeft color={colors.textMuted} size={20} />
@@ -356,6 +398,29 @@ export default function RegisterScreen() {
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
+
+            {/* ✅ AppAlert personalizado */}
+            <AppAlert
+                visible={alert.visible}
+                title={alert.title}
+                message={alert.message}
+                type={alert.type}
+                onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+                onConfirm={() => {
+                    if (alert.onConfirm) {
+                        alert.onConfirm();
+                    } else {
+                        setAlert(prev => ({ ...prev, visible: false }));
+                    }
+                }}
+                onCancel={() => {
+                    if (alert.onCancel) alert.onCancel();
+                    setAlert(prev => ({ ...prev, visible: false }));
+                }}
+                confirmText={alert.confirmText || 'Aceptar'}
+                cancelText={alert.cancelText || 'Cancelar'}
+                showCancel={alert.showCancel || false}
+            />
         </SafeAreaView>
     );
 }

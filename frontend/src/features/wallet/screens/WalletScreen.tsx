@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Brain, CheckCircle2, ShoppingBag } from 'lucide-react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Brain, CheckCircle2, ShoppingBag, Shield } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
+import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
 import { useAuthStore } from '../../../store/authStore';
 import { useAppDataStore } from '../../../store/appDataStore';
 import { useThemeStore } from '../../../store/themeStore';
@@ -18,6 +19,48 @@ export default function WalletScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [actionItemId, setActionItemId] = useState<string | null>(null);
+
+  // ✅ Estado para AppAlert
+  const [alert, setAlert] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: AlertType;
+    onConfirm?: () => void;
+    confirmText?: string;
+    showCancel?: boolean;
+    cancelText?: string;
+    onCancel?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+  });
+
+  // ✅ Función para mostrar alertas personalizadas
+  const showAlert = (
+    title: string,
+    message: string,
+    type: AlertType = 'info',
+    onConfirm?: () => void,
+    confirmText?: string,
+    showCancel?: boolean,
+    cancelText?: string,
+    onCancel?: () => void
+  ) => {
+    setAlert({
+      visible: true,
+      title,
+      message,
+      type,
+      onConfirm,
+      confirmText: confirmText || 'Aceptar',
+      showCancel: showCancel || false,
+      cancelText: cancelText || 'Cancelar',
+      onCancel,
+    });
+  };
 
   useEffect(() => {
     loadWallet();
@@ -52,7 +95,7 @@ export default function WalletScreen() {
     if (!accessToken || actionItemId) return;
 
     if (coinsBalance < item.price) {
-      Alert.alert('Saldo insuficiente', 'No tenes monedas suficientes para comprar este cosmetico.');
+      showAlert('Saldo insuficiente', 'No tenés monedas suficientes para comprar este cosmético.', 'warning');
       return;
     }
 
@@ -60,8 +103,9 @@ export default function WalletScreen() {
     try {
       await purchaseStoreItem(accessToken, item.id);
       await loadWallet(true);
+      showAlert('Compra exitosa', `Has comprado ${item.name} correctamente.`, 'success');
     } catch (error: any) {
-      Alert.alert('Error al comprar', error.message ?? 'No se pudo comprar el cosmetico.');
+      showAlert('Error al comprar', error.message ?? 'No se pudo comprar el cosmético.', 'error');
     } finally {
       setActionItemId(null);
     }
@@ -75,8 +119,9 @@ export default function WalletScreen() {
     try {
       await equipStoreItem(accessToken, item.id);
       await loadWallet(true);
+      showAlert('Equipado', `Has equipado ${item.name} correctamente.`, 'success');
     } catch (error: any) {
-      Alert.alert('Error al equipar', error.message ?? 'No se pudo equipar el cosmetico.');
+      showAlert('Error al equipar', error.message ?? 'No se pudo equipar el cosmético.', 'error');
     } finally {
       setActionItemId(null);
     }
@@ -262,14 +307,15 @@ export default function WalletScreen() {
 
           {items.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>Todavia no hay objetos disponibles.</Text>
-              <Text style={styles.emptyText}>Cuando carguen la tienda, los cosmeticos van a aparecer aca.</Text>
+              <Text style={styles.emptyTitle}>Todavía no hay objetos disponibles.</Text>
+              <Text style={styles.emptyText}>Cuando carguen la tienda, los cosméticos van a aparecer acá.</Text>
             </View>
           ) : (
             items.map(item => {
               const canAfford = coinsBalance >= item.price;
               const isBusy = actionItemId === item.id;
               const isEquippable = isEquippableItem(item);
+              const isStreakShield = item.item_type === 'streak_shield';
               const buttonText = item.is_equipped
                 ? 'Equipado'
                 : item.owned
@@ -296,6 +342,8 @@ export default function WalletScreen() {
                   <View style={styles.itemIcon}>
                     {item.is_equipped ? (
                       <CheckCircle2 color={colors.accent} size={24} />
+                    ) : isStreakShield ? (
+                      <Shield color={colors.accent} size={24} />
                     ) : item.owned ? (
                       <ShoppingBag color={colors.warning} size={24} />
                     ) : (
@@ -306,6 +354,13 @@ export default function WalletScreen() {
                     <Text style={styles.itemName}>{item.name}</Text>
                     {!!item.description && <Text style={styles.itemDescription}>{item.description}</Text>}
                     {!!item.category && <Text style={styles.itemCategory}>{item.category}</Text>}
+                    {isStreakShield && (
+                      <View style={styles.itemCategory}>
+                        <Text style={{ color: colors.accent, fontSize: 11, fontWeight: '800' }}>
+                          🛡️ Escudo de racha
+                        </Text>
+                      </View>
+                    )}
                   </View>
                   <Pressable
                     style={buttonStyle}
@@ -324,6 +379,26 @@ export default function WalletScreen() {
           )}
         </ScrollView>
       )}
+
+      {/* ✅ AppAlert personalizado */}
+      <AppAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        type={alert.type}
+        onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+        onConfirm={() => {
+          if (alert.onConfirm) alert.onConfirm();
+          setAlert(prev => ({ ...prev, visible: false }));
+        }}
+        onCancel={() => {
+          if (alert.onCancel) alert.onCancel();
+          setAlert(prev => ({ ...prev, visible: false }));
+        }}
+        confirmText={alert.confirmText || 'Aceptar'}
+        cancelText={alert.cancelText || 'Cancelar'}
+        showCancel={alert.showCancel || false}
+      />
     </ScreenLayout>
   );
 }
