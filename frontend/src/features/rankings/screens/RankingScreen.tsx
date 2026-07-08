@@ -19,7 +19,7 @@ import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { type RankingEntry, type RankingType } from '../../../services/apiConfig';
 import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
-import { useThemeStore } from '../../../store/themeStore'; // 👈 Importamos el theme
+import { useThemeStore } from '../../../store/themeStore';
 import RankingItem from '../components/RankingItem';
 
 type VisibleRankingType = Extract<RankingType, 'time' | 'qa' | 'academic' | 'boss'>;
@@ -68,7 +68,11 @@ const rankingTabs: Array<{
   },
 ];
 
-export default function RankingScreen() {
+interface RankingScreenProps {
+  roomMode?: 'supervivencia' | 'battle_royale' | string; // Permitimos string para flexibilidad
+}
+
+export default function RankingScreen({ roomMode }: RankingScreenProps) {
   const accessToken = useAuthStore((state) => state.access_token);
   const [activeType, setActiveType] = useState<VisibleRankingType>('time');
   const [data, setData] = useState<RankingEntryWithTrend[]>([]);
@@ -78,14 +82,30 @@ export default function RankingScreen() {
   const loadGlobalRanking = useAppDataStore((state) => state.loadGlobalRanking);
   const previousPositionsRef = useRef<Map<string, number>>(new Map());
 
-  // 👇 Obtenemos los colores del tema actual
   const { colors } = useThemeStore();
 
-  // 👇 Estilos dinámicos que se reconstruyen al cambiar el tema
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  // 👇 Filtramos los tabs según el modo
+  const filteredTabs = useMemo(() => {
+    if (roomMode === 'supervivencia') {
+      return rankingTabs.filter(tab => tab.type === 'time' || tab.type === 'boss');
+    }
+    // Para battle_royale o sin filtro, mostramos todos
+    return rankingTabs;
+  }, [roomMode]);
 
-  const activeTab = rankingTabs.find((tab) => tab.type === activeType) ?? rankingTabs[0];
-  const SummaryIcon = activeTab.icon;
+  // 👇 Asegurar que activeType sea válido en filteredTabs
+  useEffect(() => {
+    const firstTab = filteredTabs[0];
+    if (firstTab && !filteredTabs.some(tab => tab.type === activeType)) {
+      setActiveType(firstTab.type);
+    }
+  }, [filteredTabs, activeType]);
+
+  const activeTab = filteredTabs.find((tab) => tab.type === activeType) ?? filteredTabs[0] ?? rankingTabs[0];
+  const SummaryIcon = activeTab?.icon ?? Clock;
+
+  // 👇 Estilos dinámicos
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   useEffect(() => {
     previousPositionsRef.current = new Map();
@@ -138,10 +158,22 @@ export default function RankingScreen() {
     }
   };
 
+  // Si no hay tabs disponibles (caso borde), mostramos un mensaje
+  if (filteredTabs.length === 0) {
+    return (
+      <ScreenLayout title="RANKING" type="rankings" hideBackButton={true}>
+        <View style={styles.emptyState}>
+          <UsersRound color={colors.textMuted} size={28} />
+          <Text style={styles.emptyText}>No hay rankings disponibles para este modo.</Text>
+        </View>
+      </ScreenLayout>
+    );
+  }
+
   return (
-    <ScreenLayout title="RANKING" type="rankings">
+    <ScreenLayout title="RANKING" type="rankings" hideBackButton={true}>
       <View style={styles.tabs}>
-        {rankingTabs.map((tab) => {
+        {filteredTabs.map((tab) => {
           const isActive = activeType === tab.type;
           return (
             <Pressable
@@ -160,8 +192,8 @@ export default function RankingScreen() {
       <View style={styles.summaryCard}>
         <SummaryIcon color={colors.accent} size={22} />
         <View style={styles.summaryText}>
-          <Text style={styles.title}>{activeTab.title}</Text>
-          <Text style={styles.description}>{activeTab.description}</Text>
+          <Text style={styles.title}>{activeTab?.title ?? 'Ranking'}</Text>
+          <Text style={styles.description}>{activeTab?.description ?? ''}</Text>
         </View>
       </View>
 
@@ -192,7 +224,7 @@ export default function RankingScreen() {
                 rank={index + 1}
                 name={item.username}
                 value={item.value.toString()}
-                subtitle={activeTab.subtitle}
+                subtitle={activeTab?.subtitle ?? ''}
                 trend={item.trend}
                 movement={item.movement}
               />
@@ -204,7 +236,6 @@ export default function RankingScreen() {
   );
 }
 
-// 👇 Función que construye los estilos dinámicamente a partir de los colores del tema
 const createStyles = (colors: any) =>
   StyleSheet.create({
     tabs: {

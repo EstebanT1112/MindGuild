@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { BarChart3, ChevronRight, FolderOpen, Info, MessageCircle, Settings, UserPlus, Users, CheckCircle } from 'lucide-react-native'; import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { BarChart3, ChevronRight, FolderOpen, Info, MessageCircle, Settings, UserPlus, Users, CheckCircle } from 'lucide-react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
@@ -18,6 +19,10 @@ import { type RoomDetails } from '../services/roomsService';
 import EvidenceUploadModal from '../components/EvidenceUploadModal';
 import ReviewPeerSessionsModal from '../components/ReviewPeerSessionsModal';
 import RoomChatModal from '../components/RoomChatModal';
+import { fetchPendingSessionReviews } from '../services/sessionsService';
+import { fetchRoomMessages, sendRoomMessage, type RoomMessage } from '../services/chatService'; // ✅ Importamos para polling y envío
+
+const POLLING_INTERVAL_MS = 60000; // 60 segundos
 
 export default function LiveRoomScreen() {
     const route = useRoute<any>();
@@ -43,6 +48,13 @@ export default function LiveRoomScreen() {
     const [reviewPeersVisible, setReviewPeersVisible] = useState(false);
     const [activeSessionMinutes, setActiveSessionMinutes] = useState(0);
 
+    const [pendingReviewsCount, setPendingReviewsCount] = useState(0);
+
+    // ✅ Estado para mensajes del chat y badge
+    const [messages, setMessages] = useState<RoomMessage[]>([]);
+    const [lastMessageCreatedAt, setLastMessageCreatedAt] = useState<string | undefined>(undefined);
+    const [unreadChatCount, setUnreadChatCount] = useState(0);
+
     const [room, setRoom] = useState<RoomDetails | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -50,6 +62,77 @@ export default function LiveRoomScreen() {
     const [sessionType, setSessionType] = useState<'pomodoro' | 'free'>('pomodoro');
     const [durationMinutes, setDurationMinutes] = useState(30);
 
+    // ── Funciones de polling ──
+    const fetchNewMessages = async () => {
+        if (!accessToken || !targetRoomId) return;
+        try {
+            const newMessages = await fetchRoomMessages(accessToken, targetRoomId, {
+                after: lastMessageCreatedAt,
+                limit: 50
+            });
+            if (newMessages.length === 0) return;
+
+            // Actualizar la lista de mensajes (acumulando)
+            setMessages(prev => {
+                const map = new Map(prev.map(m => [m.id, m]));
+                newMessages.forEach(m => map.set(m.id, m));
+                return Array.from(map.values()).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+            });
+
+            // Actualizar el timestamp del último mensaje
+            const latest = newMessages.reduce((a, b) => new Date(a.created_at) > new Date(b.created_at) ? a : b);
+            if (latest) {
+                setLastMessageCreatedAt(latest.created_at);
+            }
+
+            // Si el chat está cerrado, incrementar el contador de no leídos con los mensajes nuevos
+            if (!chatVisible) {
+                setUnreadChatCount(prev => prev + newMessages.length);
+            }
+        } catch (error) {
+            console.warn('Error en polling de chat:', error);
+        }
+    };
+
+    // ── Efecto de polling ──
+    useEffect(() => {
+        if (!accessToken || !targetRoomId) return;
+
+        // Carga inicial: obtener los últimos mensajes
+        const loadInitialMessages = async () => {
+            try {
+                const initialMessages = await fetchRoomMessages(accessToken, targetRoomId, { limit: 50 });
+                if (initialMessages.length > 0) {
+                    setMessages(initialMessages);
+                    const latest = initialMessages.reduce((a, b) => new Date(a.created_at) > new Date(b.created_at) ? a : b);
+                    setLastMessageCreatedAt(latest.created_at);
+                }
+            } catch (error) {
+                console.warn('Error al cargar mensajes iniciales:', error);
+            }
+        };
+        loadInitialMessages();
+
+        // Polling periódico
+        const intervalId = setInterval(fetchNewMessages, POLLING_INTERVAL_MS);
+
+        return () => clearInterval(intervalId);
+    }, [accessToken, targetRoomId]);
+
+    // ── Envío de mensaje ──
+    const handleSendMessage = async (content: string) => {
+        if (!accessToken || !targetRoomId || !content.trim()) return;
+        try {
+            const newMsg = await sendRoomMessage(accessToken, targetRoomId, content.trim());
+            // Agregar el mensaje a la lista local
+            setMessages(prev => [...prev, newMsg].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
+            setLastMessageCreatedAt(newMsg.created_at);
+        } catch (error: any) {
+            Alert.alert('Error', error.message ?? 'No se pudo enviar el mensaje.');
+        }
+    };
+
+    // ── Manejo de sesión ──
     const handleSessionEnded = (result: any) => {
         if (result.status === 'invalid') {
             Alert.alert(
@@ -105,6 +188,19 @@ export default function LiveRoomScreen() {
         }
     }, [targetRoomId, accessToken]);
 
+    useEffect(() => {
+        const loadPendingCount = async () => {
+            if (!accessToken || !targetRoomId) return;
+            try {
+                const data = await fetchPendingSessionReviews(accessToken, targetRoomId);
+                setPendingReviewsCount(data.length);
+            } catch (error) {
+                console.warn('Error al cargar revisiones pendientes:', error);
+            }
+        };
+        loadPendingCount();
+    }, [accessToken, targetRoomId]);
+
     const loadRoom = async (options?: { force?: boolean; showLoading?: boolean }) => {
         if (!accessToken || !targetRoomId) return;
 
@@ -136,6 +232,20 @@ export default function LiveRoomScreen() {
         setRefreshing(true);
         try {
             await loadRoom({ force: true, showLoading: false });
+            if (accessToken && targetRoomId) {
+                const data = await fetchPendingSessionReviews(accessToken, targetRoomId);
+                setPendingReviewsCount(data.length);
+                // Recargar mensajes
+                const freshMessages = await fetchRoomMessages(accessToken, targetRoomId, { limit: 50 });
+                if (freshMessages.length > 0) {
+                    setMessages(freshMessages);
+                    const latest = freshMessages.reduce((a, b) => new Date(a.created_at) > new Date(b.created_at) ? a : b);
+                    setLastMessageCreatedAt(latest.created_at);
+                    setUnreadChatCount(0); // Al refrescar, reseteamos el badge
+                }
+            }
+        } catch (error) {
+            console.warn('Error al refrescar:', error);
         } finally {
             setRefreshing(false);
         }
@@ -187,11 +297,22 @@ export default function LiveRoomScreen() {
             rightAction={
                 room && !isEnfocused ? (
                     <View style={styles.headerActions}>
-                        {/* Botón Chat */}
-                        <Pressable style={styles.infoBtn} onPress={() => setChatVisible(true)}>
-                            <MessageCircle color="#22c55e" size={20} />
+                        <Pressable
+                            style={styles.infoBtn}
+                            onPress={() => {
+                                setChatVisible(true);
+                                setUnreadChatCount(0); // Resetear badge al abrir
+                            }}
+                        >
+                            <View style={styles.chatIconWrapper}>
+                                <MessageCircle color="#22c55e" size={20} />
+                                {unreadChatCount > 0 && (
+                                    <View style={styles.chatBadge}>
+                                        <Text style={styles.badgeText}>{unreadChatCount}</Text>
+                                    </View>
+                                )}
+                            </View>
                         </Pressable>
-                        {/* Botón Info */}
                         <Pressable style={styles.infoBtn} onPress={() => setInfoVisible(true)}>
                             <Info color="#22c55e" size={20} />
                         </Pressable>
@@ -199,7 +320,6 @@ export default function LiveRoomScreen() {
                 ) : undefined
             }
         >
-            {/* ⚡ CORRECCIÓN: Un único ScrollView principal unificado */}
             <ScrollView
                 showsVerticalScrollIndicator={false}
                 scrollEnabled={!isEnfocused}
@@ -278,6 +398,7 @@ export default function LiveRoomScreen() {
                 {!isEnfocused && (
                     <>
                         <RoomRanking roomId={room?.id} />
+
                         <Pressable
                             style={styles.dashboardBtn}
                             onPress={() => room?.id && navigation.navigate('SmartDashboard', {
@@ -291,8 +412,10 @@ export default function LiveRoomScreen() {
                             <Text style={styles.inviteFriendsBtnText}>Dashboard de Sala</Text>
                         </Pressable>
 
-
-                        <Pressable style={[styles.configCard, styles.btnBlue]} onPress={() => setReviewPeersVisible(true)}>
+                        <Pressable
+                            style={[styles.configCard, styles.btnBlue, styles.relativeContainer]}
+                            onPress={() => setReviewPeersVisible(true)}
+                        >
                             <View style={[styles.configIconBox, { backgroundColor: '#0284c7' }]}>
                                 <CheckCircle color="#ffffff" size={24} />
                             </View>
@@ -301,6 +424,12 @@ export default function LiveRoomScreen() {
                                 <Text style={styles.configSub}>Verifica evidencias y puntajes</Text>
                             </View>
                             <ChevronRight color="#ffffff" size={20} />
+
+                            {pendingReviewsCount > 0 && (
+                                <View style={styles.badge}>
+                                    <Text style={styles.badgeText}>{pendingReviewsCount}</Text>
+                                </View>
+                            )}
                         </Pressable>
 
                         <Pressable style={styles.inviteFriendsMainBtn} onPress={() => setInviteFriendsVisible(true)}>
@@ -405,21 +534,30 @@ export default function LiveRoomScreen() {
                         invalidateAfterValidStudySession(targetRoomId);
                     }
                 }}
+                onReviewProcessed={(count) => setPendingReviewsCount(count)}
             />
 
+            {/* ✅ RoomChatModal recibe los mensajes y el último timestamp, y ya no hace polling interno */}
             {room && (
                 <RoomChatModal
                     visible={chatVisible}
                     roomId={room.id}
                     roomName={room.name}
                     accentColor="#22c55e"
-                    onClose={() => setChatVisible(false)}
+                    onClose={() => {
+                        setChatVisible(false);
+                        // Si quieres resetear el badge al cerrar, ya lo haces al abrir.
+                    }}
+                    messages={messages}
+                    onSendMessage={handleSendMessage}
+                    sending={false} // opcional
                 />
             )}
         </ScreenLayout>
     );
 }
 
+// ... (TimerProgressRing y TimerTick sin cambios)
 function TimerProgressRing({
     children,
     isPomodoro,
@@ -489,6 +627,20 @@ const styles = StyleSheet.create({
     focusScrollContent: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingBottom: 24, paddingVertical: 24 },
     headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     infoBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#1e293b', borderWidth: 1, borderColor: '#334155', alignItems: 'center', justifyContent: 'center' },
+    chatIconWrapper: { position: 'relative', width: 20, height: 20 },
+    chatBadge: {
+        position: 'absolute',
+        top: -8,
+        right: -10,
+        backgroundColor: '#ef4444',
+        borderRadius: 10,
+        minWidth: 18,
+        height: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 4,
+        zIndex: 5,
+    },
     inviteFriendsMainBtn: { backgroundColor: '#3b82f6', height: 52, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 14, marginTop: 12 },
     dashboardBtn: { backgroundColor: '#0ea5e9', height: 52, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 14, marginTop: 12 },
     vaultBtn: { backgroundColor: '#0f766e', height: 52, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 14 },
@@ -501,25 +653,26 @@ const styles = StyleSheet.create({
     configSub: { color: '#64748b', fontSize: 13, marginTop: 2 },
     timerSection: { alignItems: 'center', marginVertical: 30 },
     focusTimerSection: { marginVertical: 0, marginBottom: 30 },
-timerCircle: { 
-    width: 280, 
-    height: 280, 
-    borderRadius: 140, 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    backgroundColor: '#0f172a' // ⚡ Fondo oscuro del círculo
-},
-timerInner: { 
-    width: 232, 
-    height: 232, 
-    borderRadius: 116, 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    backgroundColor: '#0f172a', // ⚡ Fondo interior consistente
-    borderWidth: 1, 
-    borderColor: '#1e293b', 
-    gap: 6 
-},    freeTimerCircle: { borderWidth: 8, borderColor: '#06b6d4' },
+    timerCircle: {
+        width: 280,
+        height: 280,
+        borderRadius: 140,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#0f172a'
+    },
+    timerInner: {
+        width: 232,
+        height: 232,
+        borderRadius: 116,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#0f172a',
+        borderWidth: 1,
+        borderColor: '#1e293b',
+        gap: 6
+    },
+    freeTimerCircle: { borderWidth: 8, borderColor: '#06b6d4' },
     tickLayer: { position: 'absolute', width: 280, height: 280, alignItems: 'center', justifyContent: 'center' },
     timerTick: { position: 'absolute', width: 6, height: 18, borderRadius: 999, backgroundColor: '#22c55e' },
     timerValue: { color: 'white', fontSize: 64, fontWeight: '900' },
@@ -533,9 +686,8 @@ timerInner: {
     resumeBtn: { backgroundColor: '#06b6d4' },
     finishBtn: { backgroundColor: '#dc2626' },
     btnText: { color: 'white', fontSize: 18, fontWeight: '900', letterSpacing: 1 },
-    // Dentro de StyleSheet.create({ ... })
     btnVibrant: {
-        backgroundColor: '#16a34a', // Verde vibrante
+        backgroundColor: '#16a34a',
         borderColor: '#22c55e',
         borderWidth: 2,
         elevation: 6,
@@ -543,7 +695,7 @@ timerInner: {
         shadowOpacity: 0.3
     },
     btnBlue: {
-        backgroundColor: '#0284c7', // Azul brillante
+        backgroundColor: '#0284c7',
         borderColor: '#38bdf8',
         borderWidth: 1,
         marginTop: 12
@@ -557,5 +709,27 @@ timerInner: {
         color: '#dcfce7',
         fontSize: 14,
         fontWeight: '600'
+    },
+    relativeContainer: {
+        position: 'relative',
+    },
+    badge: {
+        position: 'absolute',
+        top: -8,
+        right: -10,
+        backgroundColor: '#ef4444',
+        borderRadius: 10,
+        paddingHorizontal: 5,
+        minWidth: 18,
+        height: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 5,
+    },
+    badgeText: {
+        color: 'white',
+        fontSize: 10,
+        fontWeight: 'bold',
+        textAlign: 'center',
     },
 });

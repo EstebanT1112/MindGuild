@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { BarChart3, BrainCircuit, CalendarClock, ChevronRight, FolderOpen, Info, MessageCircle, Settings, Swords, ThermometerSun, UserPlus, Users } from 'lucide-react-native';
@@ -18,6 +18,12 @@ import SessionConfigModal, { type SessionConfigData } from '../components/Sessio
 import TeamsSection from '../components/TeamsSection';
 import { useStudyTimer } from '../components/useStudyTimer';
 import { type RoomDetails } from '../services/roomsService';
+import { fetchPendingSessionReviews } from '../services/sessionsService';
+import { fetchRoomMessages, sendRoomMessage, type RoomMessage } from '../services/chatService';
+// ✅ Import para el estado del quiz
+import { fetchWeeklyQuizStatus, type WeeklyQuizStatusResult } from '../services/battleRoyaleService';
+
+const POLLING_INTERVAL_MS = 60000; // 60 segundos
 
 export default function BattleRoyaleScreen() {
     const route = useRoute<any>();
@@ -45,8 +51,110 @@ export default function BattleRoyaleScreen() {
     const [sessionType, setSessionType] = useState<'pomodoro' | 'free'>('pomodoro');
     const [durationMinutes, setDurationMinutes] = useState(30);
 
+    const [pendingReviewsCount, setPendingReviewsCount] = useState(0);
+
+    // ✅ Estado para mensajes del chat y badge
+    const [messages, setMessages] = useState<RoomMessage[]>([]);
+    const [lastMessageCreatedAt, setLastMessageCreatedAt] = useState<string | undefined>(undefined);
+    const [unreadChatCount, setUnreadChatCount] = useState(0);
+
+    // ✅ Estado para el badge del quiz
+    const [quizBadgeVisible, setQuizBadgeVisible] = useState(false);
+
     const targetRoomId = route.params?.roomId ? String(route.params.roomId) : null;
 
+    // ── Funciones de polling ──
+    const fetchNewMessages = async () => {
+        if (!accessToken || !targetRoomId) return;
+        try {
+            const newMessages = await fetchRoomMessages(accessToken, targetRoomId, {
+                after: lastMessageCreatedAt,
+                limit: 50
+            });
+            if (newMessages.length === 0) return;
+
+            // Actualizar la lista de mensajes (acumulando)
+            setMessages(prev => {
+                const map = new Map(prev.map(m => [m.id, m]));
+                newMessages.forEach(m => map.set(m.id, m));
+                return Array.from(map.values()).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+            });
+
+            // Actualizar el timestamp del último mensaje
+            const latest = newMessages.reduce((a, b) => new Date(a.created_at) > new Date(b.created_at) ? a : b);
+            if (latest) {
+                setLastMessageCreatedAt(latest.created_at);
+            }
+
+            // Si el chat está cerrado, incrementar el contador de no leídos con los mensajes nuevos
+            if (!chatVisible) {
+                setUnreadChatCount(prev => prev + newMessages.length);
+            }
+        } catch (error) {
+            console.warn('Error en polling de chat:', error);
+        }
+    };
+
+    // ── Envío de mensaje ──
+    const handleSendMessage = async (content: string) => {
+        if (!accessToken || !targetRoomId || !content.trim()) return;
+        try {
+            const newMsg = await sendRoomMessage(accessToken, targetRoomId, content.trim());
+            setMessages(prev => [...prev, newMsg].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
+            setLastMessageCreatedAt(newMsg.created_at);
+        } catch (error: any) {
+            Alert.alert('Error', error.message ?? 'No se pudo enviar el mensaje.');
+        }
+    };
+
+    // ── Efecto de polling ──
+    useEffect(() => {
+        if (!accessToken || !targetRoomId) return;
+
+        // Carga inicial: obtener los últimos mensajes
+        const loadInitialMessages = async () => {
+            try {
+                const initialMessages = await fetchRoomMessages(accessToken, targetRoomId, { limit: 50 });
+                if (initialMessages.length > 0) {
+                    setMessages(initialMessages);
+                    const latest = initialMessages.reduce((a, b) => new Date(a.created_at) > new Date(b.created_at) ? a : b);
+                    setLastMessageCreatedAt(latest.created_at);
+                }
+            } catch (error) {
+                console.warn('Error al cargar mensajes iniciales:', error);
+            }
+        };
+        loadInitialMessages();
+
+        // Polling periódico
+        const intervalId = setInterval(fetchNewMessages, POLLING_INTERVAL_MS);
+
+        return () => clearInterval(intervalId);
+    }, [accessToken, targetRoomId]);
+
+    // ── Efecto para cargar el estado del quiz ──
+    useEffect(() => {
+        const loadQuizStatus = async () => {
+            if (!accessToken || !targetRoomId) return;
+            try {
+                const status: WeeklyQuizStatusResult = await fetchWeeklyQuizStatus(accessToken, targetRoomId);
+                // Mostrar badge si hay un quiz configurado y el usuario no lo ha completado
+                if (status.quiz_id && !status.has_completed) {
+                    setQuizBadgeVisible(true);
+                } else {
+                    setQuizBadgeVisible(false);
+                }
+            } catch (error) {
+                console.warn('Error al cargar estado del quiz:', error);
+                // En caso de error, no mostramos badge
+                setQuizBadgeVisible(false);
+            }
+        };
+
+        loadQuizStatus();
+    }, [accessToken, targetRoomId]);
+
+    // ── Manejo de sesión ──
     const handleSessionEnded = (result: any) => {
         if (result.status === 'invalid') {
             Alert.alert(
@@ -94,6 +202,20 @@ export default function BattleRoyaleScreen() {
         loadRoom();
     }, [route.params?.roomId, accessToken]);
 
+    useEffect(() => {
+        const loadPendingCount = async () => {
+            if (!accessToken || !targetRoomId) return;
+            try {
+                const data = await fetchPendingSessionReviews(accessToken, targetRoomId);
+                setPendingReviewsCount(data.length);
+            } catch (error) {
+                console.warn('Error al cargar revisiones pendientes:', error);
+            }
+        };
+
+        loadPendingCount();
+    }, [accessToken, targetRoomId]);
+
     const loadRoom = async (options?: { force?: boolean; showLoading?: boolean }) => {
         if (!accessToken || !targetRoomId) return;
 
@@ -124,6 +246,27 @@ export default function BattleRoyaleScreen() {
         setRefreshing(true);
         try {
             await loadRoom({ force: true, showLoading: false });
+            if (accessToken && targetRoomId) {
+                const data = await fetchPendingSessionReviews(accessToken, targetRoomId);
+                setPendingReviewsCount(data.length);
+                // Recargar mensajes
+                const freshMessages = await fetchRoomMessages(accessToken, targetRoomId, { limit: 50 });
+                if (freshMessages.length > 0) {
+                    setMessages(freshMessages);
+                    const latest = freshMessages.reduce((a, b) => new Date(a.created_at) > new Date(b.created_at) ? a : b);
+                    setLastMessageCreatedAt(latest.created_at);
+                    setUnreadChatCount(0);
+                }
+                // Recargar estado del quiz
+                const quizStatus = await fetchWeeklyQuizStatus(accessToken, targetRoomId);
+                if (quizStatus.quiz_id && !quizStatus.has_completed) {
+                    setQuizBadgeVisible(true);
+                } else {
+                    setQuizBadgeVisible(false);
+                }
+            }
+        } catch (error) {
+            console.warn('Error al refrescar:', error);
         } finally {
             setRefreshing(false);
         }
@@ -175,8 +318,21 @@ export default function BattleRoyaleScreen() {
             rightAction={
                 room && !isEnfocused ? (
                     <View style={styles.headerActions}>
-                        <Pressable style={styles.infoBtn} onPress={() => setChatVisible(true)}>
-                            <MessageCircle color="#a855f7" size={20} />
+                        <Pressable
+                            style={styles.infoBtn}
+                            onPress={() => {
+                                setChatVisible(true);
+                                setUnreadChatCount(0);
+                            }}
+                        >
+                            <View style={styles.chatIconWrapper}>
+                                <MessageCircle color="#a855f7" size={20} />
+                                {unreadChatCount > 0 && (
+                                    <View style={styles.chatBadge}>
+                                        <Text style={styles.badgeText}>{unreadChatCount}</Text>
+                                    </View>
+                                )}
+                            </View>
                         </Pressable>
                         <Pressable style={styles.infoBtn} onPress={() => setInfoVisible(true)}>
                             <Info color="#a855f7" size={20} />
@@ -264,7 +420,10 @@ export default function BattleRoyaleScreen() {
                     <>
                         <RoomRanking roomId={room?.id} />
 
-                        <Pressable style={[styles.configCard, styles.reviewCard]} onPress={() => setReviewPeersVisible(true)}>
+                        <Pressable
+                            style={[styles.configCard, styles.reviewCard, styles.relativeContainer]}
+                            onPress={() => setReviewPeersVisible(true)}
+                        >
                             <View style={[styles.configIconBox, { backgroundColor: '#2e1065' }]}>
                                 <Users color="#c084fc" size={24} />
                             </View>
@@ -273,6 +432,12 @@ export default function BattleRoyaleScreen() {
                                 <Text style={styles.configSub}>Panel de verificacion social de apuntes y evidencias</Text>
                             </View>
                             <ChevronRight color="#4b5563" size={20} />
+
+                            {pendingReviewsCount > 0 && (
+                                <View style={styles.badge}>
+                                    <Text style={styles.badgeText}>{pendingReviewsCount}</Text>
+                                </View>
+                            )}
                         </Pressable>
 
                         <Pressable style={styles.inviteFriendsBtn} onPress={() => setInviteFriendsVisible(true)}>
@@ -297,12 +462,23 @@ export default function BattleRoyaleScreen() {
                         )}
 
                         <Text style={styles.sectionLabel}>QUIZ SEMANAL</Text>
+                        {/* ✅ Botón Quiz con badge */}
                         <Pressable
-                            style={styles.quizBtn}
-                            onPress={() => room?.id && navigation.navigate('WeeklyQuiz', { roomId: room.id, roomName: room.name })}
+                            style={[styles.quizBtn, styles.relativeContainer]}
+                            onPress={() => {
+                                setQuizBadgeVisible(false); // Ocultar badge al entrar
+                                if (room?.id) {
+                                    navigation.navigate('WeeklyQuiz', { roomId: room.id, roomName: room.name });
+                                }
+                            }}
                         >
                             <CalendarClock color="white" size={24} />
                             <Text style={styles.quizBtnText}>Quiz Semanal</Text>
+                            {quizBadgeVisible && (
+                                <View style={[styles.badge, styles.quizBadge]}>
+                                    <Text style={styles.badgeText}>!</Text>
+                                </View>
+                            )}
                         </Pressable>
                         <Text style={styles.hintText}>Configuracion, carga de preguntas y estado del cuestionario.</Text>
 
@@ -408,6 +584,7 @@ export default function BattleRoyaleScreen() {
                         invalidateAfterValidStudySession(targetRoomId);
                     }
                 }}
+                onReviewProcessed={(count) => setPendingReviewsCount(count)}
             />
             {room && (
                 <RoomChatModal
@@ -416,12 +593,15 @@ export default function BattleRoyaleScreen() {
                     roomName={room.name}
                     accentColor="#a855f7"
                     onClose={() => setChatVisible(false)}
+                    messages={messages}
+                    onSendMessage={handleSendMessage}
                 />
             )}
         </ScreenLayout>
     );
 }
 
+// ── Componentes auxiliares sin cambios ──
 function TimerProgressRing({
     children,
     isPomodoro,
@@ -500,14 +680,28 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    configCard: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        backgroundColor: '#0f172a', // 👈 cambiado de #1e293b a #0f172a para igualar al ranking
-        padding: 15, 
-        borderRadius: 20, 
-        borderWidth: 1, 
-        borderColor: '#334155' 
+    chatIconWrapper: { position: 'relative', width: 20, height: 20 },
+    chatBadge: {
+        position: 'absolute',
+        top: -8,
+        right: -10,
+        backgroundColor: '#ef4444',
+        borderRadius: 10,
+        minWidth: 18,
+        height: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 4,
+        zIndex: 5,
+    },
+    configCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#0f172a',
+        padding: 15,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#334155'
     },
     reviewCard: { marginTop: 12, borderColor: '#7e22ce' },
     configIconBox: { width: 48, height: 48, borderRadius: 12, backgroundColor: '#0f172a', alignItems: 'center', justifyContent: 'center' },
@@ -542,4 +736,28 @@ const styles = StyleSheet.create({
     heatmapBtn: { backgroundColor: '#f97316', padding: 20, borderRadius: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
     quizBtnText: { color: 'white', fontWeight: '900', fontSize: 18 },
     hintText: { color: '#64748b', fontSize: 12, textAlign: 'center', marginTop: 10 },
+    relativeContainer: { position: 'relative' },
+    badge: {
+        position: 'absolute',
+        top: -8,
+        right: -10,
+        backgroundColor: '#ef4444',
+        borderRadius: 10,
+        paddingHorizontal: 5,
+        minWidth: 18,
+        height: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 5,
+    },
+    badgeText: {
+        color: 'white',
+        fontSize: 10,
+        fontWeight: 'bold',
+        textAlign: 'center',
+    },
+    // Ajuste específico para el badge del quiz (puede estar en el mismo estilo)
+    quizBadge: {
+        // Por si se necesita algún ajuste, se puede usar el mismo badge general
+    },
 });
