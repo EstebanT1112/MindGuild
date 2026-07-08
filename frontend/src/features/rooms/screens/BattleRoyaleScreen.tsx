@@ -456,7 +456,7 @@ export default function BattleRoyaleScreen() {
 
                 {!isEnfocused && (
                     <>
-                        <RoomRanking roomId={room?.id} />
+                        <RoomRanking roomId={room?.id} roomType="battle_royale" />
 
                         <Pressable
                             style={[styles.configCard, styles.reviewCard, styles.relativeContainer]}

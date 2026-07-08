@@ -442,7 +442,7 @@ export default function LiveRoomScreen() {
 
                 {!isEnfocused && (
                     <>
-                        <RoomRanking roomId={room?.id} />
+                        <RoomRanking roomId={room?.id} roomType="survival"  />
 
                         <Pressable
                             style={styles.dashboardBtn}
