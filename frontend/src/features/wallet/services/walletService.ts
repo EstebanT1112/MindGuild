@@ -7,6 +7,7 @@ export interface StoreItem {
   description: string | null;
   price: number;
   category: string | null;
+  item_type?: string; // ✅ Agregamos esta propiedad opcional
   owned: boolean;
   is_equipped: boolean;
 }
@@ -36,7 +37,7 @@ export async function purchaseStoreItem(accessToken: string, itemId: string) {
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.error ?? 'No se pudo comprar el cosmetico');
+    throw new Error(data.error ?? 'No se pudo comprar el cosmético');
   }
 
   return data.data;
@@ -51,7 +52,7 @@ export async function equipStoreItem(accessToken: string, itemId: string) {
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.error ?? 'No se pudo equipar el cosmetico');
+    throw new Error(data.error ?? 'No se pudo equipar el cosmético');
   }
 
   return data.data;

@@ -36,6 +36,7 @@ export interface StoreItem {
   description: string | null;
   price: number;
   category: string | null;
+  item_type?: string | null; // ✅ Agregado para identificar streak_shield
   owned: boolean;
   is_equipped: boolean;
   metadata?: Record<string, unknown> | null;
