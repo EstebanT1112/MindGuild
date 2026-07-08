@@ -300,7 +300,7 @@ export default function FriendsScreen() {
   }
 
   return (
-    <ScreenLayout title="Amigos">
+    <ScreenLayout title="Amigos" hideBackButton={true}>
       <ScrollView
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}

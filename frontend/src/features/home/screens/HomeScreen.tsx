@@ -1,6 +1,7 @@
 import React, { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -20,6 +21,8 @@ import MissionCard from '../components/MissionCard';
 import MissionsModal from '../components/MissionsModal';
 import StreakCard from '../components/StreakCard';
 import { claimMissionReward } from '../services/missionsService';
+
+const fallbackAvatar = 'https://ui-avatars.com/api/?background=1e293b&color=ffffff&name=MG';
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
@@ -144,7 +147,11 @@ export default function HomeScreen() {
 
   // ── Render ──
   return (
-    <ScreenLayout title="MINDGUILD" type="home">
+    <ScreenLayout 
+      title="MINDGUILD" 
+      type="home"
+      // ✅ Eliminamos avatarUrl porque ScreenLayout lo obtiene del store
+    >
       <ScrollView
         contentContainerStyle={[styles.content, { backgroundColor: colors.background }]}
         showsVerticalScrollIndicator={false}
@@ -366,7 +373,7 @@ function normalizeDailyStudyMinutes(days?: Array<{ day: string; minutes: number 
   return defaults.map(day => ({ day, minutes: byDay.get(day) ?? 0 }));
 }
 
-// ── Estilos (sin cambios) ──
+// ── Estilos ──
 const styles = StyleSheet.create({
   content: { paddingVertical: 10, paddingBottom: 120 },
   section: { fontSize: 12, fontWeight: '900', letterSpacing: 1, marginBottom: 12, marginTop: 20 },

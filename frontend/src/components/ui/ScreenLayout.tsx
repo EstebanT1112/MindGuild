@@ -1,10 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, Pressable, StatusBar, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Brain, Users, Crown, Users2, UserCircle } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAppDataStore } from '../../store/appDataStore';
-import { useThemeStore } from '../../store/themeStore'; // Importamos el store de tema
+import { useThemeStore } from '../../store/themeStore';
 
 interface Props {
   children: React.ReactNode;
@@ -16,21 +16,35 @@ interface Props {
   hideRightAction?: boolean;
 }
 
+const fallbackAvatar = 'https://ui-avatars.com/api/?background=1e293b&color=ffffff&name=MG';
+
 export default function ScreenLayout({ children, title, type = 'rooms', icon, rightAction, hideBackButton, hideRightAction }: Props) {
   const navigation = useNavigation<any>();
+  const profile = useAppDataStore(state => state.profile.data);
   const coinsBalance = useAppDataStore(state => state.profile.data?.coins_balance ?? 0);
-  const colors = useThemeStore(state => state.colors); // Usamos los colores dinámicos
+  const colors = useThemeStore(state => state.colors);
   const themeMode = useThemeStore(state => state.themeMode);
 
+  const avatarUri = profile?.avatar_url || fallbackAvatar;
+
   const renderLeftButton = () => {
+    // ✅ Si hideBackButton es true, mostramos un spacer
     if (hideBackButton) return <View style={styles.headerSpacer} />;
+    
+    // Para la pantalla de inicio (home), mostramos el perfil
     if (type === 'home') {
       return (
         <Pressable style={[styles.profileBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]} onPress={() => navigation.navigate('Perfil')}>
-          <Text style={[styles.profileBtnText, { color: colors.textMuted }]}>P</Text>
+          {avatarUri ? (
+            <Image source={{ uri: avatarUri }} style={styles.profileImage} />
+          ) : (
+            <Text style={[styles.profileBtnText, { color: colors.textMuted }]}>P</Text>
+          )}
         </Pressable>
       );
     }
+    
+    // Para cualquier otra pantalla (rooms, rankings, friends, etc.)
     return (
       <Pressable style={[styles.backBtn, { backgroundColor: colors.surfaceElevated }]} onPress={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('MainTabs', { screen: 'Home' })}>
         <ArrowLeft color={colors.textSoft} size={20} />
@@ -67,7 +81,20 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   container: { flex: 1, paddingHorizontal: 20 },
   headerContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 20 },
-  profileBtn: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", borderWidth: 1 },
+  profileBtn: { 
+    width: 40, 
+    height: 40, 
+    borderRadius: 20, 
+    alignItems: "center", 
+    justifyContent: "center", 
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  profileImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
   profileBtnText: { fontWeight: "bold" },
   backBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   headerSpacer: { width: 40, height: 40 },
