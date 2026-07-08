@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { API_BASE_URL, fetchRanking, type RankingEntry, type RankingType } from '../services/apiConfig';
+import { API_BASE_URL, fetchRanking, type RankingEntry, type RankingType, type RankingScope } from '../services/apiConfig';
 import { authenticatedFetch, SessionExpiredError } from '../services/authenticatedFetch';
 import { fetchAchievements, type Achievement } from '../features/profiles/services/achievementsService';
 import { fetchMyProfile, type FullProfile } from '../features/profiles/services/profileService';
@@ -107,6 +107,8 @@ interface LoadOptions {
 
 interface LoadRankingOptions extends LoadOptions {
   type?: RankingType;
+  scope?: RankingScope;
+  limit?: number;
 }
 
 const createEntry = <T>(data: T | null = null): CacheEntry<T> => ({
@@ -317,7 +319,9 @@ export const useAppDataStore = create<AppDataState>((set, get) => ({
 
     set({ globalRanking: { ...entry, isLoading: true, error: null } });
     try {
-      const response = await fetchRanking(options.type ?? 'time', accessToken);
+      const scope = options.scope ?? 'global';
+      const limit = options.limit ?? 50;
+      const response = await fetchRanking(options.type ?? 'time', accessToken, undefined, scope, limit);
       const data = Array.isArray(response?.data?.data) ? response.data.data : [];
       set({ globalRanking: { data, lastFetchedAt: Date.now(), isLoading: false, error: null, dirty: false } });
       return data;
