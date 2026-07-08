@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Modal, StyleSheet, Text, TextInput, View, Pressable, Image, ActivityIndicator, Alert } from 'react-native';
+import { Modal, StyleSheet, Text, TextInput, View, Pressable, Image, ActivityIndicator } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { toByteArray } from 'base64-js';
@@ -7,6 +7,7 @@ import { Camera, Image as ImageIcon } from 'lucide-react-native';
 import { supabase } from '../../../features/supabase';
 import { endStudySession, cancelStudySession } from '../services/sessionsService';
 import { useThemeStore } from '../../../store/themeStore';
+import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
 
 interface EvidenceUploadModalProps {
   visible: boolean;
@@ -33,11 +34,53 @@ export default function EvidenceUploadModal({
 
   const isProcessing = isUploading || isCanceling;
 
+  // ✅ Estado para AppAlert
+  const [alert, setAlert] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: AlertType;
+    onConfirm?: () => void;
+    confirmText?: string;
+    showCancel?: boolean;
+    cancelText?: string;
+    onCancel?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+  });
+
+  // ✅ Función para mostrar alertas personalizadas
+  const showAlert = (
+    title: string,
+    message: string,
+    type: AlertType = 'info',
+    onConfirm?: () => void,
+    confirmText?: string,
+    showCancel?: boolean,
+    cancelText?: string,
+    onCancel?: () => void
+  ) => {
+    setAlert({
+      visible: true,
+      title,
+      message,
+      type,
+      onConfirm,
+      confirmText: confirmText || 'Aceptar',
+      showCancel: showCancel || false,
+      cancelText: cancelText || 'Cancelar',
+      onCancel,
+    });
+  };
+
   const pickImageFromGallery = async () => {
     if (isProcessing) return;
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
-      Alert.alert('Permiso requerido', 'Necesitamos acceso a tu galería.');
+      showAlert('Permiso requerido', 'Necesitamos acceso a tu galería.', 'warning');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images', allowsEditing: true, quality: 0.7 });
@@ -48,7 +91,7 @@ export default function EvidenceUploadModal({
     if (isProcessing) return;
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
     if (!permissionResult.granted) {
-      Alert.alert('Permiso requerido', 'Necesitamos acceso a la cámara.');
+      showAlert('Permiso requerido', 'Necesitamos acceso a la cámara.', 'warning');
       return;
     }
     const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 0.7 });
@@ -68,7 +111,7 @@ export default function EvidenceUploadModal({
   const handleSubmit = async () => {
     if (!accessToken || !sessionId) return;
     if (!imageUri || !summary.trim()) {
-      Alert.alert('Atención', 'Por favor, sube una foto y escribe un resumen.');
+      showAlert('Atención', 'Por favor, sube una foto y escribe un resumen.', 'warning');
       return;
     }
     setIsUploading(true);
@@ -83,61 +126,86 @@ export default function EvidenceUploadModal({
       });
       onSuccess();
     } catch (error: any) {
-      Alert.alert('Error', error.message ?? 'No se pudo procesar la subida.');
+      showAlert('Error', error.message ?? 'No se pudo procesar la subida.', 'error');
     } finally {
       setIsUploading(false);
     }
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
-      <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
-        <View style={[styles.modalContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.title, { color: colors.text }]}>¡Gran Sesión de Estudio! 🎉</Text>
-          <Text style={[styles.subtitle, { color: colors.textMuted }]}>Estudiaste {durationMinutes} min. Adjunta una foto y resumen para validar.</Text>
+    <>
+      <Modal visible={visible} animationType="slide" transparent>
+        <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+          <View style={[styles.modalContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.title, { color: colors.text }]}>¡Gran Sesión de Estudio! 🎉</Text>
+            <Text style={[styles.subtitle, { color: colors.textMuted }]}>Estudiaste {durationMinutes} min. Adjunta una foto y resumen para validar.</Text>
 
-          <View style={styles.mediaContainer}>
-            {imageUri ? (
-              <Image source={{ uri: imageUri }} style={styles.previewImage} />
-            ) : (
-              <View style={[styles.placeholderBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                <Text style={{ color: colors.textSoft }}>Sin evidencia</Text>
+            <View style={styles.mediaContainer}>
+              {imageUri ? (
+                <Image source={{ uri: imageUri }} style={styles.previewImage} />
+              ) : (
+                <View style={[styles.placeholderBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                  <Text style={{ color: colors.textSoft }}>Sin evidencia</Text>
+                </View>
+              )}
+
+              <View style={styles.rowButtons}>
+                <Pressable style={[styles.mediaBtn, { backgroundColor: colors.background, borderColor: colors.border }, isProcessing && styles.disabled]} onPress={takePhotoWithCamera} disabled={isProcessing}>
+                  <Camera color={colors.accent} size={20} />
+                  <Text style={[styles.mediaBtnText, { color: colors.text }]}>Cámara</Text>
+                </Pressable>
+                <Pressable style={[styles.mediaBtn, { backgroundColor: colors.background, borderColor: colors.border }, isProcessing && styles.disabled]} onPress={pickImageFromGallery} disabled={isProcessing}>
+                  <ImageIcon color={colors.warning} size={20} />
+                  <Text style={[styles.mediaBtnText, { color: colors.text }]}>Galería</Text>
+                </Pressable>
               </View>
-            )}
+            </View>
 
-            <View style={styles.rowButtons}>
-              <Pressable style={[styles.mediaBtn, { backgroundColor: colors.background, borderColor: colors.border }, isProcessing && styles.disabled]} onPress={takePhotoWithCamera} disabled={isProcessing}>
-                <Camera color={colors.accent} size={20} />
-                <Text style={[styles.mediaBtnText, { color: colors.text }]}>Cámara</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }, isProcessing && styles.disabled]}
+              placeholder="¿Qué estudiaste?..."
+              placeholderTextColor={colors.textSoft}
+              multiline
+              value={summary}
+              onChangeText={setSummary}
+              editable={!isProcessing}
+            />
+
+            <View style={styles.actionRow}>
+              <Pressable style={[styles.cancelBtn, isProcessing && styles.disabled]} onPress={onCancel} disabled={isProcessing}>
+                {isCanceling ? <ActivityIndicator size="small" /> : <Text style={[styles.cancelText, { color: colors.textMuted }]}>Descartar</Text>}
               </Pressable>
-              <Pressable style={[styles.mediaBtn, { backgroundColor: colors.background, borderColor: colors.border }, isProcessing && styles.disabled]} onPress={pickImageFromGallery} disabled={isProcessing}>
-                <ImageIcon color={colors.warning} size={20} />
-                <Text style={[styles.mediaBtnText, { color: colors.text }]}>Galería</Text>
+              <Pressable style={[styles.submitBtn, { backgroundColor: colors.accent }, isProcessing && styles.disabled]} onPress={handleSubmit} disabled={isProcessing}>
+                {isUploading ? <ActivityIndicator color="white" /> : <Text style={styles.submitText}>Subir Evidencia</Text>}
               </Pressable>
             </View>
           </View>
-
-          <TextInput
-            style={[styles.input, { backgroundColor: colors.background, color: colors.text, borderColor: colors.border }, isProcessing && styles.disabled]}
-            placeholder="¿Qué estudiaste?..."
-            placeholderTextColor={colors.textSoft}
-            multiline
-            value={summary}
-            onChangeText={setSummary}
-            editable={!isProcessing}
-          />
-
-          <View style={styles.actionRow}>
-            <Pressable style={[styles.cancelBtn, isProcessing && styles.disabled]} onPress={onCancel} disabled={isProcessing}>
-              {isCanceling ? <ActivityIndicator size="small" /> : <Text style={[styles.cancelText, { color: colors.textMuted }]}>Descartar</Text>}
-            </Pressable>
-            <Pressable style={[styles.submitBtn, { backgroundColor: colors.accent }, isProcessing && styles.disabled]} onPress={handleSubmit} disabled={isProcessing}>
-              {isUploading ? <ActivityIndicator color="white" /> : <Text style={styles.submitText}>Subir Evidencia</Text>}
-            </Pressable>
-          </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+
+      {/* ✅ AppAlert personalizado */}
+      <AppAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        type={alert.type}
+        onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+        onConfirm={() => {
+          if (alert.onConfirm) {
+            alert.onConfirm();
+          } else {
+            setAlert(prev => ({ ...prev, visible: false }));
+          }
+        }}
+        onCancel={() => {
+          if (alert.onCancel) alert.onCancel();
+          setAlert(prev => ({ ...prev, visible: false }));
+        }}
+        confirmText={alert.confirmText || 'Aceptar'}
+        cancelText={alert.cancelText || 'Cancelar'}
+        showCancel={alert.showCancel || false}
+      />
+    </>
   );
 }
 

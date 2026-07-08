@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -11,6 +10,7 @@ import {
 } from 'react-native';
 import { Bell, CalendarCheck, CheckCheck, ChevronLeft, Crown, Gift, Medal, MessageSquarePlus, Target, Trash2, Trophy, Users } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
+import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
 import { useAuthStore } from '../../../store/authStore';
 import { useThemeStore } from '../../../store/themeStore';
 import {
@@ -35,6 +35,48 @@ export default function NotificationsScreen({ navigation }: any) {
     [notifications]
   );
 
+  // ✅ Estado para AppAlert
+  const [alert, setAlert] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: AlertType;
+    onConfirm?: () => void;
+    confirmText?: string;
+    showCancel?: boolean;
+    cancelText?: string;
+    onCancel?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+  });
+
+  // ✅ Función para mostrar alertas personalizadas
+  const showAlert = (
+    title: string,
+    message: string,
+    type: AlertType = 'info',
+    onConfirm?: () => void,
+    confirmText?: string,
+    showCancel?: boolean,
+    cancelText?: string,
+    onCancel?: () => void
+  ) => {
+    setAlert({
+      visible: true,
+      title,
+      message,
+      type,
+      onConfirm,
+      confirmText: confirmText || 'Aceptar',
+      showCancel: showCancel || false,
+      cancelText: cancelText || 'Cancelar',
+      onCancel,
+    });
+  };
+
   useEffect(() => {
     loadNotifications();
   }, [accessToken]);
@@ -52,7 +94,7 @@ export default function NotificationsScreen({ navigation }: any) {
       const data = await fetchMyNotifications(accessToken, { limit: 50 });
       setNotifications(data);
     } catch (error: any) {
-      Alert.alert('Notificaciones', error.message ?? 'No se pudieron cargar las notificaciones.');
+      showAlert('Notificaciones', error.message ?? 'No se pudieron cargar las notificaciones.', 'error');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -72,7 +114,7 @@ export default function NotificationsScreen({ navigation }: any) {
       setNotifications(current =>
         current.map(item => item.id === notification.id ? { ...item, read: false } : item)
       );
-      Alert.alert('Notificaciones', error.message ?? 'No se pudo marcar como leida.');
+      showAlert('Notificaciones', error.message ?? 'No se pudo marcar como leída.', 'error');
     }
   };
 
@@ -87,7 +129,7 @@ export default function NotificationsScreen({ navigation }: any) {
       await markAllNotificationsAsRead(accessToken);
     } catch (error: any) {
       setNotifications(previousNotifications);
-      Alert.alert('Notificaciones', error.message ?? 'No se pudieron marcar las notificaciones.');
+      showAlert('Notificaciones', error.message ?? 'No se pudieron marcar las notificaciones.', 'error');
     } finally {
       setSaving(false);
     }
@@ -96,30 +138,28 @@ export default function NotificationsScreen({ navigation }: any) {
   const handleClearAll = () => {
     if (!accessToken || saving || notifications.length === 0) return;
 
-    Alert.alert(
+    showAlert(
       'Limpiar notificaciones',
       'Se van a borrar todas las notificaciones de tu bandeja.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Limpiar',
-          style: 'destructive',
-          onPress: async () => {
-            const previousNotifications = notifications;
-            setSaving(true);
-            setNotifications([]);
+      'warning',
+      async () => {
+        const previousNotifications = notifications;
+        setSaving(true);
+        setNotifications([]);
 
-            try {
-              await clearAllNotifications(accessToken);
-            } catch (error: any) {
-              setNotifications(previousNotifications);
-              Alert.alert('Notificaciones', error.message ?? 'No se pudieron limpiar las notificaciones.');
-            } finally {
-              setSaving(false);
-            }
-          },
-        },
-      ]
+        try {
+          await clearAllNotifications(accessToken);
+        } catch (error: any) {
+          setNotifications(previousNotifications);
+          showAlert('Notificaciones', error.message ?? 'No se pudieron limpiar las notificaciones.', 'error');
+        } finally {
+          setSaving(false);
+        }
+      },
+      'Limpiar',
+      true,
+      'Cancelar',
+      () => {}
     );
   };
 
@@ -340,8 +380,8 @@ export default function NotificationsScreen({ navigation }: any) {
           {notifications.length === 0 ? (
             <View style={styles.emptyCard}>
               <Bell color={colors.textMuted} size={34} />
-              <Text style={styles.emptyTitle}>No tenes notificaciones</Text>
-              <Text style={styles.mutedText}>Cuando pase algo importante, va a aparecer aca.</Text>
+              <Text style={styles.emptyTitle}>No tenés notificaciones</Text>
+              <Text style={styles.mutedText}>Cuando pase algo importante, va a aparecer acá.</Text>
             </View>
           ) : (
             <>
@@ -366,6 +406,29 @@ export default function NotificationsScreen({ navigation }: any) {
           )}
         </ScrollView>
       )}
+
+      {/* ✅ AppAlert personalizado */}
+      <AppAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        type={alert.type}
+        onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+        onConfirm={() => {
+          if (alert.onConfirm) {
+            alert.onConfirm();
+          } else {
+            setAlert(prev => ({ ...prev, visible: false }));
+          }
+        }}
+        onCancel={() => {
+          if (alert.onCancel) alert.onCancel();
+          setAlert(prev => ({ ...prev, visible: false }));
+        }}
+        confirmText={alert.confirmText || 'Aceptar'}
+        cancelText={alert.cancelText || 'Cancelar'}
+        showCancel={alert.showCancel || false}
+      />
     </ScreenLayout>
   );
 }

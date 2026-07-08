@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     Image,
     Pressable,
     RefreshControl,
@@ -31,9 +30,10 @@ import {
 } from 'lucide-react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
+import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
 import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
-import { useThemeStore } from '../../../store/themeStore'; // Importado
+import { useThemeStore } from '../../../store/themeStore';
 import EditProfileModal from '../components/EditProfileModal';
 import SettingsModal from '../components/SettingsModal';
 import StatCard from '../components/StatCard';
@@ -65,7 +65,7 @@ export default function ProfileScreen({ navigation }: any) {
     const setProfileInStore = useAppDataStore(state => state.setProfile);
     const loadAchievementsFromStore = useAppDataStore(state => state.loadAchievements);
 
-    const colors = useThemeStore(state => state.colors); // Colores del tema
+    const colors = useThemeStore(state => state.colors);
 
     const [isEditModalVisible, setEditModalVisible] = useState(false);
     const [isSettingsVisible, setSettingsVisible] = useState(false);
@@ -75,6 +75,48 @@ export default function ProfileScreen({ navigation }: any) {
     const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
     const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
     const unlockedAchievementsCount = achievements.filter(achievement => achievement.unlocked).length;
+
+    // ✅ Estado para AppAlert
+    const [alert, setAlert] = useState<{
+        visible: boolean;
+        title: string;
+        message: string;
+        type: AlertType;
+        onConfirm?: () => void;
+        confirmText?: string;
+        showCancel?: boolean;
+        cancelText?: string;
+        onCancel?: () => void;
+    }>({
+        visible: false,
+        title: '',
+        message: '',
+        type: 'info',
+    });
+
+    // ✅ Función para mostrar alertas personalizadas
+    const showAlert = (
+        title: string,
+        message: string,
+        type: AlertType = 'info',
+        onConfirm?: () => void,
+        confirmText?: string,
+        showCancel?: boolean,
+        cancelText?: string,
+        onCancel?: () => void
+    ) => {
+        setAlert({
+            visible: true,
+            title,
+            message,
+            type,
+            onConfirm,
+            confirmText: confirmText || 'Aceptar',
+            showCancel: showCancel || false,
+            cancelText: cancelText || 'Cancelar',
+            onCancel,
+        });
+    };
 
     const avatarUri = profile?.avatar_url || fallbackAvatar;
 
@@ -90,7 +132,7 @@ export default function ProfileScreen({ navigation }: any) {
             await loadAchievementsFromStore(accessToken).catch(console.warn);
             loadUnreadNotificationsCount();
         } catch (error: any) {
-            Alert.alert('Error de perfil', error.message ?? 'No se pudo cargar el perfil.');
+            showAlert('Error de perfil', error.message ?? 'No se pudo cargar el perfil.', 'error');
         }
     };
 
@@ -111,7 +153,7 @@ export default function ProfileScreen({ navigation }: any) {
             await loadAchievementsFromStore(accessToken, { force: true });
             await loadUnreadNotificationsCount();
         } catch (error: any) {
-            Alert.alert('Error de perfil', error.message ?? 'No se pudo cargar el perfil.');
+            showAlert('Error de perfil', error.message ?? 'No se pudo cargar el perfil.', 'error');
         } finally { setRefreshing(false); }
     };
 
@@ -127,8 +169,9 @@ export default function ProfileScreen({ navigation }: any) {
             setProfileInStore(updatedProfile);
             setUser({ id: updatedProfile.id, email: updatedProfile.email, username: updatedProfile.username });
             setEditModalVisible(false);
-        } catch (error: any) { Alert.alert('Error al guardar', error.message ?? 'No se pudo actualizar.'); }
-        finally { setSaving(false); }
+        } catch (error: any) {
+            showAlert('Error al guardar', error.message ?? 'No se pudo actualizar.', 'error');
+        } finally { setSaving(false); }
     };
 
     const handleClaimAchievement = async (achievementId: string) => {
@@ -139,8 +182,9 @@ export default function ProfileScreen({ navigation }: any) {
             if (profile && typeof result?.coins_balance === 'number') setProfileInStore({ ...profile, coins_balance: result.coins_balance });
             await Promise.all([loadProfileFromStore(accessToken, { force: true }), loadAchievementsFromStore(accessToken, { force: true })]);
             setSelectedAchievement(current => current?.id === achievementId ? { ...current, reward_claimed_at: new Date().toISOString() } : current);
-        } catch (error: any) { Alert.alert('Error al reclamar', error.message ?? 'No se pudo reclamar.'); }
-        finally { setClaimingAchievementId(null); }
+        } catch (error: any) {
+            showAlert('Error al reclamar', error.message ?? 'No se pudo reclamar.', 'error');
+        } finally { setClaimingAchievementId(null); }
     };
 
     // Colores para las medallas según el tier (usando tokens del tema)
@@ -199,7 +243,7 @@ export default function ProfileScreen({ navigation }: any) {
             justifyContent: 'center',
         },
         notificationBtn: {
-            borderColor: colors.warning + '44', // semitransparente
+            borderColor: colors.warning + '44',
             borderWidth: 1,
             marginTop: 3,
         },
@@ -455,7 +499,7 @@ export default function ProfileScreen({ navigation }: any) {
                     </View>
                     <View style={styles.medalsGrid}>
                         {achievements.length === 0 ? (
-                            <Text style={styles.emptyAchievementsText}>Todavia no hay logros disponibles.</Text>
+                            <Text style={styles.emptyAchievementsText}>Todavía no hay logros disponibles.</Text>
                         ) : (
                             achievements.map((m) => {
                                 const rewardCoins = getAchievementRewardCoins(m);
@@ -520,6 +564,29 @@ export default function ProfileScreen({ navigation }: any) {
                 onClaim={handleClaimAchievement}
                 claiming={selectedAchievement ? claimingAchievementId === selectedAchievement.id : false}
                 renderIcon={renderAchievementIcon}
+            />
+
+            {/* ✅ AppAlert personalizado */}
+            <AppAlert
+                visible={alert.visible}
+                title={alert.title}
+                message={alert.message}
+                type={alert.type}
+                onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+                onConfirm={() => {
+                    if (alert.onConfirm) {
+                        alert.onConfirm();
+                    } else {
+                        setAlert(prev => ({ ...prev, visible: false }));
+                    }
+                }}
+                onCancel={() => {
+                    if (alert.onCancel) alert.onCancel();
+                    setAlert(prev => ({ ...prev, visible: false }));
+                }}
+                confirmText={alert.confirmText || 'Aceptar'}
+                cancelText={alert.cancelText || 'Cancelar'}
+                showCancel={alert.showCancel || false}
             />
         </ScreenLayout>
     );

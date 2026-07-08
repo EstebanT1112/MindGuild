@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,6 +11,7 @@ import {
 import { useRoute } from '@react-navigation/native';
 import { BrainCircuit } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
+import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
 import { useAuthStore } from '../../../store/authStore';
 import { useThemeStore } from '../../../store/themeStore';
 import {
@@ -50,6 +50,48 @@ export default function PracticeQuizScreen() {
 
   const currentQuestion = questions[currentIndex] ?? null;
 
+  // ✅ Estado para AppAlert
+  const [alert, setAlert] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: AlertType;
+    onConfirm?: () => void;
+    confirmText?: string;
+    showCancel?: boolean;
+    cancelText?: string;
+    onCancel?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+  });
+
+  // ✅ Función para mostrar alertas personalizadas
+  const showAlert = (
+    title: string,
+    message: string,
+    type: AlertType = 'info',
+    onConfirm?: () => void,
+    confirmText?: string,
+    showCancel?: boolean,
+    cancelText?: string,
+    onCancel?: () => void
+  ) => {
+    setAlert({
+      visible: true,
+      title,
+      message,
+      type,
+      onConfirm,
+      confirmText: confirmText || 'Aceptar',
+      showCancel: showCancel || false,
+      cancelText: cancelText || 'Cancelar',
+      onCancel,
+    });
+  };
+
   useEffect(() => {
     loadPractice();
   }, [roomId, accessToken]);
@@ -73,7 +115,7 @@ export default function PracticeQuizScreen() {
       setAnsweredCount(0);
       setFinished(false);
     } catch (error: any) {
-      Alert.alert('No se pudo cargar la práctica', error.message ?? 'Intenta nuevamente.');
+      showAlert('No se pudo cargar la práctica', error.message ?? 'Intenta nuevamente.', 'error');
     } finally {
       setLoading(false);
     }
@@ -83,12 +125,12 @@ export default function PracticeQuizScreen() {
     if (!accessToken || !currentQuestion) return;
 
     if (currentQuestion.type === 'multiple_choice' && !selectedOptionId) {
-      Alert.alert('Respuesta requerida', 'Selecciona una opción.');
+      showAlert('Respuesta requerida', 'Selecciona una opción.', 'warning');
       return;
     }
 
     if (currentQuestion.type === 'open' && !openAnswer.trim()) {
-      Alert.alert('Respuesta requerida', 'Escribí una respuesta.');
+      showAlert('Respuesta requerida', 'Escribí una respuesta.', 'warning');
       return;
     }
 
@@ -114,7 +156,7 @@ export default function PracticeQuizScreen() {
         setCorrectCount((count) => count + 1);
       }
     } catch (error: any) {
-      Alert.alert('No se pudo corregir', error.message ?? 'Intenta nuevamente.');
+      showAlert('No se pudo corregir', error.message ?? 'Intenta nuevamente.', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -262,6 +304,29 @@ export default function PracticeQuizScreen() {
           </View>
         ) : null}
       </ScrollView>
+
+      {/* ✅ AppAlert personalizado */}
+      <AppAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        type={alert.type}
+        onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+        onConfirm={() => {
+          if (alert.onConfirm) {
+            alert.onConfirm();
+          } else {
+            setAlert(prev => ({ ...prev, visible: false }));
+          }
+        }}
+        onCancel={() => {
+          if (alert.onCancel) alert.onCancel();
+          setAlert(prev => ({ ...prev, visible: false }));
+        }}
+        confirmText={alert.confirmText || 'Aceptar'}
+        cancelText={alert.cancelText || 'Cancelar'}
+        showCancel={alert.showCancel || false}
+      />
     </ScreenLayout>
   );
 }

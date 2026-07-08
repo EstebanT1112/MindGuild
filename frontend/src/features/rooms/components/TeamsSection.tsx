@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { BrainCircuit, ChevronDown, ChevronUp, Clock, Crown, GraduationCap, Pencil, Shield, Users, X } from 'lucide-react-native';
 import {
   fetchTeamsOverview,
@@ -10,6 +10,7 @@ import {
   type TeamRankingEntry,
   type TeamsOverview,
 } from '../services/teamsService';
+import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
 
 interface TeamsSectionProps {
   roomId: string;
@@ -73,13 +74,55 @@ export default function TeamsSection({ roomId, accessToken }: TeamsSectionProps)
   const [isRenamingTeam, setIsRenamingTeam] = useState(false);
   const [renameValue, setRenameValue] = useState('');
 
+  // ✅ Estado para AppAlert
+  const [alert, setAlert] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: AlertType;
+    onConfirm?: () => void;
+    confirmText?: string;
+    showCancel?: boolean;
+    cancelText?: string;
+    onCancel?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+  });
+
+  // ✅ Función para mostrar alertas personalizadas
+  const showAlert = (
+    title: string,
+    message: string,
+    type: AlertType = 'info',
+    onConfirm?: () => void,
+    confirmText?: string,
+    showCancel?: boolean,
+    cancelText?: string,
+    onCancel?: () => void
+  ) => {
+    setAlert({
+      visible: true,
+      title,
+      message,
+      type,
+      onConfirm,
+      confirmText: confirmText || 'Aceptar',
+      showCancel: showCancel || false,
+      cancelText: cancelText || 'Cancelar',
+      onCancel,
+    });
+  };
+
   const loadTeams = async () => {
     setLoading(true);
     try {
       const data = await fetchTeamsOverview(accessToken, roomId);
       setOverview(data);
     } catch (error: any) {
-      Alert.alert('Equipos', error.message ?? 'No se pudieron cargar los equipos');
+      showAlert('Equipos', error.message ?? 'No se pudieron cargar los equipos', 'error');
     } finally {
       setLoading(false);
     }
@@ -96,7 +139,7 @@ export default function TeamsSection({ roomId, accessToken }: TeamsSectionProps)
       setOverview(data);
       return true;
     } catch (error: any) {
-      Alert.alert('Equipos', error.message ?? 'No se pudo unir al equipo');
+      showAlert('Equipos', error.message ?? 'No se pudo unir al equipo', 'error');
       return false;
     } finally {
       setActionTeamId(null);
@@ -110,7 +153,7 @@ export default function TeamsSection({ roomId, accessToken }: TeamsSectionProps)
       setOverview(data);
       return true;
     } catch (error: any) {
-      Alert.alert('Equipos', error.message ?? 'No se pudo salir del equipo');
+      showAlert('Equipos', error.message ?? 'No se pudo salir del equipo', 'error');
       return false;
     } finally {
       setActionTeamId(null);
@@ -134,7 +177,7 @@ export default function TeamsSection({ roomId, accessToken }: TeamsSectionProps)
 
     const trimmedName = renameValue.trim();
     if (!trimmedName) {
-      Alert.alert('Nombre requerido', 'Ingresa un nombre para el equipo.');
+      showAlert('Nombre requerido', 'Ingresa un nombre para el equipo.', 'warning');
       return;
     }
 
@@ -146,8 +189,9 @@ export default function TeamsSection({ roomId, accessToken }: TeamsSectionProps)
       setSelectedTeam(updatedTeam);
       setRenameValue(updatedTeam?.name ?? '');
       setIsRenamingTeam(false);
+      showAlert('Equipo renombrado', `El equipo ahora se llama "${trimmedName}"`, 'success');
     } catch (error: any) {
-      Alert.alert('Equipos', error.message ?? 'No se pudo cambiar el nombre del equipo');
+      showAlert('Equipos', error.message ?? 'No se pudo cambiar el nombre del equipo', 'error');
     } finally {
       setSaving(false);
     }
@@ -162,140 +206,165 @@ export default function TeamsSection({ roomId, accessToken }: TeamsSectionProps)
   const canRenameTeams = Boolean(overview?.rename_permission?.can_rename_all);
 
   return (
-    <View style={[styles.container, !isExpanded && styles.containerCollapsed]}>
-      <Pressable style={[styles.header, !isExpanded && styles.headerCollapsed]} onPress={() => setIsExpanded(!isExpanded)}>
-        <View style={styles.titleRow}>
-          <Shield color="#3b82f6" size={20} />
-          <Text style={styles.title}>Equipos</Text>
-        </View>
-        {isExpanded ? <ChevronUp color="#64748b" size={20} /> : <ChevronDown color="#64748b" size={20} />}
-      </Pressable>
+    <>
+      <View style={[styles.container, !isExpanded && styles.containerCollapsed]}>
+        <Pressable style={[styles.header, !isExpanded && styles.headerCollapsed]} onPress={() => setIsExpanded(!isExpanded)}>
+          <View style={styles.titleRow}>
+            <Shield color="#3b82f6" size={20} />
+            <Text style={styles.title}>Equipos</Text>
+          </View>
+          {isExpanded ? <ChevronUp color="#64748b" size={20} /> : <ChevronDown color="#64748b" size={20} />}
+        </Pressable>
 
-      {isExpanded && (
-        <>
-          <TeamRanking ranking={ranking} activeType={activeRankingType} onChangeType={setActiveRankingType} />
+        {isExpanded && (
+          <>
+            <TeamRanking ranking={ranking} activeType={activeRankingType} onChangeType={setActiveRankingType} />
 
-          {loading ? (
-            <View style={styles.loadingState}>
-              <ActivityIndicator color="#3b82f6" />
-              <Text style={styles.mutedText}>Cargando equipos...</Text>
-            </View>
-          ) : teams.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>Todavia no hay equipos</Text>
-              <Text style={styles.mutedText}>El owner todavia no creo equipos.</Text>
-            </View>
-          ) : (
-            teams.map((team, index) => (
-              <TeamCard
-                key={team.id}
-                team={team}
-                color={team.color ?? colors[index % colors.length]}
-                myTeamId={myTeamId}
-                onPress={() => openTeamDetail(team)}
-              />
-            ))
-          )}
-        </>
-      )}
-
-      <Modal visible={Boolean(selectedTeam)} animationType="fade" transparent onRequestClose={closeTeamDetail}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.teamDetailModal, { borderColor: selectedTeamColor }]}>
-            <View style={styles.teamDetailHeader}>
-              <View style={styles.teamTitleRow}>
-                <View style={[styles.colorDot, { backgroundColor: selectedTeamColor }]} />
-                <Text style={styles.teamDetailTitle}>{selectedTeam?.name}</Text>
+            {loading ? (
+              <View style={styles.loadingState}>
+                <ActivityIndicator color="#3b82f6" />
+                <Text style={styles.mutedText}>Cargando equipos...</Text>
               </View>
-              <View style={styles.headerActions}>
-                {canRenameTeams && selectedTeam && (
-                  <Pressable
-                    style={styles.editTeamBtn}
-                    onPress={() => {
-                      setRenameValue(selectedTeam.name);
-                      setIsRenamingTeam(true);
-                    }}
-                  >
-                    <Pencil color="#facc15" size={16} />
-                  </Pressable>
-                )}
-                <Pressable style={styles.closeBtn} onPress={closeTeamDetail}>
-                  <X color="#94a3b8" size={18} />
-                </Pressable>
+            ) : teams.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <Text style={styles.emptyTitle}>Todavía no hay equipos</Text>
+                <Text style={styles.mutedText}>El owner todavía no creó equipos.</Text>
               </View>
-            </View>
-
-            {isRenamingTeam && (
-              <View style={styles.renameBox}>
-                <TextInput
-                  value={renameValue}
-                  onChangeText={setRenameValue}
-                  maxLength={40}
-                  placeholder="Nombre del equipo"
-                  placeholderTextColor="#64748b"
-                  style={styles.renameInput}
+            ) : (
+              teams.map((team, index) => (
+                <TeamCard
+                  key={team.id}
+                  team={team}
+                  color={team.color ?? colors[index % colors.length]}
+                  myTeamId={myTeamId}
+                  onPress={() => openTeamDetail(team)}
                 />
-                <View style={styles.renameActions}>
-                  <Pressable
-                    style={styles.cancelRenameBtn}
-                    onPress={() => {
-                      setRenameValue(selectedTeam?.name ?? '');
-                      setIsRenamingTeam(false);
-                    }}
-                    disabled={saving}
-                  >
-                    <Text style={styles.cancelRenameText}>Cancelar</Text>
-                  </Pressable>
-                  <Pressable style={[styles.confirmRenameBtn, saving && styles.disabled]} onPress={handleRenameTeam} disabled={saving}>
-                    {saving ? <ActivityIndicator color="white" /> : <Text style={styles.confirmRenameText}>Guardar</Text>}
+              ))
+            )}
+          </>
+        )}
+
+        <Modal visible={Boolean(selectedTeam)} animationType="fade" transparent onRequestClose={closeTeamDetail}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.teamDetailModal, { borderColor: selectedTeamColor }]}>
+              <View style={styles.teamDetailHeader}>
+                <View style={styles.teamTitleRow}>
+                  <View style={[styles.colorDot, { backgroundColor: selectedTeamColor }]} />
+                  <Text style={styles.teamDetailTitle}>{selectedTeam?.name}</Text>
+                </View>
+                <View style={styles.headerActions}>
+                  {canRenameTeams && selectedTeam && (
+                    <Pressable
+                      style={styles.editTeamBtn}
+                      onPress={() => {
+                        setRenameValue(selectedTeam.name);
+                        setIsRenamingTeam(true);
+                      }}
+                    >
+                      <Pencil color="#facc15" size={16} />
+                    </Pressable>
+                  )}
+                  <Pressable style={styles.closeBtn} onPress={closeTeamDetail}>
+                    <X color="#94a3b8" size={18} />
                   </Pressable>
                 </View>
               </View>
-            )}
 
-            <View style={styles.memberCountDetail}>
-              <Users color="#64748b" size={14} />
-              <Text style={styles.countText}>{selectedTeam?.members.length ?? 0} integrantes</Text>
-            </View>
-
-            <View style={styles.memberChips}>
-              {!selectedTeam || selectedTeam.members.length === 0 ? (
-                <Text style={styles.mutedText}>Sin integrantes activos.</Text>
-              ) : (
-                selectedTeam.members.map(member => (
-                  <View key={member.id} style={styles.chip}>
-                    <Text style={styles.chipText}>{member.username}</Text>
+              {isRenamingTeam && (
+                <View style={styles.renameBox}>
+                  <TextInput
+                    value={renameValue}
+                    onChangeText={setRenameValue}
+                    maxLength={40}
+                    placeholder="Nombre del equipo"
+                    placeholderTextColor="#64748b"
+                    style={styles.renameInput}
+                  />
+                  <View style={styles.renameActions}>
+                    <Pressable
+                      style={styles.cancelRenameBtn}
+                      onPress={() => {
+                        setRenameValue(selectedTeam?.name ?? '');
+                        setIsRenamingTeam(false);
+                      }}
+                      disabled={saving}
+                    >
+                      <Text style={styles.cancelRenameText}>Cancelar</Text>
+                    </Pressable>
+                    <Pressable style={[styles.confirmRenameBtn, saving && styles.disabled]} onPress={handleRenameTeam} disabled={saving}>
+                      {saving ? <ActivityIndicator color="white" /> : <Text style={styles.confirmRenameText}>Guardar</Text>}
+                    </Pressable>
                   </View>
-                ))
+                </View>
               )}
-            </View>
 
-            {(selectedTeamIsMine || canJoinSelectedTeam) && (
-              <View style={styles.teamActions}>
-                {canJoinSelectedTeam && selectedTeam && (
-                  <Pressable
-                    style={styles.teamActionBtn}
-                    onPress={() => handleJoinTeam(selectedTeam.id).then(success => success && closeTeamDetail())}
-                    disabled={actionTeamId === selectedTeam.id}
-                  >
-                    {actionTeamId === selectedTeam.id ? <ActivityIndicator color="white" /> : <Text style={styles.teamActionText}>Unirme</Text>}
-                  </Pressable>
-                )}
-                {selectedTeamIsMine && selectedTeam && (
-                  <Pressable
-                    style={[styles.teamActionBtn, styles.leaveBtn]}
-                    onPress={() => handleLeaveTeam(selectedTeam.id).then(success => success && closeTeamDetail())}
-                    disabled={actionTeamId === selectedTeam.id}
-                  >
-                    {actionTeamId === selectedTeam.id ? <ActivityIndicator color="#fecaca" /> : <Text style={styles.leaveBtnText}>Salir del equipo</Text>}
-                  </Pressable>
+              <View style={styles.memberCountDetail}>
+                <Users color="#64748b" size={14} />
+                <Text style={styles.countText}>{selectedTeam?.members.length ?? 0} integrantes</Text>
+              </View>
+
+              <View style={styles.memberChips}>
+                {!selectedTeam || selectedTeam.members.length === 0 ? (
+                  <Text style={styles.mutedText}>Sin integrantes activos.</Text>
+                ) : (
+                  selectedTeam.members.map(member => (
+                    <View key={member.id} style={styles.chip}>
+                      <Text style={styles.chipText}>{member.username}</Text>
+                    </View>
+                  ))
                 )}
               </View>
-            )}
+
+              {(selectedTeamIsMine || canJoinSelectedTeam) && (
+                <View style={styles.teamActions}>
+                  {canJoinSelectedTeam && selectedTeam && (
+                    <Pressable
+                      style={styles.teamActionBtn}
+                      onPress={() => handleJoinTeam(selectedTeam.id).then(success => success && closeTeamDetail())}
+                      disabled={actionTeamId === selectedTeam.id}
+                    >
+                      {actionTeamId === selectedTeam.id ? <ActivityIndicator color="white" /> : <Text style={styles.teamActionText}>Unirme</Text>}
+                    </Pressable>
+                  )}
+                  {selectedTeamIsMine && selectedTeam && (
+                    <Pressable
+                      style={[styles.teamActionBtn, styles.leaveBtn]}
+                      onPress={() => handleLeaveTeam(selectedTeam.id).then(success => success && closeTeamDetail())}
+                      disabled={actionTeamId === selectedTeam.id}
+                    >
+                      {actionTeamId === selectedTeam.id ? <ActivityIndicator color="#fecaca" /> : <Text style={styles.leaveBtnText}>Salir del equipo</Text>}
+                    </Pressable>
+                  )}
+                </View>
+              )}
+            </View>
           </View>
-        </View>
-      </Modal>
-    </View>
+        </Modal>
+      </View>
+
+      {/* ✅ AppAlert personalizado */}
+      <AppAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        type={alert.type}
+        onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+        onConfirm={() => {
+          if (alert.onConfirm) {
+            alert.onConfirm();
+          } else {
+            setAlert(prev => ({ ...prev, visible: false }));
+          }
+        }}
+        onCancel={() => {
+          if (alert.onCancel) alert.onCancel();
+          setAlert(prev => ({ ...prev, visible: false }));
+        }}
+        confirmText={alert.confirmText || 'Aceptar'}
+        cancelText={alert.cancelText || 'Cancelar'}
+        showCancel={alert.showCancel || false}
+      />
+    </>
   );
 }
 
@@ -369,7 +438,7 @@ function TeamRanking({
       </View>
 
       {sortedRanking.length === 0 ? (
-        <Text style={styles.mutedText}>Sin datos de ranking todavia.</Text>
+        <Text style={styles.mutedText}>Sin datos de ranking todavía.</Text>
       ) : (
         sortedRanking.map((entry, index) => (
           <View key={entry.team_id} style={styles.rankingRow}>

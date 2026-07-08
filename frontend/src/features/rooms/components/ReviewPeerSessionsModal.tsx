@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, StyleSheet, Text, View, Pressable, ScrollView, Image, ActivityIndicator, Alert } from 'react-native';
+import { Modal, StyleSheet, Text, View, Pressable, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { Check, X, Users, Image as ImageIcon } from 'lucide-react-native';
 import { useThemeStore } from '../../../store/themeStore';
 import { fetchPendingSessionReviews, reviewStudySession, type PendingReviewSession } from '../services/sessionsService';
+import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
 
 interface ReviewPeerSessionsModalProps {
   visible: boolean;
@@ -10,7 +11,7 @@ interface ReviewPeerSessionsModalProps {
   accessToken: string | null;
   onClose: () => void;
   onRefreshRanking: () => void;
-  onReviewProcessed?: (count: number) => void; // ✅ Nuevo callback para notificar conteo actualizado
+  onReviewProcessed?: (count: number) => void;
 }
 
 export default function ReviewPeerSessionsModal({
@@ -27,6 +28,48 @@ export default function ReviewPeerSessionsModal({
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
   const [votingSessionId, setVotingSessionId] = useState<string | null>(null);
 
+  // ✅ Estado para AppAlert
+  const [alert, setAlert] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: AlertType;
+    onConfirm?: () => void;
+    confirmText?: string;
+    showCancel?: boolean;
+    cancelText?: string;
+    onCancel?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+  });
+
+  // ✅ Función para mostrar alertas personalizadas
+  const showAlert = (
+    title: string,
+    message: string,
+    type: AlertType = 'info',
+    onConfirm?: () => void,
+    confirmText?: string,
+    showCancel?: boolean,
+    cancelText?: string,
+    onCancel?: () => void
+  ) => {
+    setAlert({
+      visible: true,
+      title,
+      message,
+      type,
+      onConfirm,
+      confirmText: confirmText || 'Aceptar',
+      showCancel: showCancel || false,
+      cancelText: cancelText || 'Cancelar',
+      onCancel,
+    });
+  };
+
   useEffect(() => {
     if (visible && roomId && accessToken) {
       loadPendingReviews();
@@ -40,7 +83,6 @@ export default function ReviewPeerSessionsModal({
       const data = await fetchPendingSessionReviews(accessToken, roomId);
       setReviews(data);
       setImageErrors({});
-      // ✅ Notificar al padre el conteo inicial de pendientes
       onReviewProcessed?.(data.length);
     } catch (error: any) {
       console.error('[ReviewPeerSessionsModal] Error al cargar revisiones:', error);
@@ -55,22 +97,21 @@ export default function ReviewPeerSessionsModal({
     setVotingSessionId(sessionId);
     try {
       await reviewStudySession(accessToken, sessionId, { vote, comment: 'Resolución cruzada de sala' });
-      Alert.alert(
+      showAlert(
         vote === 'accept' ? 'Sesión Aprobada' : 'Sesión Rechazada',
-        vote === 'accept' ? 'Validaste los minutos de tu compañero.' : 'Rechazaste la sesión por considerarla inválida.'
+        vote === 'accept' ? 'Validaste los minutos de tu compañero.' : 'Rechazaste la sesión por considerarla inválida.',
+        vote === 'accept' ? 'success' : 'warning'
       );
       
-      // ✅ Actualizamos el estado local y notificamos al padre con el nuevo conteo
       setReviews((prev) => {
         const newReviews = prev.filter((r) => r.id !== sessionId);
-        // ✅ Notificar al padre el nuevo conteo (después de eliminar la sesión votada)
         onReviewProcessed?.(newReviews.length);
         return newReviews;
       });
       
       onRefreshRanking();
     } catch (error: any) {
-      Alert.alert('Error', error.message ?? 'No se pudo procesar tu votación.');
+      showAlert('Error', error.message ?? 'No se pudo procesar tu votación.', 'error');
     } finally {
       setVotingSessionId(null);
     }
@@ -81,97 +122,122 @@ export default function ReviewPeerSessionsModal({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
-      <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
-        <View style={[styles.modalContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <View style={styles.header}>
-            <Users color={colors.accent} size={22} />
-            <Text style={[styles.title, { color: colors.text }]}>Tribunal de Sala</Text>
-          </View>
-
-          {loading ? (
-            <ActivityIndicator color={colors.accent} size="large" style={{ marginVertical: 40 }} />
-          ) : reviews.length === 0 ? (
-            <View style={styles.emptyBox}>
-              <Text style={[styles.emptyText, { color: colors.text }]}>No hay sesiones pendientes</Text>
-              <Text style={[styles.emptySub, { color: colors.textSoft }]}>¡Tus compañeros están al día con sus apuntes!</Text>
+    <>
+      <Modal visible={visible} animationType="slide" transparent>
+        <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+          <View style={[styles.modalContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.header}>
+              <Users color={colors.accent} size={22} />
+              <Text style={[styles.title, { color: colors.text }]}>Tribunal de Sala</Text>
             </View>
-          ) : (
-            <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-              {reviews.map((item) => {
-                const hasImageError = imageErrors[item.id];
-                const isThisLoading = votingSessionId === item.id;
-                const isAnyLoading = votingSessionId !== null;
 
-                return (
-                  <View key={item.id} style={[styles.reviewCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                    <Text style={[styles.userName, { color: colors.accent }]}>@{item.username}</Text>
-                    <Text style={[styles.duration, { color: colors.textMuted }]}>Estudió: {item.duration_minutes} minutos</Text>
-                    
-                    <View style={[styles.imageWrapper, { backgroundColor: colors.surfaceElevated }]}>
-                      {!hasImageError && item.evidence_photo_url ? (
-                        <Image 
-                          source={{ uri: item.evidence_photo_url }} 
-                          style={styles.evidenceImg} 
-                          onError={() => handleImageError(item.id)}
-                        />
-                      ) : (
-                        <View style={[styles.imageFallbackBox, { borderColor: colors.border }]}>
-                          <ImageIcon color={colors.textSoft} size={32} />
-                          <Text style={[styles.imageFallbackText, { color: colors.textSoft }]}>Evidencia fotográfica en revisión</Text>
-                        </View>
-                      )}
-                    </View>
+            {loading ? (
+              <ActivityIndicator color={colors.accent} size="large" style={{ marginVertical: 40 }} />
+            ) : reviews.length === 0 ? (
+              <View style={styles.emptyBox}>
+                <Text style={[styles.emptyText, { color: colors.text }]}>No hay sesiones pendientes</Text>
+                <Text style={[styles.emptySub, { color: colors.textSoft }]}>¡Tus compañeros están al día con sus apuntes!</Text>
+              </View>
+            ) : (
+              <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+                {reviews.map((item) => {
+                  const hasImageError = imageErrors[item.id];
+                  const isThisLoading = votingSessionId === item.id;
+                  const isAnyLoading = votingSessionId !== null;
 
-                    <Text style={[styles.summary, { color: colors.text }]}>&ldquo;{item.summary_text}&rdquo;</Text>
-
-                    <View style={styles.btnRow}>
-                      <Pressable 
-                        style={[styles.voteBtn, { backgroundColor: colors.danger }, isAnyLoading && styles.disabledBtn]} 
-                        onPress={() => handleVote(item.id, 'reject')}
-                        disabled={isAnyLoading}
-                      >
-                        {isThisLoading && votingSessionId === item.id ? (
-                          <ActivityIndicator color="white" size="small" />
+                  return (
+                    <View key={item.id} style={[styles.reviewCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                      <Text style={[styles.userName, { color: colors.accent }]}>@{item.username}</Text>
+                      <Text style={[styles.duration, { color: colors.textMuted }]}>Estudió: {item.duration_minutes} minutos</Text>
+                      
+                      <View style={[styles.imageWrapper, { backgroundColor: colors.surfaceElevated }]}>
+                        {!hasImageError && item.evidence_photo_url ? (
+                          <Image 
+                            source={{ uri: item.evidence_photo_url }} 
+                            style={styles.evidenceImg} 
+                            onError={() => handleImageError(item.id)}
+                          />
                         ) : (
-                          <>
-                            <X color="white" size={18} />
-                            <Text style={styles.btnText}>Fraude</Text>
-                          </>
+                          <View style={[styles.imageFallbackBox, { borderColor: colors.border }]}>
+                            <ImageIcon color={colors.textSoft} size={32} />
+                            <Text style={[styles.imageFallbackText, { color: colors.textSoft }]}>Evidencia fotográfica en revisión</Text>
+                          </View>
                         )}
-                      </Pressable>
+                      </View>
 
-                      <Pressable 
-                        style={[styles.voteBtn, { backgroundColor: colors.accent }, isAnyLoading && styles.disabledBtn]} 
-                        onPress={() => handleVote(item.id, 'accept')}
-                        disabled={isAnyLoading}
-                      >
-                        {isThisLoading ? (
-                          <ActivityIndicator color="white" size="small" />
-                        ) : (
-                          <>
-                            <Check color="white" size={18} />
-                            <Text style={styles.btnText}>Aceptar</Text>
-                          </>
-                        )}
-                      </Pressable>
+                      <Text style={[styles.summary, { color: colors.text }]}>&ldquo;{item.summary_text}&rdquo;</Text>
+
+                      <View style={styles.btnRow}>
+                        <Pressable 
+                          style={[styles.voteBtn, { backgroundColor: colors.danger }, isAnyLoading && styles.disabledBtn]} 
+                          onPress={() => handleVote(item.id, 'reject')}
+                          disabled={isAnyLoading}
+                        >
+                          {isThisLoading && votingSessionId === item.id ? (
+                            <ActivityIndicator color="white" size="small" />
+                          ) : (
+                            <>
+                              <X color="white" size={18} />
+                              <Text style={styles.btnText}>Fraude</Text>
+                            </>
+                          )}
+                        </Pressable>
+
+                        <Pressable 
+                          style={[styles.voteBtn, { backgroundColor: colors.accent }, isAnyLoading && styles.disabledBtn]} 
+                          onPress={() => handleVote(item.id, 'accept')}
+                          disabled={isAnyLoading}
+                        >
+                          {isThisLoading ? (
+                            <ActivityIndicator color="white" size="small" />
+                          ) : (
+                            <>
+                              <Check color="white" size={18} />
+                              <Text style={styles.btnText}>Aceptar</Text>
+                            </>
+                          )}
+                        </Pressable>
+                      </View>
                     </View>
-                  </View>
-                );
-              })}
-            </ScrollView>
-          )}
+                  );
+                })}
+              </ScrollView>
+            )}
 
-          <Pressable 
-            style={[styles.closeBtn, { backgroundColor: colors.surfaceElevated }, votingSessionId !== null && styles.disabledBtn]} 
-            onPress={onClose}
-            disabled={votingSessionId !== null}
-          >
-            <Text style={[styles.closeText, { color: colors.text }]}>Volver a la Sala</Text>
-          </Pressable>
+            <Pressable 
+              style={[styles.closeBtn, { backgroundColor: colors.surfaceElevated }, votingSessionId !== null && styles.disabledBtn]} 
+              onPress={onClose}
+              disabled={votingSessionId !== null}
+            >
+              <Text style={[styles.closeText, { color: colors.text }]}>Volver a la Sala</Text>
+            </Pressable>
+          </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+
+      {/* ✅ AppAlert personalizado */}
+      <AppAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        type={alert.type}
+        onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+        onConfirm={() => {
+          if (alert.onConfirm) {
+            alert.onConfirm();
+          } else {
+            setAlert(prev => ({ ...prev, visible: false }));
+          }
+        }}
+        onCancel={() => {
+          if (alert.onCancel) alert.onCancel();
+          setAlert(prev => ({ ...prev, visible: false }));
+        }}
+        confirmText={alert.confirmText || 'Aceptar'}
+        cancelText={alert.cancelText || 'Cancelar'}
+        showCancel={alert.showCancel || false}
+      />
+    </>
   );
 }
 

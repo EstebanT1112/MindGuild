@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import { BarChart3, CalendarClock, Plus, Trash2, X } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
+import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
 import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
 import NewQuestionModal from '../components/NewQuestionModal';
@@ -55,6 +56,48 @@ export default function WeeklyQuizScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
+  // ✅ Estado para AppAlert
+  const [alert, setAlert] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: AlertType;
+    onConfirm?: () => void;
+    confirmText?: string;
+    showCancel?: boolean;
+    cancelText?: string;
+    onCancel?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+  });
+
+  // ✅ Función para mostrar alertas personalizadas
+  const showAlert = (
+    title: string,
+    message: string,
+    type: AlertType = 'info',
+    onConfirm?: () => void,
+    confirmText?: string,
+    showCancel?: boolean,
+    cancelText?: string,
+    onCancel?: () => void
+  ) => {
+    setAlert({
+      visible: true,
+      title,
+      message,
+      type,
+      onConfirm,
+      confirmText: confirmText || 'Aceptar',
+      showCancel: showCancel || false,
+      cancelText: cancelText || 'Cancelar',
+      onCancel,
+    });
+  };
+
   const roomId = route.params?.roomId ? String(route.params.roomId) : null;
   const roomName = route.params?.roomName ? String(route.params.roomName) : 'Quiz semanal';
 
@@ -89,7 +132,7 @@ export default function WeeklyQuizScreen() {
         setMode('overview');
       }
     } catch (error: any) {
-      Alert.alert('Error de quiz', error.message ?? 'No se pudo cargar el quiz semanal.');
+      showAlert('Error de quiz', error.message ?? 'No se pudo cargar el quiz semanal.', 'error');
     } finally {
       if (options?.showLoading ?? true) setLoading(false);
     }
@@ -128,7 +171,7 @@ export default function WeeklyQuizScreen() {
       setOpenAnswer('');
       setMode('answering');
     } catch (error: any) {
-      Alert.alert('No se pudo iniciar', error.message ?? 'Intenta nuevamente.');
+      showAlert('No se pudo iniciar', error.message ?? 'Intenta nuevamente.', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -142,12 +185,12 @@ export default function WeeklyQuizScreen() {
       : { question_id: currentQuestion.id, answer_text: openAnswer.trim() };
 
     if (currentQuestion.type === 'multiple_choice' && !payload.selected_option_id) {
-      Alert.alert('Respuesta requerida', 'Selecciona una opcion.');
+      showAlert('Respuesta requerida', 'Selecciona una opción.', 'warning');
       return;
     }
 
     if (currentQuestion.type === 'open' && !payload.answer_text) {
-      Alert.alert('Respuesta requerida', 'Escribi una respuesta.');
+      showAlert('Respuesta requerida', 'Escribí una respuesta.', 'warning');
       return;
     }
 
@@ -167,7 +210,7 @@ export default function WeeklyQuizScreen() {
       setMode('overview');
       await loadData({ showLoading: false });
     } catch (error: any) {
-      Alert.alert('No se pudo guardar', error.message ?? 'Intenta nuevamente.');
+      showAlert('No se pudo guardar', error.message ?? 'Intenta nuevamente.', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -198,7 +241,7 @@ export default function WeeklyQuizScreen() {
         }
       }
     } catch (error: any) {
-      Alert.alert('No se pudo votar', error.message ?? 'Intenta nuevamente.');
+      showAlert('No se pudo votar', error.message ?? 'Intenta nuevamente.', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -210,13 +253,14 @@ export default function WeeklyQuizScreen() {
     setActionLoading(true);
     try {
       const result = await resolveWeeklyQuiz(accessToken, roomId);
-      Alert.alert(
+      showAlert(
         'Resultados generados',
-        `Preguntas validadas: ${result.validated_questions}. Preguntas rechazadas: ${result.rejected_questions}. Respuestas correctas: ${result.validated_answers}. Respuestas incorrectas: ${result.rejected_answers}.`
+        `Preguntas validadas: ${result.validated_questions}. Preguntas rechazadas: ${result.rejected_questions}. Respuestas correctas: ${result.validated_answers}. Respuestas incorrectas: ${result.rejected_answers}.`,
+        'success'
       );
       await loadData({ showLoading: false });
     } catch (error: any) {
-      Alert.alert('No se pudo resolver', error.message ?? 'Intenta nuevamente.');
+      showAlert('No se pudo resolver', error.message ?? 'Intenta nuevamente.', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -225,63 +269,58 @@ export default function WeeklyQuizScreen() {
   const handleResetQuiz = () => {
     if (!accessToken || !roomId) return;
 
-    Alert.alert(
+    showAlert(
       'Reiniciar cuestionario',
-      'Se va a borrar el cuestionario semanal actual, sus preguntas, respuestas, votos y resultados. Despues vas a poder configurarlo nuevamente.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Reiniciar',
-          style: 'destructive',
-          onPress: async () => {
-            setActionLoading(true);
-            try {
-              const result = await resetWeeklyQuiz(accessToken, roomId);
-              setWeeklyQuiz(null);
-              setQuizStatus(null);
-              setQuizResult(null);
-              setQuestions([]);
-              setAttempt(null);
-              setValidationItems([]);
-              setMode('overview');
-              Alert.alert('Cuestionario reiniciado', `Se eliminaron ${result.deleted_questions} preguntas del cuestionario anterior.`);
-              await loadData({ showLoading: false });
-              setConfigVisible(true);
-            } catch (error: any) {
-              Alert.alert('No se pudo reiniciar', error.message ?? 'Intenta nuevamente.');
-            } finally {
-              setActionLoading(false);
-            }
-          },
-        },
-      ]
+      'Se va a borrar el cuestionario semanal actual, sus preguntas, respuestas, votos y resultados. Después vas a poder configurarlo nuevamente.',
+      'warning',
+      async () => {
+        setActionLoading(true);
+        try {
+          const result = await resetWeeklyQuiz(accessToken, roomId);
+          setWeeklyQuiz(null);
+          setQuizStatus(null);
+          setQuizResult(null);
+          setQuestions([]);
+          setAttempt(null);
+          setValidationItems([]);
+          setMode('overview');
+          showAlert('Cuestionario reiniciado', `Se eliminaron ${result.deleted_questions} preguntas del cuestionario anterior.`, 'success');
+          await loadData({ showLoading: false });
+          setConfigVisible(true);
+        } catch (error: any) {
+          showAlert('No se pudo reiniciar', error.message ?? 'Intenta nuevamente.', 'error');
+        } finally {
+          setActionLoading(false);
+        }
+      },
+      'Reiniciar',
+      true,
+      'Cancelar'
     );
   };
 
   const handleDeleteQuestion = (question: BattleQuestion) => {
     if (!accessToken || !roomId) return;
 
-    Alert.alert(
+    showAlert(
       'Eliminar pregunta',
-      'La pregunta se va a borrar fisicamente si todavia no fue tomada por el quiz.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            setActionLoading(true);
-            try {
-              await deleteRoomQuestion(accessToken, roomId, question.id);
-              await loadData({ showLoading: false });
-            } catch (error: any) {
-              Alert.alert('No se pudo eliminar', error.message ?? 'Intenta nuevamente.');
-            } finally {
-              setActionLoading(false);
-            }
-          },
-        },
-      ]
+      'La pregunta se va a borrar físicamente si todavía no fue tomada por el quiz.',
+      'warning',
+      async () => {
+        setActionLoading(true);
+        try {
+          await deleteRoomQuestion(accessToken, roomId, question.id);
+          await loadData({ showLoading: false });
+          showAlert('Pregunta eliminada', 'La pregunta fue eliminada correctamente.', 'success');
+        } catch (error: any) {
+          showAlert('No se pudo eliminar', error.message ?? 'Intenta nuevamente.', 'error');
+        } finally {
+          setActionLoading(false);
+        }
+      },
+      'Eliminar',
+      true,
+      'Cancelar'
     );
   };
 
@@ -333,7 +372,7 @@ export default function WeeklyQuizScreen() {
             ) : (
               <TextInput
                 style={styles.answerInput}
-                placeholder="Escribi tu respuesta..."
+                placeholder="Escribí tu respuesta..."
                 placeholderTextColor="#64748b"
                 multiline
                 value={openAnswer}
@@ -342,28 +381,28 @@ export default function WeeklyQuizScreen() {
             )}
 
             <Pressable style={[styles.primaryBtn, actionLoading && styles.disabledBtn]} onPress={handleSubmitAnswer} disabled={actionLoading}>
-              {actionLoading ? <ActivityIndicator color="white" /> : <Text style={styles.primaryBtnText}>{currentQuestionIndex === attempt.questions.length - 1 ? 'Finalizar e ir a validacion' : 'Guardar y continuar'}</Text>}
+              {actionLoading ? <ActivityIndicator color="white" /> : <Text style={styles.primaryBtnText}>{currentQuestionIndex === attempt.questions.length - 1 ? 'Finalizar e ir a validación' : 'Guardar y continuar'}</Text>}
             </Pressable>
           </View>
         ) : null}
 
         {mode === 'validation' ? (
           <View style={styles.flowCard}>
-            <Text style={styles.flowLabel}>Validacion Cuestionario Semanal</Text>
+            <Text style={styles.flowLabel}>Validación Cuestionario Semanal</Text>
             <Text style={styles.validationPhaseText}>
               {validationPhase === 'question'
                 ? 'Primero valida las preguntas propuestas.'
-                : 'Ahora valida si las respuestas de tus companeros son correctas.'}
+                : 'Ahora valida si las respuestas de tus compañeros son correctas.'}
             </Text>
             {validationItems.length === 0 ? (
               <>
-                <Text style={styles.emptyTitle}>No tenes items pendientes para validar</Text>
-                <Text style={styles.emptyText}>Ya podes volver al uso normal de la sala.</Text>
+                <Text style={styles.emptyTitle}>No tenés items pendientes para validar</Text>
+                <Text style={styles.emptyText}>Ya podés volver al uso normal de la sala.</Text>
               </>
             ) : currentValidationItem ? (
               <View key={`${currentValidationItem.type}-${currentValidationItem.response_id ?? currentValidationItem.question_id}`} style={styles.validationItem}>
                   <Text style={styles.questionMeta}>
-                    {currentValidationItem.type === 'question' ? 'Pregunta propuesta' : 'Respuesta de companero'} {validationIndex + 1} de {currentValidationItems.length}
+                    {currentValidationItem.type === 'question' ? 'Pregunta propuesta' : 'Respuesta de compañero'} {validationIndex + 1} de {currentValidationItems.length}
                   </Text>
                   <Text style={styles.flowQuestion}>{currentValidationItem.question_text}</Text>
 
@@ -406,21 +445,21 @@ export default function WeeklyQuizScreen() {
                   <Text style={styles.validationAuthorText}>
                     {currentValidationItem.type === 'question'
                       ? `Autor: ${currentValidationItem.author?.username ?? 'usuario'}`
-                      : `Respondio: ${currentValidationItem.responder?.username ?? 'usuario'}`}
+                      : `Respondió: ${currentValidationItem.responder?.username ?? 'usuario'}`}
                   </Text>
                   <View style={styles.voteRow}>
                     <Pressable style={[styles.voteBtn, styles.votePositive]} onPress={() => handleVote(currentValidationItem, 'positive')} disabled={actionLoading}>
-                      <Text style={styles.voteText}>{currentValidationItem.type === 'response' ? 'Respondio bien' : 'Validar'}</Text>
+                      <Text style={styles.voteText}>{currentValidationItem.type === 'response' ? 'Respondió bien' : 'Validar'}</Text>
                     </Pressable>
                     <Pressable style={[styles.voteBtn, styles.voteNegative]} onPress={() => handleVote(currentValidationItem, 'negative')} disabled={actionLoading}>
-                      <Text style={styles.voteText}>{currentValidationItem.type === 'response' ? 'Respondio mal' : 'Rechazar'}</Text>
+                      <Text style={styles.voteText}>{currentValidationItem.type === 'response' ? 'Respondió mal' : 'Rechazar'}</Text>
                     </Pressable>
                   </View>
                 </View>
             ) : (
               <>
                 <Text style={styles.emptyTitle}>No quedan items en esta fase</Text>
-                <Text style={styles.emptyText}>Se esta actualizando la siguiente validacion.</Text>
+                <Text style={styles.emptyText}>Se está actualizando la siguiente validación.</Text>
               </>
             )}
           </View>
@@ -432,7 +471,7 @@ export default function WeeklyQuizScreen() {
         <Pressable style={styles.primaryBtn} onPress={() => setConfigVisible(true)}>
           <CalendarClock color="white" size={22} />
           <Text style={styles.primaryBtnText}>
-            {weeklyQuiz ? 'Ver configuracion semanal' : 'Configurar cuestionario semanal'}
+            {weeklyQuiz ? 'Ver configuración semanal' : 'Configurar cuestionario semanal'}
           </Text>
         </Pressable>
 
@@ -451,8 +490,8 @@ export default function WeeklyQuizScreen() {
             <Text style={styles.emptyTitle}>Sin cuestionario configurado</Text>
             <Text style={styles.emptyText}>
               {isOwner
-                ? 'Configura el dia y horario recurrente para habilitar el quiz semanal.'
-                : 'El owner todavia no configuro el cuestionario semanal.'}
+                ? 'Configura el día y horario recurrente para habilitar el quiz semanal.'
+                : 'El owner todavía no configuró el cuestionario semanal.'}
             </Text>
           </View>
         )}
@@ -462,11 +501,11 @@ export default function WeeklyQuizScreen() {
             <Text style={styles.statusCardTitle}>Estado del quiz</Text>
             <View style={styles.statusGrid}>
               <View style={styles.statusMetric}>
-                <Text style={styles.statusMetricValue}>{hasCompletedQuiz ? 'Si' : 'No'}</Text>
+                <Text style={styles.statusMetricValue}>{hasCompletedQuiz ? 'Sí' : 'No'}</Text>
                 <Text style={styles.statusMetricLabel}>Completado</Text>
               </View>
               <View style={styles.statusMetric}>
-                <Text style={styles.statusMetricValue}>{quizStatus.can_start ? 'Si' : 'No'}</Text>
+                <Text style={styles.statusMetricValue}>{quizStatus.can_start ? 'Sí' : 'No'}</Text>
                 <Text style={styles.statusMetricLabel}>Habilitado</Text>
               </View>
             </View>
@@ -484,7 +523,7 @@ export default function WeeklyQuizScreen() {
         ) : hasCompletedQuiz ? (
           <View style={styles.pendingResultCard}>
             <Text style={styles.emptyTitle}>Resultado pendiente</Text>
-            <Text style={styles.emptyText}>El resultado aparece cuando termine la validacion grupal y el owner lo genere.</Text>
+            <Text style={styles.emptyText}>El resultado aparece cuando termine la validación grupal y el owner lo genere.</Text>
           </View>
         ) : null}
 
@@ -498,7 +537,7 @@ export default function WeeklyQuizScreen() {
 
         {canValidateQuiz && (
           <Pressable style={styles.validateQuizBtn} onPress={() => setMode('validation')}>
-            <Text style={styles.startQuizText}>Validacion de quiz</Text>
+            <Text style={styles.startQuizText}>Validación de quiz</Text>
           </Pressable>
         )}
 
@@ -531,12 +570,12 @@ export default function WeeklyQuizScreen() {
           <Plus color="white" size={22} />
           <Text style={styles.newQuestionText}>Nueva Pregunta</Text>
         </Pressable>
-        <Text style={styles.hintText}>Solo ves tus preguntas propuestas. Quedan pendientes para la validacion grupal.</Text>
+        <Text style={styles.hintText}>Solo ves tus preguntas propuestas. Quedan pendientes para la validación grupal.</Text>
 
         {questions.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>Todavia no propusiste preguntas</Text>
-            <Text style={styles.emptyText}>Podes cargar preguntas multiple choice o de desarrollo para esta sala.</Text>
+            <Text style={styles.emptyTitle}>Todavía no propusiste preguntas</Text>
+            <Text style={styles.emptyText}>Podés cargar preguntas multiple choice o de desarrollo para esta sala.</Text>
           </View>
         ) : (
           questions.map(question => (
@@ -673,13 +712,36 @@ export default function WeeklyQuizScreen() {
               ) : (
                 <View style={styles.pendingResultCard}>
                   <Text style={styles.emptyTitle}>Resultado pendiente</Text>
-                  <Text style={styles.emptyText}>El resultado se muestra cuando termine la validacion grupal y el owner lo genere.</Text>
+                  <Text style={styles.emptyText}>El resultado se muestra cuando termine la validación grupal y el owner lo genere.</Text>
                 </View>
               )}
             </ScrollView>
           </View>
         </View>
       </Modal>
+
+      {/* ✅ AppAlert personalizado */}
+      <AppAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        type={alert.type}
+        onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+        onConfirm={() => {
+          if (alert.onConfirm) {
+            alert.onConfirm();
+          } else {
+            setAlert(prev => ({ ...prev, visible: false }));
+          }
+        }}
+        onCancel={() => {
+          if (alert.onCancel) alert.onCancel();
+          setAlert(prev => ({ ...prev, visible: false }));
+        }}
+        confirmText={alert.confirmText || 'Aceptar'}
+        cancelText={alert.cancelText || 'Cancelar'}
+        showCancel={alert.showCancel || false}
+      />
     </ScreenLayout>
   );
 }
@@ -688,10 +750,10 @@ function formatWeekday(weekday: string) {
   const labels: Record<string, string> = {
     monday: 'Lunes',
     tuesday: 'Martes',
-    wednesday: 'Miercoles',
+    wednesday: 'Miércoles',
     thursday: 'Jueves',
     friday: 'Viernes',
-    saturday: 'Sabado',
+    saturday: 'Sábado',
     sunday: 'Domingo',
   };
 
