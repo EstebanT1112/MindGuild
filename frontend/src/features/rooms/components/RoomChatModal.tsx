@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Inbox, Send, X } from 'lucide-react-native';
 import { useAuthStore } from '../../../store/authStore';
+import { useThemeStore } from '../../../store/themeStore';
 import { fetchRoomMessages, sendRoomMessage, type RoomMessage } from '../services/chatService';
 
 const POLLING_INTERVAL_MS = 60000;
@@ -34,6 +35,7 @@ export default function RoomChatModal({
   accentColor = '#22c55e',
   onClose,
 }: RoomChatModalProps) {
+  const colors = useThemeStore(state => state.colors);
   const accessToken = useAuthStore(state => state.access_token);
   const [messages, setMessages] = useState<RoomMessage[]>([]);
   const [content, setContent] = useState('');
@@ -48,33 +50,21 @@ export default function RoomChatModal({
 
   const mergeMessages = useCallback((incoming: RoomMessage[]) => {
     if (incoming.length === 0) return;
-
     setMessages(current => {
       const map = new Map(current.map(item => [item.id, item]));
       incoming.forEach(item => map.set(item.id, item));
-
-      return Array.from(map.values()).sort((a, b) => (
-        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-      ));
+      return Array.from(map.values()).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
     });
   }, []);
 
   const loadMessages = useCallback(async (options?: { after?: string; initial?: boolean }) => {
     if (!accessToken || !roomId) return;
-
     if (options?.initial) setLoading(true);
     try {
       setError(null);
-      const data = await fetchRoomMessages(accessToken, roomId, {
-        limit: 50,
-        after: options?.after,
-      });
-
-      if (options?.initial) {
-        setMessages(data);
-      } else {
-        mergeMessages(data);
-      }
+      const data = await fetchRoomMessages(accessToken, roomId, { limit: 50, after: options?.after });
+      if (options?.initial) setMessages(data);
+      else mergeMessages(data);
     } catch (loadError: any) {
       setError(loadError.message ?? 'No se pudo cargar el chat.');
     } finally {
@@ -83,36 +73,24 @@ export default function RoomChatModal({
   }, [accessToken, mergeMessages, roomId]);
 
   useEffect(() => {
-    if (!visible) {
-      setContent('');
-      setError(null);
-      return;
-    }
-
+    if (!visible) { setContent(''); setError(null); return; }
     loadMessages({ initial: true });
   }, [loadMessages, visible]);
 
   useEffect(() => {
     if (!visible) return;
-
     const intervalId = setInterval(() => {
-      if (AppState.currentState === 'active') {
-        loadMessages({ after: lastCreatedAt });
-      }
+      if (AppState.currentState === 'active') loadMessages({ after: lastCreatedAt });
     }, POLLING_INTERVAL_MS);
-
     return () => clearInterval(intervalId);
   }, [lastCreatedAt, loadMessages, visible]);
 
   useEffect(() => {
-    if (visible && messages.length > 0) {
-      requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
-    }
+    if (visible && messages.length > 0) requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
   }, [messages.length, visible]);
 
   const handleSend = async () => {
     if (!accessToken || !canSend) return;
-
     try {
       setSending(true);
       setError(null);
@@ -126,75 +104,38 @@ export default function RoomChatModal({
     }
   };
 
-  const title = useMemo(() => {
-    if (roomName?.trim()) return `Chat de ${roomName.trim()}`;
-    return 'Chat de sala';
-  }, [roomName]);
+  const title = useMemo(() => roomName?.trim() ? `Chat de ${roomName.trim()}` : 'Chat de sala', [roomName]);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.overlay}
-      >
-        <View style={styles.modalCard}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+        <View style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.header}>
-            <View style={styles.headerTextBox}>
-              <Text style={styles.title} numberOfLines={1}>{title}</Text>
-            </View>
-            <Pressable style={styles.closeBtn} onPress={onClose}>
-              <X color="#cbd5e1" size={20} />
-            </Pressable>
+            <View style={styles.headerTextBox}><Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>{title}</Text></View>
+            <Pressable style={[styles.closeBtn, { backgroundColor: colors.background, borderColor: colors.border }]} onPress={onClose}><X color={colors.textMuted} size={20} /></Pressable>
           </View>
 
           {loading ? (
-            <View style={styles.stateBox}>
-              <ActivityIndicator color={accentColor} />
-              <Text style={styles.stateText}>Cargando mensajes...</Text>
-            </View>
+            <View style={styles.stateBox}><ActivityIndicator color={accentColor} /><Text style={[styles.stateText, { color: colors.textSoft }]}>Cargando mensajes...</Text></View>
           ) : messages.length === 0 ? (
-            <View style={styles.stateBox}>
-              <Inbox color="#64748b" size={32} />
-              <Text style={styles.stateText}>Todavia no hay mensajes.</Text>
-            </View>
+            <View style={styles.stateBox}><Inbox color={colors.textSoft} size={32} /><Text style={[styles.stateText, { color: colors.textSoft }]}>Todavia no hay mensajes.</Text></View>
           ) : (
-            <FlatList
-              ref={listRef}
-              data={messages}
-              keyExtractor={item => item.id}
-              contentContainerStyle={styles.messageList}
-              renderItem={({ item }) => (
-                <View style={styles.messageBubble}>
-                  <Text style={styles.messageAuthor}>{item.sender_username}</Text>
-                  <Text style={styles.messageText}>{item.content}</Text>
+            <FlatList ref={listRef} data={messages} keyExtractor={item => item.id} contentContainerStyle={styles.messageList} renderItem={({ item }) => (
+                <View style={[styles.messageBubble, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                  <Text style={[styles.messageAuthor, { color: colors.accent }]}>{item.sender_username}</Text>
+                  <Text style={[styles.messageText, { color: colors.text }]}>{item.content}</Text>
                 </View>
-              )}
-            />
+              )} />
           )}
 
-          {error && <Text style={styles.errorText}>{error}</Text>}
+          {error && <Text style={{ color: colors.danger, fontSize: 12, fontWeight: '700', marginBottom: 8 }}>{error}</Text>}
 
           <View style={styles.inputRow}>
-            <View style={styles.inputBox}>
-              <TextInput
-                value={content}
-                onChangeText={setContent}
-                placeholder="Mensaje"
-                placeholderTextColor="#64748b"
-                maxLength={MAX_MESSAGE_LENGTH}
-                style={styles.input}
-                returnKeyType="send"
-                onSubmitEditing={handleSend}
-              />
-              <Text style={[styles.counter, remainingChars < 10 && styles.counterWarning]}>
-                {remainingChars}
-              </Text>
+            <View style={[styles.inputBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
+              <TextInput value={content} onChangeText={setContent} placeholder="Mensaje" placeholderTextColor={colors.textSoft} maxLength={MAX_MESSAGE_LENGTH} style={[styles.input, { color: colors.text }]} returnKeyType="send" onSubmitEditing={handleSend} />
+              <Text style={[styles.counter, { color: colors.textSoft }, remainingChars < 10 && { color: colors.warning }]}>{remainingChars}</Text>
             </View>
-            <Pressable
-              style={[styles.sendBtn, { backgroundColor: canSend ? accentColor : '#334155' }]}
-              onPress={handleSend}
-              disabled={!canSend}
-            >
+            <Pressable style={[styles.sendBtn, { backgroundColor: canSend ? accentColor : colors.surfaceElevated }]} onPress={handleSend} disabled={!canSend}>
               {sending ? <ActivityIndicator color="white" /> : <Send color="white" size={20} />}
             </Pressable>
           </View>
@@ -205,81 +146,21 @@ export default function RoomChatModal({
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(2, 6, 23, 0.72)',
-  },
-  modalCard: {
-    height: '72%',
-    backgroundColor: '#0f172a',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    paddingHorizontal: 18,
-    paddingTop: 16,
-    paddingBottom: 18,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
+  overlay: { flex: 1, justifyContent: 'flex-end' },
+  modalCard: { height: '72%', borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, paddingHorizontal: 18, paddingTop: 16, paddingBottom: 18 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   headerTextBox: { flex: 1, paddingRight: 12 },
-  title: { color: 'white', fontSize: 20, fontWeight: '900' },
-  subtitle: { color: '#94a3b8', fontSize: 13, marginTop: 2 },
-  closeBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#1e293b',
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
+  title: { fontSize: 20, fontWeight: '900' },
+  closeBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   stateBox: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
-  stateText: { color: '#94a3b8', fontWeight: '700' },
+  stateText: { fontWeight: '700' },
   messageList: { paddingVertical: 8, gap: 10 },
-  messageBubble: {
-    backgroundColor: '#1e293b',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  messageAuthor: { color: '#cbd5e1', fontSize: 12, fontWeight: '900', marginBottom: 4 },
-  messageText: { color: 'white', fontSize: 15, lineHeight: 20 },
-  errorText: {
-    color: '#fca5a5',
-    fontSize: 12,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
+  messageBubble: { borderRadius: 16, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 10 },
+  messageAuthor: { fontSize: 12, fontWeight: '900', marginBottom: 4 },
+  messageText: { fontSize: 15, lineHeight: 20 },
   inputRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 8 },
-  inputBox: {
-    flex: 1,
-    minHeight: 52,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#020617',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
-    paddingLeft: 14,
-    paddingRight: 10,
-  },
-  input: { flex: 1, color: 'white', fontSize: 15, paddingVertical: 10 },
-  counter: { color: '#64748b', fontSize: 12, fontWeight: '800', marginLeft: 8 },
-  counterWarning: { color: '#f59e0b' },
-  sendBtn: {
-    width: 52,
-    height: 52,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  inputBox: { flex: 1, minHeight: 52, flexDirection: 'row', alignItems: 'center', borderRadius: 16, borderWidth: 1, paddingLeft: 14, paddingRight: 10 },
+  input: { flex: 1, fontSize: 15, paddingVertical: 10 },
+  counter: { fontSize: 12, fontWeight: '800', marginLeft: 8 },
+  sendBtn: { width: 52, height: 52, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
 });

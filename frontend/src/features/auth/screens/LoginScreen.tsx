@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
     View,
     Text,
@@ -14,22 +14,23 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
-import { login, loginWithGoogle, requestPasswordReset } from '../services/authService';
+import { Mail, Lock, Eye, EyeOff, ShieldCheck } from 'lucide-react-native';
+import { login, loginWithGoogle } from '../services/authService';
 import { useAuthStore } from '../../../store/authStore';
+import { useThemeStore } from '../../../store/themeStore';
 
 export default function LoginScreen() {
     const navigation = useNavigation<any>();
     const setSession = useAuthStore(state => state.setSession);
+    const colors = useThemeStore(state => state.colors);
+    const themeMode = useThemeStore(state => state.themeMode);
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [googleLoading, setGoogleLoading] = useState(false);
-    const [resetLoading, setResetLoading] = useState(false);
 
-    // RF-02: autentica en Auth0, carga el perfil local y activa la sesion global.
     const handleLogin = async () => {
         if (!email.trim() || !password.trim()) {
             Alert.alert('Campos incompletos', 'Completá todos los campos para continuar.');
@@ -61,31 +62,156 @@ export default function LoginScreen() {
         }
     };
 
-    const handlePasswordReset = async () => {
-        const normalizedEmail = email.trim();
+    // Estilos dinámicos basados en el tema
+    const styles = useMemo(
+        () =>
+            StyleSheet.create({
+                safeArea: {
+                    flex: 1,
+                    backgroundColor: colors.background,
+                },
+                scroll: {
+                    flexGrow: 1,
+                    paddingHorizontal: 24,
+                    paddingTop: 60,
+                    paddingBottom: 40,
+                },
+                logoContainer: {
+                    alignItems: 'center',
+                    marginBottom: 32,
+                },
+                logoCircle: {
+                    width: 80,
+                    height: 80,
+                    borderRadius: 40,
+                    backgroundColor: colors.surface,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: 16,
+                },
+                appName: {
+                    color: colors.text,
+                    fontSize: 30,
+                    fontWeight: '900',
+                    letterSpacing: 4,
+                },
+                card: {
+                    backgroundColor: colors.surfaceElevated,
+                    borderRadius: 28,
+                    padding: 24,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                },
+                cardTitle: {
+                    color: colors.text,
+                    fontSize: 22,
+                    fontWeight: 'bold',
+                    marginBottom: 24,
+                },
+                label: {
+                    color: colors.textMuted,
+                    fontSize: 13,
+                    fontWeight: 'bold',
+                    marginBottom: 8,
+                },
+                inputWrapper: {
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: colors.surface,
+                    borderRadius: 15,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    paddingHorizontal: 16,
+                    height: 56,
+                    marginBottom: 16,
+                    gap: 12,
+                },
+                input: {
+                    flex: 1,
+                    color: colors.text,
+                    fontSize: 15,
+                },
+                forgotRow: {
+                    alignItems: 'flex-end',
+                    marginBottom: 24,
+                },
+                forgotText: {
+                    color: colors.accent,
+                    fontSize: 14,
+                    fontWeight: '600',
+                },
+                btnPrimary: {
+                    backgroundColor: colors.accent,
+                    height: 56,
+                    borderRadius: 18,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                },
+                btnPrimaryText: {
+                    color: colors.text,
+                    fontWeight: '900',
+                    fontSize: 16,
+                },
+                divider: {
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginVertical: 24,
+                    gap: 12,
+                },
+                dividerLine: {
+                    flex: 1,
+                    height: 1,
+                    backgroundColor: colors.border,
+                },
+                dividerText: {
+                    color: colors.textMuted,
+                    fontSize: 14,
+                },
+                btnGoogle: {
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: colors.surface,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    height: 56,
+                    borderRadius: 18,
+                    gap: 12,
+                },
+                googleIcon: {
+                    color: colors.text,
+                    fontSize: 18,
+                    fontWeight: '900',
+                },
+                btnGoogleText: {
+                    color: colors.text,
+                    fontSize: 15,
+                    fontWeight: 'bold',
+                },
+                footer: {
+                    flexDirection: 'row',
+                    justifyContent: 'center',
+                    marginTop: 32,
+                },
+                footerText: {
+                    color: colors.textMuted,
+                    fontSize: 15,
+                },
+                footerLink: {
+                    color: colors.accent,
+                    fontSize: 15,
+                    fontWeight: 'bold',
+                },
+            }),
+        [colors]
+    );
 
-        if (!normalizedEmail) {
-            Alert.alert('Ingresá tu email', 'Escribí tu correo electrónico y luego tocá recuperar contraseña.');
-            return;
-        }
-
-        setResetLoading(true);
-        try {
-            await requestPasswordReset(normalizedEmail);
-            Alert.alert(
-                'Revisá tu correo',
-                'Si el email está registrado, recibirás instrucciones para recuperar tu contraseña.'
-            );
-        } catch (error: any) {
-            Alert.alert('No se pudo enviar el correo', error.message ?? 'Intentá nuevamente en unos minutos.');
-        } finally {
-            setResetLoading(false);
-        }
-    };
+    // Color para el StatusBar según el tema
+    const statusBarStyle = themeMode === 'dark' ? 'light-content' : 'dark-content';
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <StatusBar barStyle="light-content" />
+            <StatusBar barStyle={statusBarStyle} backgroundColor={colors.background} />
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={{ flex: 1 }}
@@ -95,26 +221,23 @@ export default function LoginScreen() {
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
                 >
-                    {/* LOGO */}
                     <View style={styles.logoContainer}>
                         <View style={styles.logoCircle}>
-                            <Text style={styles.logoEmoji}>🧠</Text>
+                            <ShieldCheck color={colors.accent} size={40} />
                         </View>
                         <Text style={styles.appName}>MINDGUILD</Text>
-                        <Text style={styles.tagline}>Estudiá más. Competí mejor.</Text>
                     </View>
 
-                    {/* CARD FORMULARIO */}
                     <View style={styles.card}>
                         <Text style={styles.cardTitle}>Iniciar sesión</Text>
 
                         <Text style={styles.label}>Correo electrónico</Text>
                         <View style={styles.inputWrapper}>
-                            <Mail color="#64748b" size={18} />
+                            <Mail color={colors.textMuted} size={18} />
                             <TextInput
                                 style={styles.input}
                                 placeholder="tu@email.com"
-                                placeholderTextColor="#4b5563"
+                                placeholderTextColor={colors.textMuted}
                                 keyboardType="email-address"
                                 autoCapitalize="none"
                                 value={email}
@@ -124,31 +247,28 @@ export default function LoginScreen() {
 
                         <Text style={styles.label}>Contraseña</Text>
                         <View style={styles.inputWrapper}>
-                            <Lock color="#64748b" size={18} />
+                            <Lock color={colors.textMuted} size={18} />
                             <TextInput
                                 style={styles.input}
                                 placeholder="••••••••"
-                                placeholderTextColor="#4b5563"
+                                placeholderTextColor={colors.textMuted}
                                 secureTextEntry={!showPassword}
                                 value={password}
                                 onChangeText={setPassword}
                             />
                             <Pressable onPress={() => setShowPassword(!showPassword)}>
                                 {showPassword
-                                    ? <EyeOff color="#22c55e" size={20} />
-                                    : <Eye color="#22c55e" size={20} />
+                                    ? <EyeOff color={colors.accent} size={20} />
+                                    : <Eye color={colors.accent} size={20} />
                                 }
                             </Pressable>
                         </View>
 
                         <Pressable
                             style={styles.forgotRow}
-                            onPress={handlePasswordReset}
-                            disabled={resetLoading || loading || googleLoading}
+                            onPress={() => navigation.navigate('ForgotPassword')}
                         >
-                            <Text style={styles.forgotText}>
-                                {resetLoading ? 'Enviando...' : 'Olvidé mi contraseña'}
-                            </Text>
+                            <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
                         </Pressable>
 
                         <Pressable
@@ -157,7 +277,7 @@ export default function LoginScreen() {
                             disabled={loading || googleLoading}
                         >
                             {loading
-                                ? <ActivityIndicator color="#fff" />
+                                ? <ActivityIndicator color={colors.text} />
                                 : <Text style={styles.btnPrimaryText}>Ingresar</Text>
                             }
                         </Pressable>
@@ -174,7 +294,7 @@ export default function LoginScreen() {
                             disabled={loading || googleLoading}
                         >
                             {googleLoading
-                                ? <ActivityIndicator color="#ffffff" />
+                                ? <ActivityIndicator color={colors.text} />
                                 : (
                                     <>
                                         <Text style={styles.googleIcon}>G</Text>
@@ -183,168 +303,16 @@ export default function LoginScreen() {
                                 )
                             }
                         </Pressable>
-
                     </View>
 
-                    {/* FOOTER */}
                     <View style={styles.footer}>
                         <Text style={styles.footerText}>¿No tenés cuenta? </Text>
                         <Pressable onPress={() => navigation.navigate('Register')}>
                             <Text style={styles.footerLink}>Registrate</Text>
                         </Pressable>
                     </View>
-
                 </ScrollView>
             </KeyboardAvoidingView>
         </SafeAreaView>
     );
 }
-
-const styles = StyleSheet.create({
-    safeArea: {
-        flex: 1,
-        backgroundColor: '#0f172a',
-    },
-    scroll: {
-        flexGrow: 1,
-        paddingHorizontal: 24,
-        paddingTop: 60,
-        paddingBottom: 40,
-    },
-    logoContainer: {
-        alignItems: 'center',
-        marginBottom: 32,
-    },
-    logoCircle: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: '#1e293b',
-        borderWidth: 2,
-        borderColor: '#22c55e',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 16,
-    },
-    logoEmoji: {
-        fontSize: 38,
-    },
-    appName: {
-        color: '#ffffff',
-        fontSize: 30,
-        fontWeight: '900',
-        letterSpacing: 4,
-    },
-    tagline: {
-        color: '#64748b',
-        fontSize: 14,
-        marginTop: 6,
-    },
-    card: {
-        backgroundColor: '#1e293b',
-        borderRadius: 28,
-        padding: 24,
-        borderWidth: 1,
-        borderColor: '#334155',
-    },
-    cardTitle: {
-        color: '#ffffff',
-        fontSize: 22,
-        fontWeight: 'bold',
-        marginBottom: 24,
-    },
-    label: {
-        color: '#94a3b8',
-        fontSize: 13,
-        fontWeight: 'bold',
-        marginBottom: 8,
-    },
-    inputWrapper: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#0f172a',
-        borderRadius: 15,
-        borderWidth: 1,
-        borderColor: '#334155',
-        paddingHorizontal: 16,
-        height: 56,
-        marginBottom: 16,
-        gap: 12,
-    },
-    input: {
-        flex: 1,
-        color: '#ffffff',
-        fontSize: 15,
-    },
-    forgotRow: {
-        alignItems: 'flex-end',
-        marginBottom: 24,
-    },
-    forgotText: {
-        color: '#22c55e',
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    btnPrimary: {
-        backgroundColor: '#22c55e',
-        height: 56,
-        borderRadius: 18,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    btnPrimaryText: {
-        color: '#ffffff',
-        fontWeight: '900',
-        fontSize: 16,
-    },
-    divider: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginVertical: 24,
-        gap: 12,
-    },
-    dividerLine: {
-        flex: 1,
-        height: 1,
-        backgroundColor: '#334155',
-    },
-    dividerText: {
-        color: '#64748b',
-        fontSize: 14,
-    },
-    btnGoogle: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#0f172a',
-        borderWidth: 1,
-        borderColor: '#334155',
-        height: 56,
-        borderRadius: 18,
-        gap: 12,
-    },
-    googleIcon: {
-        color: '#ffffff',
-        fontSize: 18,
-        fontWeight: '900',
-    },
-    btnGoogleText: {
-        color: '#ffffff',
-        fontSize: 15,
-        fontWeight: 'bold',
-    },
-    footer: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        marginTop: 32,
-    },
-    footerText: {
-        color: '#64748b',
-        fontSize: 15,
-    },
-    footerLink: {
-        color: '#22c55e',
-        fontSize: 15,
-        fontWeight: 'bold',
-    },
-});

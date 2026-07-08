@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { BarChart3, ChevronRight, FolderOpen, Info, MessageCircle, Settings, UserPlus, Users } from 'lucide-react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { BarChart3, ChevronRight, FolderOpen, Info, MessageCircle, Settings, UserPlus, Users, CheckCircle } from 'lucide-react-native'; import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
@@ -39,11 +38,11 @@ export default function LiveRoomScreen() {
     const [infoVisible, setInfoVisible] = useState(false);
     const [chatVisible, setChatVisible] = useState(false);
     const [inviteFriendsVisible, setInviteFriendsVisible] = useState(false);
-    
+
     const [evidenceVisible, setEvidenceVisible] = useState(false);
     const [reviewPeersVisible, setReviewPeersVisible] = useState(false);
     const [activeSessionMinutes, setActiveSessionMinutes] = useState(0);
-    
+
     const [room, setRoom] = useState<RoomDetails | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -188,9 +187,11 @@ export default function LiveRoomScreen() {
             rightAction={
                 room && !isEnfocused ? (
                     <View style={styles.headerActions}>
+                        {/* Botón Chat */}
                         <Pressable style={styles.infoBtn} onPress={() => setChatVisible(true)}>
                             <MessageCircle color="#22c55e" size={20} />
                         </Pressable>
+                        {/* Botón Info */}
                         <Pressable style={styles.infoBtn} onPress={() => setInfoVisible(true)}>
                             <Info color="#22c55e" size={20} />
                         </Pressable>
@@ -214,17 +215,17 @@ export default function LiveRoomScreen() {
                 }
             >
                 {!isEnfocused && (
-                    <Pressable style={styles.configCard} onPress={() => setConfigVisible(true)}>
-                        <View style={styles.configIconBox}>
-                            <Settings color="#22c55e" size={24} />
+                    <Pressable style={[styles.configCard, styles.btnVibrant]} onPress={() => setConfigVisible(true)}>
+                        <View style={[styles.configIconBox, { backgroundColor: '#15803d' }]}>
+                            <Settings color="#ffffff" size={24} />
                         </View>
                         <View style={styles.configInfo}>
-                            <Text style={styles.configTitle}>Configurar Sesión</Text>
-                            <Text style={styles.configSub}>
-                                {sessionType === 'pomodoro' ? `Pomodoro - ${durationMinutes} min` : 'Modo Libre - Sin limite'}
+                            <Text style={styles.configTitleHighlight}>Configurar Sesión</Text>
+                            <Text style={styles.configSubHighlight}>
+                                {sessionType === 'pomodoro' ? `Pomodoro - ${durationMinutes} min` : 'Modo Libre'}
                             </Text>
                         </View>
-                        <ChevronRight color="#4b5563" size={20} />
+                        <ChevronRight color="#ffffff" size={20} />
                     </Pressable>
                 )}
 
@@ -289,15 +290,17 @@ export default function LiveRoomScreen() {
                             <BarChart3 color="white" size={22} />
                             <Text style={styles.inviteFriendsBtnText}>Dashboard de Sala</Text>
                         </Pressable>
-                        <Pressable style={[styles.configCard, styles.reviewCard]} onPress={() => setReviewPeersVisible(true)}>
-                            <View style={[styles.configIconBox, { backgroundColor: '#14532d' }]}>
-                                <Users color="#22c55e" size={24} />
+
+
+                        <Pressable style={[styles.configCard, styles.btnBlue]} onPress={() => setReviewPeersVisible(true)}>
+                            <View style={[styles.configIconBox, { backgroundColor: '#0284c7' }]}>
+                                <CheckCircle color="#ffffff" size={24} />
                             </View>
                             <View style={styles.configInfo}>
-                                <Text style={styles.configTitle}>Validar Companeros</Text>
-                                <Text style={styles.configSub}>Panel de verificacion social de apuntes y evidencias</Text>
+                                <Text style={styles.configTitle}>Validar Compañeros</Text>
+                                <Text style={styles.configSub}>Verifica evidencias y puntajes</Text>
                             </View>
-                            <ChevronRight color="#4b5563" size={20} />
+                            <ChevronRight color="#ffffff" size={20} />
                         </Pressable>
 
                         <Pressable style={styles.inviteFriendsMainBtn} onPress={() => setInviteFriendsVisible(true)}>
@@ -498,11 +501,27 @@ const styles = StyleSheet.create({
     configSub: { color: '#64748b', fontSize: 13, marginTop: 2 },
     timerSection: { alignItems: 'center', marginVertical: 30 },
     focusTimerSection: { marginVertical: 0, marginBottom: 30 },
-    timerCircle: { width: 280, height: 280, borderRadius: 140, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a' },
-    freeTimerCircle: { borderWidth: 8, borderColor: '#06b6d4' },
+timerCircle: { 
+    width: 280, 
+    height: 280, 
+    borderRadius: 140, 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    backgroundColor: '#0f172a' // ⚡ Fondo oscuro del círculo
+},
+timerInner: { 
+    width: 232, 
+    height: 232, 
+    borderRadius: 116, 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    backgroundColor: '#0f172a', // ⚡ Fondo interior consistente
+    borderWidth: 1, 
+    borderColor: '#1e293b', 
+    gap: 6 
+},    freeTimerCircle: { borderWidth: 8, borderColor: '#06b6d4' },
     tickLayer: { position: 'absolute', width: 280, height: 280, alignItems: 'center', justifyContent: 'center' },
     timerTick: { position: 'absolute', width: 6, height: 18, borderRadius: 999, backgroundColor: '#22c55e' },
-    timerInner: { width: 232, height: 232, borderRadius: 116, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a', borderWidth: 1, borderColor: '#1e293b', gap: 6 },
     timerValue: { color: 'white', fontSize: 64, fontWeight: '900' },
     timerCycles: { color: '#64748b', fontSize: 16, fontWeight: 'bold' },
     controlsContainer: { marginBottom: 20 },
@@ -514,4 +533,29 @@ const styles = StyleSheet.create({
     resumeBtn: { backgroundColor: '#06b6d4' },
     finishBtn: { backgroundColor: '#dc2626' },
     btnText: { color: 'white', fontSize: 18, fontWeight: '900', letterSpacing: 1 },
+    // Dentro de StyleSheet.create({ ... })
+    btnVibrant: {
+        backgroundColor: '#16a34a', // Verde vibrante
+        borderColor: '#22c55e',
+        borderWidth: 2,
+        elevation: 6,
+        shadowColor: '#22c55e',
+        shadowOpacity: 0.3
+    },
+    btnBlue: {
+        backgroundColor: '#0284c7', // Azul brillante
+        borderColor: '#38bdf8',
+        borderWidth: 1,
+        marginTop: 12
+    },
+    configTitleHighlight: {
+        color: 'white',
+        fontSize: 17,
+        fontWeight: '900'
+    },
+    configSubHighlight: {
+        color: '#dcfce7',
+        fontSize: 14,
+        fontWeight: '600'
+    },
 });

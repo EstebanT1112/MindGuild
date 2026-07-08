@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
     View,
     Text,
@@ -14,13 +14,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { User, Mail, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react-native';
+import { User, Mail, Lock, Eye, EyeOff, ArrowLeft, ShieldCheck } from 'lucide-react-native'; // Reemplazamos el emoji por ShieldCheck
 import { loginWithGoogle, register } from '../services/authService';
 import { useAuthStore } from '../../../store/authStore';
+import { useThemeStore } from '../../../store/themeStore';
 
 export default function RegisterScreen() {
     const navigation = useNavigation<any>();
     const setSession = useAuthStore(state => state.setSession);
+    const colors = useThemeStore(state => state.colors);
+    const themeMode = useThemeStore(state => state.themeMode);
 
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
@@ -29,7 +32,6 @@ export default function RegisterScreen() {
     const [loading, setLoading] = useState(false);
     const [googleLoading, setGoogleLoading] = useState(false);
 
-    // Ejecuta el flujo RF-01: valida la UI, registra en Auth0 y crea el perfil local.
     const handleRegister = async () => {
         if (!username.trim() || !email.trim() || !password.trim()) {
             Alert.alert('Campos incompletos', 'Completá todos los campos para continuar.');
@@ -69,9 +71,174 @@ export default function RegisterScreen() {
         }
     };
 
+    // Estilos dinámicos basados en el tema
+    const styles = useMemo(
+        () =>
+            StyleSheet.create({
+                safeArea: {
+                    flex: 1,
+                    backgroundColor: colors.background,
+                },
+                scroll: {
+                    flexGrow: 1,
+                    paddingHorizontal: 24,
+                    paddingTop: 20,
+                    paddingBottom: 40,
+                },
+                header: {
+                    alignItems: 'center',
+                    marginBottom: 32, // Ajustado para igualar el espacio de LoginScreen
+                    marginTop: 20,
+                },
+                backBtn: {
+                    position: 'absolute',
+                    left: 0,
+                    top: 0,
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    backgroundColor: colors.surface,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                },
+                logoCircle: {
+                    width: 80,
+                    height: 80,
+                    borderRadius: 40,
+                    backgroundColor: colors.surface, // Mismo que en Login
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: 16,
+                },
+                appName: {
+                    color: colors.text,
+                    fontSize: 30,
+                    fontWeight: '900',
+                    letterSpacing: 4,
+                },
+                // Se eliminó el tagline
+                card: {
+                    backgroundColor: colors.surfaceElevated,
+                    borderRadius: 28,
+                    padding: 24,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                },
+                cardTitle: {
+                    color: colors.text,
+                    fontSize: 22,
+                    fontWeight: 'bold',
+                    marginBottom: 24,
+                },
+                label: {
+                    color: colors.textMuted,
+                    fontSize: 13,
+                    fontWeight: 'bold',
+                    marginBottom: 8,
+                },
+                inputWrapper: {
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: colors.surface,
+                    borderRadius: 15,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    paddingHorizontal: 16,
+                    height: 56,
+                    marginBottom: 16,
+                    gap: 12,
+                },
+                input: {
+                    flex: 1,
+                    color: colors.text,
+                    fontSize: 15,
+                },
+                infoBox: {
+                    backgroundColor: colors.surface,
+                    borderRadius: 12,
+                    padding: 12,
+                    marginBottom: 20,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                },
+                infoText: {
+                    color: colors.textMuted,
+                    fontSize: 12,
+                    lineHeight: 18,
+                },
+                btnPrimary: {
+                    backgroundColor: colors.accent,
+                    height: 56,
+                    borderRadius: 18,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                },
+                btnPrimaryText: {
+                    color: colors.text,
+                    fontWeight: '900',
+                    fontSize: 16,
+                },
+                divider: {
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginVertical: 20,
+                    gap: 12,
+                },
+                dividerLine: {
+                    flex: 1,
+                    height: 1,
+                    backgroundColor: colors.border,
+                },
+                dividerText: {
+                    color: colors.textMuted,
+                    fontSize: 14,
+                },
+                btnGoogle: {
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: colors.surface,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    height: 56,
+                    borderRadius: 18,
+                    gap: 12,
+                },
+                googleIcon: {
+                    color: colors.text,
+                    fontSize: 18,
+                    fontWeight: '900',
+                },
+                btnGoogleText: {
+                    color: colors.text,
+                    fontSize: 15,
+                    fontWeight: 'bold',
+                },
+                footer: {
+                    flexDirection: 'row',
+                    justifyContent: 'center',
+                    marginTop: 32,
+                },
+                footerText: {
+                    color: colors.textMuted,
+                    fontSize: 15,
+                },
+                footerLink: {
+                    color: colors.accent,
+                    fontSize: 15,
+                    fontWeight: 'bold',
+                },
+            }),
+        [colors]
+    );
+
+    const statusBarStyle = themeMode === 'dark' ? 'light-content' : 'dark-content';
+
     return (
         <SafeAreaView style={styles.safeArea}>
-            <StatusBar barStyle="light-content" />
+            <StatusBar barStyle={statusBarStyle} backgroundColor={colors.background} />
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={{ flex: 1 }}
@@ -81,29 +248,27 @@ export default function RegisterScreen() {
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
                 >
-                    {/* Header */}
+                    {/* Header ahora idéntico al de LoginScreen, solo con botón atrás adicional */}
                     <View style={styles.header}>
                         <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
-                            <ArrowLeft color="#94a3b8" size={20} />
+                            <ArrowLeft color={colors.textMuted} size={20} />
                         </Pressable>
                         <View style={styles.logoCircle}>
-                            <Text style={styles.logoEmoji}>🧠</Text>
+                            <ShieldCheck color={colors.accent} size={40} />
                         </View>
                         <Text style={styles.appName}>MINDGUILD</Text>
-                        <Text style={styles.tagline}>Creá tu cuenta y comenzá a estudiar</Text>
                     </View>
 
-                    {/* Card */}
                     <View style={styles.card}>
                         <Text style={styles.cardTitle}>Crear cuenta</Text>
 
                         <Text style={styles.label}>Nombre de usuario</Text>
                         <View style={styles.inputWrapper}>
-                            <User color="#64748b" size={18} />
+                            <User color={colors.textMuted} size={18} />
                             <TextInput
                                 style={styles.input}
                                 placeholder="@tu_usuario"
-                                placeholderTextColor="#4b5563"
+                                placeholderTextColor={colors.textMuted}
                                 autoCapitalize="none"
                                 value={username}
                                 onChangeText={setUsername}
@@ -112,11 +277,11 @@ export default function RegisterScreen() {
 
                         <Text style={styles.label}>Correo electrónico</Text>
                         <View style={styles.inputWrapper}>
-                            <Mail color="#64748b" size={18} />
+                            <Mail color={colors.textMuted} size={18} />
                             <TextInput
                                 style={styles.input}
                                 placeholder="tu@email.com"
-                                placeholderTextColor="#4b5563"
+                                placeholderTextColor={colors.textMuted}
                                 keyboardType="email-address"
                                 autoCapitalize="none"
                                 value={email}
@@ -126,19 +291,19 @@ export default function RegisterScreen() {
 
                         <Text style={styles.label}>Contraseña</Text>
                         <View style={styles.inputWrapper}>
-                            <Lock color="#64748b" size={18} />
+                            <Lock color={colors.textMuted} size={18} />
                             <TextInput
                                 style={styles.input}
                                 placeholder="Mínimo 8 caracteres"
-                                placeholderTextColor="#4b5563"
+                                placeholderTextColor={colors.textMuted}
                                 secureTextEntry={!showPassword}
                                 value={password}
                                 onChangeText={setPassword}
                             />
                             <Pressable onPress={() => setShowPassword(!showPassword)}>
                                 {showPassword
-                                    ? <EyeOff color="#22c55e" size={20} />
-                                    : <Eye color="#22c55e" size={20} />
+                                    ? <EyeOff color={colors.accent} size={20} />
+                                    : <Eye color={colors.accent} size={20} />
                                 }
                             </Pressable>
                         </View>
@@ -155,7 +320,7 @@ export default function RegisterScreen() {
                             disabled={loading || googleLoading}
                         >
                             {loading
-                                ? <ActivityIndicator color="#fff" />
+                                ? <ActivityIndicator color={colors.text} />
                                 : <Text style={styles.btnPrimaryText}>Crear cuenta</Text>
                             }
                         </Pressable>
@@ -172,7 +337,7 @@ export default function RegisterScreen() {
                             disabled={loading || googleLoading}
                         >
                             {googleLoading
-                                ? <ActivityIndicator color="#ffffff" />
+                                ? <ActivityIndicator color={colors.text} />
                                 : (
                                     <>
                                         <Text style={styles.googleIcon}>G</Text>
@@ -183,183 +348,14 @@ export default function RegisterScreen() {
                         </Pressable>
                     </View>
 
-                    {/* Footer */}
                     <View style={styles.footer}>
                         <Text style={styles.footerText}>¿Ya tenés cuenta? </Text>
                         <Pressable onPress={() => navigation.navigate('Login')}>
                             <Text style={styles.footerLink}>Iniciá sesión</Text>
                         </Pressable>
                     </View>
-
                 </ScrollView>
             </KeyboardAvoidingView>
         </SafeAreaView>
     );
 }
-
-const styles = StyleSheet.create({
-    safeArea: {
-        flex: 1,
-        backgroundColor: '#0f172a',
-    },
-    scroll: {
-        flexGrow: 1,
-        paddingHorizontal: 24,
-        paddingTop: 20,
-        paddingBottom: 40,
-    },
-    header: {
-        alignItems: 'center',
-        marginBottom: 30,
-        marginTop: 20,
-    },
-    backBtn: {
-        position: 'absolute',
-        left: 0,
-        top: 0,
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#1e293b',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: '#334155',
-    },
-    logoCircle: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: '#1e293b',
-        borderWidth: 2,
-        borderColor: '#22c55e',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 16,
-    },
-    logoEmoji: {
-        fontSize: 38,
-    },
-    appName: {
-        color: '#ffffff',
-        fontSize: 30,
-        fontWeight: '900',
-        letterSpacing: 4,
-    },
-    tagline: {
-        color: '#64748b',
-        fontSize: 14,
-        marginTop: 6,
-    },
-    card: {
-        backgroundColor: '#1e293b',
-        borderRadius: 28,
-        padding: 24,
-        borderWidth: 1,
-        borderColor: '#334155',
-    },
-    cardTitle: {
-        color: '#ffffff',
-        fontSize: 22,
-        fontWeight: 'bold',
-        marginBottom: 24,
-    },
-    label: {
-        color: '#94a3b8',
-        fontSize: 13,
-        fontWeight: 'bold',
-        marginBottom: 8,
-    },
-    inputWrapper: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#0f172a',
-        borderRadius: 15,
-        borderWidth: 1,
-        borderColor: '#334155',
-        paddingHorizontal: 16,
-        height: 56,
-        marginBottom: 16,
-        gap: 12,
-    },
-    input: {
-        flex: 1,
-        color: '#ffffff',
-        fontSize: 15,
-    },
-    infoBox: {
-        backgroundColor: '#0f172a',
-        borderRadius: 12,
-        padding: 12,
-        marginBottom: 20,
-        borderWidth: 1,
-        borderColor: '#334155',
-    },
-    infoText: {
-        color: '#64748b',
-        fontSize: 12,
-        lineHeight: 18,
-    },
-    btnPrimary: {
-        backgroundColor: '#22c55e',
-        height: 56,
-        borderRadius: 18,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    btnPrimaryText: {
-        color: '#ffffff',
-        fontWeight: '900',
-        fontSize: 16,
-    },
-    divider: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginVertical: 20,
-        gap: 12,
-    },
-    dividerLine: {
-        flex: 1,
-        height: 1,
-        backgroundColor: '#334155',
-    },
-    dividerText: {
-        color: '#64748b',
-        fontSize: 14,
-    },
-    btnGoogle: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#0f172a',
-        borderWidth: 1,
-        borderColor: '#334155',
-        height: 56,
-        borderRadius: 18,
-        gap: 12,
-    },
-    googleIcon: {
-        color: '#ffffff',
-        fontSize: 18,
-        fontWeight: '900',
-    },
-    btnGoogleText: {
-        color: '#ffffff',
-        fontSize: 15,
-        fontWeight: 'bold',
-    },
-    footer: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        marginTop: 32,
-    },
-    footerText: {
-        color: '#64748b',
-        fontSize: 15,
-    },
-    footerLink: {
-        color: '#22c55e',
-        fontSize: 15,
-        fontWeight: 'bold',
-    },
-});

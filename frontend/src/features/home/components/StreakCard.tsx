@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet } from "react-native";
 import { Flame, FlameKindling, Shield, Snowflake } from 'lucide-react-native';
+import { useThemeStore } from '../../../store/themeStore';
 
 type StreakStatus = 'inactive' | 'pending' | 'active' | 'shielded';
 
@@ -50,6 +51,7 @@ export default function StreakCard({
   shieldUntil,
   loading = false,
 }: StreakCardProps) {
+  const colors = useThemeStore(state => state.colors);
   const resolvedStatus: StreakStatus = status ?? (active ? 'active' : currentStreak > 0 ? 'pending' : 'inactive');
   const config = STATUS_CONFIG[resolvedStatus];
   const shieldLabel = shieldUntil ? `Escudo hasta ${formatDateTime(shieldUntil)}` : 'Escudo activo';
@@ -57,7 +59,7 @@ export default function StreakCard({
   const iconSize = getStatusIconSize(resolvedStatus);
 
   return (
-    <View style={[styles.card, { borderColor: config.borderColor }]}>
+    <View style={[styles.card, { backgroundColor: colors.surfaceElevated, borderColor: config.borderColor }]}>
       <View style={styles.row}>
         <View style={styles.left}>
           <View style={styles.icon}>
@@ -68,7 +70,7 @@ export default function StreakCard({
             <Text style={[styles.days, { color: config.accentColor }]}>
               {loading ? '--' : currentStreak} dias
             </Text>
-            <Text style={styles.label} numberOfLines={1} ellipsizeMode="tail">
+            <Text style={[styles.label, { color: colors.textMuted }]} numberOfLines={1} ellipsizeMode="tail">
               {resolvedStatus === 'shielded' ? shieldLabel : 'Racha actual'}
             </Text>
           </View>
@@ -90,7 +92,6 @@ function formatDateTime(value: string) {
     if (!year || !month || !day) return value;
     return `${day}/${month} 23:59`;
   }
-
   const parsed = new Date(value);
   if (!Number.isNaN(parsed.getTime())) {
     return parsed.toLocaleString('es-AR', {
@@ -100,41 +101,31 @@ function formatDateTime(value: string) {
       minute: '2-digit',
     });
   }
-
   return value;
 }
 
 function getStatusIcon(status: StreakStatus) {
   switch (status) {
-    case 'inactive':
-      return Snowflake;
-    case 'pending':
-      return FlameKindling;
-    case 'shielded':
-      return Shield;
+    case 'inactive': return Snowflake;
+    case 'pending': return FlameKindling;
+    case 'shielded': return Shield;
     case 'active':
-    default:
-      return Flame;
+    default: return Flame;
   }
 }
 
 function getStatusIconSize(status: StreakStatus) {
   switch (status) {
-    case 'inactive':
-      return 43;
-    case 'pending':
-      return 42;
-    case 'shielded':
-      return 42;
+    case 'inactive': return 43;
+    case 'pending': return 42;
+    case 'shielded': return 42;
     case 'active':
-    default:
-      return 46;
+    default: return 46;
   }
 }
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#1a1d29",
     padding: 14,
     minHeight: 80,
     borderRadius: 20,
@@ -162,11 +153,9 @@ const styles = StyleSheet.create({
   days: {
     fontSize: 22,
     fontWeight: "bold",
-    color: "#fb923c",
   },
   label: {
     fontSize: 12,
-    color: "#aaa",
     maxWidth: 150,
   },
   right: {

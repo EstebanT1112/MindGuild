@@ -12,6 +12,7 @@ import {
 import { Bell, CalendarCheck, CheckCheck, ChevronLeft, Crown, Gift, Medal, MessageSquarePlus, Target, Trash2, Trophy, Users } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { useAuthStore } from '../../../store/authStore';
+import { useThemeStore } from '../../../store/themeStore';
 import {
   clearAllNotifications,
   fetchMyNotifications,
@@ -22,6 +23,8 @@ import {
 
 export default function NotificationsScreen({ navigation }: any) {
   const accessToken = useAuthStore(state => state.access_token);
+  const colors = useThemeStore(state => state.colors);
+
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -120,14 +123,184 @@ export default function NotificationsScreen({ navigation }: any) {
     );
   };
 
+  // Estilos dinámicos basados en el tema
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        topBar: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 16,
+        },
+        backBtn: {
+          width: 40,
+          height: 40,
+          borderRadius: 12,
+          backgroundColor: colors.surface,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        summary: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+          backgroundColor: colors.surface,
+          borderRadius: 14,
+          paddingHorizontal: 12,
+          paddingVertical: 9,
+        },
+        summaryText: {
+          color: colors.text,
+          fontWeight: '900',
+          fontSize: 13,
+        },
+        actionsRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+          marginBottom: 12,
+        },
+        sectionTitle: {
+          color: colors.text,
+          fontSize: 18,
+          fontWeight: '900',
+        },
+        readAllBtn: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+          backgroundColor: colors.accentSoft,
+          borderWidth: 1,
+          borderColor: colors.accent,
+          borderRadius: 13,
+          paddingHorizontal: 10,
+          paddingVertical: 8,
+          opacity: unreadCount === 0 || saving ? 0.5 : 1,
+        },
+        readAllText: {
+          color: colors.accentStrong,
+          fontSize: 12,
+          fontWeight: '900',
+        },
+        clearAllBtn: {
+          marginTop: 10,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+          backgroundColor: colors.dangerSoft,
+          borderWidth: 1,
+          borderColor: colors.dangerBorder,
+          borderRadius: 14,
+          paddingVertical: 12,
+          paddingHorizontal: 14,
+          opacity: saving ? 0.5 : 1,
+        },
+        clearAllText: {
+          color: colors.danger,
+          fontSize: 13,
+          fontWeight: '900',
+        },
+        disabled: { opacity: 0.5 },
+        loadingState: {
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 10,
+        },
+        listContent: {
+          paddingBottom: 36,
+          gap: 10,
+        },
+        emptyCard: {
+          backgroundColor: colors.surfaceElevated,
+          borderRadius: 20,
+          borderWidth: 1,
+          borderColor: colors.border,
+          alignItems: 'center',
+          padding: 24,
+          gap: 8,
+        },
+        emptyTitle: {
+          color: colors.text,
+          fontSize: 17,
+          fontWeight: '900',
+        },
+        mutedText: {
+          color: colors.textMuted,
+          fontSize: 13,
+          textAlign: 'center',
+        },
+        notificationCard: {
+          flexDirection: 'row',
+          gap: 12,
+          backgroundColor: colors.surfaceElevated,
+          borderRadius: 18,
+          borderWidth: 1,
+          borderColor: colors.border,
+          padding: 14,
+        },
+        notificationUnread: {
+          borderColor: colors.warning + '55',
+          backgroundColor: colors.warningSoft,
+        },
+        notificationIcon: {
+          width: 38,
+          height: 38,
+          borderRadius: 19,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: colors.surface,
+        },
+        notificationIconUnread: {
+          backgroundColor: colors.warningSoft,
+        },
+        notificationContent: {
+          flex: 1,
+        },
+        notificationHeader: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+        },
+        notificationTitle: {
+          color: colors.text,
+          fontSize: 14,
+          fontWeight: '900',
+          flex: 1,
+        },
+        unreadDot: {
+          width: 8,
+          height: 8,
+          borderRadius: 4,
+          backgroundColor: colors.warning,
+        },
+        notificationBody: {
+          color: colors.textSoft,
+          fontSize: 13,
+          marginTop: 4,
+          lineHeight: 18,
+        },
+        notificationDate: {
+          color: colors.textMuted,
+          fontSize: 11,
+          fontWeight: '800',
+          marginTop: 8,
+        },
+      }),
+    [colors, unreadCount, saving]
+  );
+
   return (
     <ScreenLayout title="NOTIFICACIONES" type="profiles">
       <View style={styles.topBar}>
         <Pressable style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <ChevronLeft color="#e2e8f0" size={22} />
+          <ChevronLeft color={colors.text} size={22} />
         </Pressable>
         <View style={styles.summary}>
-          <Bell color="#facc15" size={18} />
+          <Bell color={colors.warning} size={18} />
           <Text style={styles.summaryText}>
             {unreadCount === 0 ? 'Sin pendientes' : `${unreadCount} sin leer`}
           </Text>
@@ -137,18 +310,18 @@ export default function NotificationsScreen({ navigation }: any) {
       <View style={styles.actionsRow}>
         <Text style={styles.sectionTitle}>Bandeja interna</Text>
         <Pressable
-          style={[styles.readAllBtn, (unreadCount === 0 || saving) && styles.disabled]}
+          style={styles.readAllBtn}
           onPress={handleMarkAllAsRead}
           disabled={unreadCount === 0 || saving}
         >
-          <CheckCheck color="#22c55e" size={16} />
+          <CheckCheck color={colors.accent} size={16} />
           <Text style={styles.readAllText}>{saving ? 'Marcando...' : 'Leer todas'}</Text>
         </Pressable>
       </View>
 
       {loading ? (
         <View style={styles.loadingState}>
-          <ActivityIndicator color="#22c55e" />
+          <ActivityIndicator color={colors.accent} />
           <Text style={styles.mutedText}>Cargando notificaciones...</Text>
         </View>
       ) : (
@@ -159,14 +332,14 @@ export default function NotificationsScreen({ navigation }: any) {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => loadNotifications(true)}
-              tintColor="#22c55e"
-              colors={['#22c55e']}
+              tintColor={colors.accent}
+              colors={[colors.accent]}
             />
           }
         >
           {notifications.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Bell color="#64748b" size={34} />
+              <Bell color={colors.textMuted} size={34} />
               <Text style={styles.emptyTitle}>No tenes notificaciones</Text>
               <Text style={styles.mutedText}>Cuando pase algo importante, va a aparecer aca.</Text>
             </View>
@@ -177,15 +350,16 @@ export default function NotificationsScreen({ navigation }: any) {
                   key={notification.id}
                   notification={notification}
                   onPress={() => handlePressNotification(notification)}
+                  colors={colors}
                 />
               ))}
 
               <Pressable
-                style={[styles.clearAllBtn, saving && styles.disabled]}
+                style={styles.clearAllBtn}
                 onPress={handleClearAll}
                 disabled={saving}
               >
-                <Trash2 color="#fecaca" size={16} />
+                <Trash2 color={colors.danger} size={16} />
                 <Text style={styles.clearAllText}>Limpiar todas las notificaciones</Text>
               </Pressable>
             </>
@@ -196,30 +370,66 @@ export default function NotificationsScreen({ navigation }: any) {
   );
 }
 
+// Componente auxiliar que ahora recibe colors como prop
 function NotificationCard({
   notification,
   onPress,
+  colors,
 }: {
   notification: AppNotification;
   onPress: () => void;
+  colors: any;
 }) {
   const Icon = getNotificationIcon(notification.type);
 
+  // Estilos locales con los colores recibidos (se podría optimizar con useMemo pero no es necesario aquí)
+  const isUnread = !notification.read;
+
   return (
     <Pressable
-      style={[styles.notificationCard, !notification.read && styles.notificationUnread]}
+      style={[
+        {
+          flexDirection: 'row',
+          gap: 12,
+          backgroundColor: colors.surfaceElevated,
+          borderRadius: 18,
+          borderWidth: 1,
+          borderColor: isUnread ? colors.warning + '55' : colors.border,
+          padding: 14,
+        },
+        isUnread && { backgroundColor: colors.warningSoft },
+      ]}
       onPress={onPress}
     >
-      <View style={[styles.notificationIcon, !notification.read && styles.notificationIconUnread]}>
-        <Icon color={!notification.read ? '#facc15' : '#94a3b8'} size={19} />
+      <View
+        style={{
+          width: 38,
+          height: 38,
+          borderRadius: 19,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: isUnread ? colors.warningSoft : colors.surface,
+        }}
+      >
+        <Icon color={isUnread ? colors.warning : colors.textMuted} size={19} />
       </View>
-      <View style={styles.notificationContent}>
-        <View style={styles.notificationHeader}>
-          <Text style={styles.notificationTitle}>{notification.title}</Text>
-          {!notification.read && <View style={styles.unreadDot} />}
+      <View style={{ flex: 1 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text style={{ color: colors.text, fontSize: 14, fontWeight: '900', flex: 1 }}>
+            {notification.title}
+          </Text>
+          {isUnread && (
+            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.warning }} />
+          )}
         </View>
-        {!!notification.body && <Text style={styles.notificationBody}>{notification.body}</Text>}
-        <Text style={styles.notificationDate}>{formatNotificationDate(notification.created_at)}</Text>
+        {!!notification.body && (
+          <Text style={{ color: colors.textSoft, fontSize: 13, marginTop: 4, lineHeight: 18 }}>
+            {notification.body}
+          </Text>
+        )}
+        <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: '800', marginTop: 8 }}>
+          {formatNotificationDate(notification.created_at)}
+        </Text>
       </View>
     </Pressable>
   );
@@ -254,44 +464,3 @@ function formatNotificationDate(value: string) {
     minute: '2-digit',
   }).format(date);
 }
-
-const styles = StyleSheet.create({
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-  backBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#1e293b', alignItems: 'center', justifyContent: 'center' },
-  summary: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#1e293b', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 9 },
-  summaryText: { color: '#e2e8f0', fontWeight: '900', fontSize: 13 },
-  actionsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 },
-  sectionTitle: { color: 'white', fontSize: 18, fontWeight: '900' },
-  readAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#052e16', borderWidth: 1, borderColor: '#166534', borderRadius: 13, paddingHorizontal: 10, paddingVertical: 8 },
-  readAllText: { color: '#bbf7d0', fontSize: 12, fontWeight: '900' },
-  clearAllBtn: {
-    marginTop: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#3f1212',
-    borderWidth: 1,
-    borderColor: '#7f1d1d',
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-  },
-  clearAllText: { color: '#fecaca', fontSize: 13, fontWeight: '900' },
-  disabled: { opacity: 0.5 },
-  loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
-  listContent: { paddingBottom: 36, gap: 10 },
-  emptyCard: { backgroundColor: '#1e293b', borderRadius: 20, borderWidth: 1, borderColor: '#334155', alignItems: 'center', padding: 24, gap: 8 },
-  emptyTitle: { color: 'white', fontSize: 17, fontWeight: '900' },
-  mutedText: { color: '#94a3b8', fontSize: 13, textAlign: 'center' },
-  notificationCard: { flexDirection: 'row', gap: 12, backgroundColor: '#1e293b', borderRadius: 18, borderWidth: 1, borderColor: '#334155', padding: 14 },
-  notificationUnread: { borderColor: '#facc1555', backgroundColor: '#201a0b' },
-  notificationIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a' },
-  notificationIconUnread: { backgroundColor: '#3b2f0c' },
-  notificationContent: { flex: 1 },
-  notificationHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  notificationTitle: { color: 'white', fontSize: 14, fontWeight: '900', flex: 1 },
-  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#facc15' },
-  notificationBody: { color: '#cbd5e1', fontSize: 13, marginTop: 4, lineHeight: 18 },
-  notificationDate: { color: '#64748b', fontSize: 11, fontWeight: '800', marginTop: 8 },
-});

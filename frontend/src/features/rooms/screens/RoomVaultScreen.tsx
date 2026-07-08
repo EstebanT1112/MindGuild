@@ -17,6 +17,7 @@ import { useRoute } from '@react-navigation/native';
 import { Download, FileText, FolderOpen, Plus, Search, Trash2, Upload, X } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import { useAuthStore } from '../../../store/authStore';
+import { useThemeStore } from '../../../store/themeStore';
 import {
   createVaultMaterial,
   deleteVaultMaterial,
@@ -31,10 +32,14 @@ const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 
 export default function RoomVaultScreen() {
   const route = useRoute<any>();
-  const accessToken = useAuthStore(state => state.access_token);
+  const accessToken = useAuthStore((state) => state.access_token);
   const roomId = String(route.params?.roomId ?? '');
   const roomName = String(route.params?.roomName ?? 'Sala');
   const accentColor = route.params?.accentColor ? String(route.params.accentColor) : '#22c55e';
+
+  // 👇 Tema
+  const { colors } = useThemeStore();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [materials, setMaterials] = useState<VaultMaterial[]>([]);
   const [topics, setTopics] = useState<AcademicTopic[]>([]);
@@ -91,7 +96,7 @@ export default function RoomVaultScreen() {
       const savedUri = await saveFileToDevice(safeName, file.mime_type, file.file_base64);
 
       if (savedUri) {
-        Alert.alert('Material descargado', `Se guardo como ${safeName}`);
+        Alert.alert('Material descargado', `Se guardó como ${safeName}`);
       }
     } catch (error: any) {
       Alert.alert('The Vault', error.message ?? 'No se pudo descargar el material');
@@ -109,7 +114,7 @@ export default function RoomVaultScreen() {
         onPress: async () => {
           try {
             await deleteVaultMaterial(accessToken, roomId, material.id);
-            setMaterials(current => current.filter(item => item.id !== material.id));
+            setMaterials((current) => current.filter((item) => item.id !== material.id));
           } catch (error: any) {
             Alert.alert('The Vault', error.message ?? 'No se pudo eliminar el material');
           }
@@ -139,24 +144,24 @@ export default function RoomVaultScreen() {
 
         <View style={styles.searchRow}>
           <View style={styles.searchBox}>
-            <Search color="#94a3b8" size={18} />
+            <Search color={colors.textMuted} size={18} />
             <TextInput
               value={search}
               onChangeText={setSearch}
-              placeholder="Buscar por archivo o categoria"
-              placeholderTextColor="#64748b"
+              placeholder="Buscar por archivo o categoría"
+              placeholderTextColor={colors.textMuted}
               style={styles.searchInput}
               returnKeyType="search"
               onSubmitEditing={handleSearch}
             />
           </View>
           <Pressable style={[styles.searchBtn, { backgroundColor: accentColor }]} onPress={handleSearch}>
-            <Search color="white" size={18} />
+            <Search color="#ffffff" size={18} />
           </Pressable>
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
-          {(['all', 'pdf', 'image', 'text', 'other'] as const).map(type => (
+          {(['all', 'pdf', 'image', 'text', 'other'] as const).map((type) => (
             <Pressable
               key={type}
               style={[
@@ -173,7 +178,7 @@ export default function RoomVaultScreen() {
         </ScrollView>
 
         <Pressable style={[styles.uploadBtn, { backgroundColor: accentColor }]} onPress={() => setUploadVisible(true)}>
-          <Plus color="white" size={22} />
+          <Plus color="#ffffff" size={22} />
           <Text style={styles.uploadBtnText}>Agregar material</Text>
         </Pressable>
 
@@ -184,19 +189,21 @@ export default function RoomVaultScreen() {
           </View>
         ) : materials.length === 0 ? (
           <View style={styles.emptyState}>
-            <FolderOpen color="#64748b" size={36} />
+            <FolderOpen color={colors.textMuted} size={36} />
             <Text style={styles.emptyTitle}>Sin materiales</Text>
-            <Text style={styles.emptyText}>Los archivos que suban los miembros activos van a aparecer aca.</Text>
+            <Text style={styles.emptyText}>Los archivos que suban los miembros activos van a aparecer acá.</Text>
           </View>
         ) : (
           <View style={styles.list}>
-            {materials.map(material => (
+            {materials.map((material) => (
               <MaterialCard
                 key={material.id}
                 material={material}
                 accentColor={accentColor}
                 onDownload={() => handleDownload(material)}
                 onDelete={() => handleDelete(material)}
+                colors={colors}
+                styles={styles}
               />
             ))}
           </View>
@@ -210,11 +217,13 @@ export default function RoomVaultScreen() {
         accentColor={accentColor}
         topics={topics}
         onClose={() => setUploadVisible(false)}
-        onCreated={material => {
-          setMaterials(current => [material, ...current]);
+        onCreated={(material) => {
+          setMaterials((current) => [material, ...current]);
           setUploadVisible(false);
         }}
-        onTopicCreated={topic => setTopics(current => [...current, topic])}
+        onTopicCreated={(topic) => setTopics((current) => [...current, topic])}
+        colors={colors}
+        styles={styles}
       />
     </ScreenLayout>
   );
@@ -225,11 +234,15 @@ function MaterialCard({
   accentColor,
   onDownload,
   onDelete,
+  colors,
+  styles,
 }: {
   material: VaultMaterial;
   accentColor: string;
   onDownload: () => void;
   onDelete: () => void;
+  colors: any;
+  styles: any;
 }) {
   return (
     <View style={styles.materialCard}>
@@ -252,7 +265,7 @@ function MaterialCard({
         {material.topics.length === 0 ? (
           <Text style={styles.noTopicText}>Sin tema</Text>
         ) : (
-          material.topics.map(topic => (
+          material.topics.map((topic) => (
             <View key={topic.id} style={[styles.topicPill, { borderColor: topic.color ?? accentColor }]}>
               <Text style={styles.topicText}>{topic.name}</Text>
             </View>
@@ -264,10 +277,10 @@ function MaterialCard({
         <Text style={styles.authorText}>Subido por {material.uploaded_by.username}</Text>
         <View style={styles.materialActions}>
           <Pressable style={styles.iconAction} onPress={onDownload}>
-            <Download color="#cbd5e1" size={18} />
+            <Download color={colors.textMuted} size={18} />
           </Pressable>
           <Pressable style={styles.iconAction} onPress={onDelete}>
-            <Trash2 color="#f87171" size={18} />
+            <Trash2 color={colors.danger} size={18} />
           </Pressable>
         </View>
       </View>
@@ -284,6 +297,8 @@ function UploadMaterialModal({
   onClose,
   onCreated,
   onTopicCreated,
+  colors,
+  styles,
 }: {
   visible: boolean;
   roomId: string;
@@ -293,6 +308,8 @@ function UploadMaterialModal({
   onClose: () => void;
   onCreated: (material: VaultMaterial) => void;
   onTopicCreated: (topic: AcademicTopic) => void;
+  colors: any;
+  styles: any;
 }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -349,21 +366,25 @@ function UploadMaterialModal({
   };
 
   const toggleTopic = (topicId: string) => {
-    setSelectedTopicIds(current =>
+    setSelectedTopicIds((current) =>
       current.includes(topicId)
-        ? current.filter(id => id !== topicId)
+        ? current.filter((id) => id !== topicId)
         : current.length >= 5
-          ? current
-          : [...current, topicId]
+        ? current
+        : [...current, topicId]
     );
   };
 
   const handleCreateTopic = async () => {
     if (!accessToken || !newTopicName.trim()) return;
 
-    const existingTopic = topics.find(topic => normalizeTopicName(topic.name) === normalizeTopicName(newTopicName));
+    const existingTopic = topics.find(
+      (topic) => normalizeTopicName(topic.name) === normalizeTopicName(newTopicName)
+    );
     if (existingTopic) {
-      setSelectedTopicIds(current => current.includes(existingTopic.id) ? current : [...current, existingTopic.id]);
+      setSelectedTopicIds((current) =>
+        current.includes(existingTopic.id) ? current : [...current, existingTopic.id]
+      );
       setNewTopicName('');
       Alert.alert('Tema existente', 'Ese tema ya existe y fue seleccionado.');
       return;
@@ -372,7 +393,7 @@ function UploadMaterialModal({
     try {
       const topic = await createRoomTopic(accessToken, roomId, { name: newTopicName.trim() });
       onTopicCreated(topic);
-      setSelectedTopicIds(current => [...current, topic.id]);
+      setSelectedTopicIds((current) => [...current, topic.id]);
       setNewTopicName('');
     } catch (error: any) {
       Alert.alert('The Vault', error.message ?? 'No se pudo crear el tema');
@@ -408,7 +429,7 @@ function UploadMaterialModal({
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Agregar material</Text>
             <Pressable style={styles.closeBtn} onPress={handleClose}>
-              <X color="#cbd5e1" size={20} />
+              <X color={colors.textMuted} size={20} />
             </Pressable>
           </View>
 
@@ -418,26 +439,26 @@ function UploadMaterialModal({
               <Upload color={accentColor} size={22} />
               <View style={styles.filePickerTextBox}>
                 <Text style={styles.filePickerTitle}>{selectedFile?.name ?? 'Seleccionar archivo'}</Text>
-                <Text style={styles.filePickerSub}>PDF, imagen o texto · maximo 5 MB</Text>
+                <Text style={styles.filePickerSub}>PDF, imagen o texto · máximo 5 MB</Text>
               </View>
             </Pressable>
 
-            <Text style={styles.inputLabel}>Titulo</Text>
+            <Text style={styles.inputLabel}>Título</Text>
             <TextInput
               value={title}
               onChangeText={setTitle}
               placeholder="Ej: Resumen unidad 2"
-              placeholderTextColor="#64748b"
+              placeholderTextColor={colors.textMuted}
               style={styles.input}
               maxLength={80}
             />
 
-            <Text style={styles.inputLabel}>Descripcion</Text>
+            <Text style={styles.inputLabel}>Descripción</Text>
             <TextInput
               value={description}
               onChangeText={setDescription}
               placeholder="Detalle opcional"
-              placeholderTextColor="#64748b"
+              placeholderTextColor={colors.textMuted}
               style={[styles.input, styles.textArea]}
               multiline
               maxLength={300}
@@ -446,9 +467,9 @@ function UploadMaterialModal({
             <Text style={styles.inputLabel}>Temas</Text>
             <View style={styles.topicSelector}>
               {topics.length === 0 ? (
-                <Text style={styles.noTopicText}>Todavia no hay temas en esta sala.</Text>
+                <Text style={styles.noTopicText}>Todavía no hay temas en esta sala.</Text>
               ) : (
-                topics.map(topic => {
+                topics.map((topic) => {
                   const selected = selectedTopicIds.includes(topic.id);
                   return (
                     <Pressable
@@ -471,22 +492,22 @@ function UploadMaterialModal({
                 value={newTopicName}
                 onChangeText={setNewTopicName}
                 placeholder="Crear tema"
-                placeholderTextColor="#64748b"
+                placeholderTextColor={colors.textMuted}
                 style={[styles.input, styles.newTopicInput]}
                 maxLength={50}
               />
               <Pressable style={[styles.createTopicBtn, { backgroundColor: accentColor }]} onPress={handleCreateTopic}>
-                <Plus color="white" size={18} />
+                <Plus color="#ffffff" size={18} />
               </Pressable>
             </View>
           </ScrollView>
 
           <Pressable
-            style={[styles.saveBtn, { backgroundColor: canSave ? accentColor : '#334155' }]}
+            style={[styles.saveBtn, { backgroundColor: canSave ? accentColor : colors.border }]}
             disabled={!canSave}
             onPress={handleSave}
           >
-            {saving ? <ActivityIndicator color="white" /> : <Text style={styles.saveBtnText}>Guardar en The Vault</Text>}
+            {saving ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.saveBtnText}>Guardar en The Vault</Text>}
           </Pressable>
         </View>
       </View>
@@ -511,7 +532,7 @@ async function saveFileToDevice(fileName: string, mimeType: string, base64: stri
     const permissions = await saf.requestDirectoryPermissionsAsync();
 
     if (!permissions.granted) {
-      Alert.alert('Descarga cancelada', 'No se selecciono una carpeta para guardar el archivo.');
+      Alert.alert('Descarga cancelada', 'No se seleccionó una carpeta para guardar el archivo.');
       return null;
     }
 
@@ -525,7 +546,7 @@ async function saveFileToDevice(fileName: string, mimeType: string, base64: stri
 
   const directory = FileSystem.documentDirectory;
   if (!directory) {
-    throw new Error('No se encontro una carpeta local para guardar el archivo.');
+    throw new Error('No se encontró una carpeta local para guardar el archivo.');
   }
 
   const localUri = `${directory}${fileName}`;
@@ -562,145 +583,156 @@ function normalizeTopicName(value: string) {
     .replace(/\s+/g, ' ');
 }
 
-const styles = StyleSheet.create({
-  container: { paddingBottom: 36 },
-  header: { marginBottom: 16 },
-  roomName: { color: '#f8fafc', fontSize: 20, fontWeight: '900' },
-  subtitle: { color: '#94a3b8', marginTop: 4 },
-  searchRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
-  searchBox: {
-    flex: 1,
-    minHeight: 48,
-    borderRadius: 8,
-    backgroundColor: '#0f172a',
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    gap: 8,
-  },
-  searchInput: { flex: 1, color: '#f8fafc', fontSize: 14 },
-  searchBtn: { width: 48, height: 48, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  filters: { gap: 8, paddingBottom: 14 },
-  filterChip: {
-    borderWidth: 1,
-    borderColor: '#334155',
-    backgroundColor: '#0f172a',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-  },
-  filterText: { color: '#94a3b8', fontSize: 12, fontWeight: '800' },
-  uploadBtn: {
-    minHeight: 52,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 16,
-  },
-  uploadBtnText: { color: 'white', fontWeight: '900', fontSize: 14 },
-  loadingState: { alignItems: 'center', gap: 10, paddingVertical: 30 },
-  mutedText: { color: '#94a3b8' },
-  emptyState: {
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    backgroundColor: '#0f172a',
-    alignItems: 'center',
-    padding: 24,
-  },
-  emptyTitle: { color: '#f8fafc', fontSize: 16, fontWeight: '900', marginTop: 10 },
-  emptyText: { color: '#94a3b8', textAlign: 'center', marginTop: 6 },
-  list: { gap: 12 },
-  materialCard: {
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    backgroundColor: '#0f172a',
-    padding: 14,
-  },
-  materialTop: { flexDirection: 'row', gap: 12, alignItems: 'center' },
-  fileIcon: { width: 42, height: 42, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  materialInfo: { flex: 1 },
-  materialTitle: { color: '#f8fafc', fontWeight: '900', fontSize: 15 },
-  materialMeta: { color: '#94a3b8', marginTop: 2, fontSize: 12 },
-  materialDescription: { color: '#cbd5e1', marginTop: 12, lineHeight: 18 },
-  fileName: { color: '#64748b', marginTop: 8, fontSize: 12 },
-  topicRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
-  topicPill: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4 },
-  topicText: { color: '#cbd5e1', fontSize: 12, fontWeight: '700' },
-  noTopicText: { color: '#64748b', fontSize: 12 },
-  materialFooter: {
-    marginTop: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 10,
-  },
-  authorText: { color: '#94a3b8', fontSize: 12, flex: 1 },
-  materialActions: { flexDirection: 'row', gap: 8 },
-  iconAction: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
-    backgroundColor: '#111827',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(2, 6, 23, 0.78)', justifyContent: 'flex-end' },
-  modalContent: {
-    maxHeight: '88%',
-    backgroundColor: '#020617',
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    padding: 18,
-  },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  modalTitle: { color: '#f8fafc', fontSize: 18, fontWeight: '900' },
-  closeBtn: { width: 36, height: 36, borderRadius: 8, backgroundColor: '#111827', alignItems: 'center', justifyContent: 'center' },
-  modalBody: { paddingTop: 16, paddingBottom: 12 },
-  inputLabel: { color: '#cbd5e1', fontSize: 12, fontWeight: '900', marginBottom: 8, marginTop: 12 },
-  filePicker: {
-    minHeight: 58,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#334155',
-    backgroundColor: '#0f172a',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 12,
-  },
-  filePickerTextBox: { flex: 1 },
-  filePickerTitle: { color: '#f8fafc', fontWeight: '800' },
-  filePickerSub: { color: '#64748b', fontSize: 12, marginTop: 2 },
-  input: {
-    minHeight: 46,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#334155',
-    backgroundColor: '#0f172a',
-    color: '#f8fafc',
-    paddingHorizontal: 12,
-  },
-  textArea: { minHeight: 82, paddingTop: 12, textAlignVertical: 'top' },
-  topicSelector: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  selectableTopic: {
-    borderWidth: 1,
-    borderColor: '#334155',
-    backgroundColor: '#0f172a',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  newTopicRow: { flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 10 },
-  newTopicInput: { flex: 1 },
-  createTopicBtn: { width: 46, height: 46, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  saveBtn: { minHeight: 50, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  saveBtnText: { color: 'white', fontWeight: '900' },
-});
+// ------------------------------------------------------------
+// Estilos dinámicos con tokens del tema
+// ------------------------------------------------------------
+const createStyles = (colors: any) =>
+  StyleSheet.create({
+    container: { paddingBottom: 36 },
+    header: { marginBottom: 16 },
+    roomName: { color: colors.text, fontSize: 20, fontWeight: '900' },
+    subtitle: { color: colors.textMuted, marginTop: 4 },
+    searchRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
+    searchBox: {
+      flex: 1,
+      minHeight: 48,
+      borderRadius: 8,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 12,
+      gap: 8,
+    },
+    searchInput: { flex: 1, color: colors.text, fontSize: 14 },
+    searchBtn: { width: 48, height: 48, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    filters: { gap: 8, paddingBottom: 14 },
+    filterChip: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 999,
+    },
+    filterText: { color: colors.textMuted, fontSize: 12, fontWeight: '800' },
+    uploadBtn: {
+      minHeight: 52,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexDirection: 'row',
+      gap: 10,
+      marginBottom: 16,
+    },
+    uploadBtnText: { color: '#ffffff', fontWeight: '900', fontSize: 14 },
+    loadingState: { alignItems: 'center', gap: 10, paddingVertical: 30 },
+    mutedText: { color: colors.textMuted },
+    emptyState: {
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      alignItems: 'center',
+      padding: 24,
+    },
+    emptyTitle: { color: colors.text, fontSize: 16, fontWeight: '900', marginTop: 10 },
+    emptyText: { color: colors.textMuted, textAlign: 'center', marginTop: 6 },
+    list: { gap: 12 },
+    materialCard: {
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      padding: 14,
+    },
+    materialTop: { flexDirection: 'row', gap: 12, alignItems: 'center' },
+    fileIcon: { width: 42, height: 42, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    materialInfo: { flex: 1 },
+    materialTitle: { color: colors.text, fontWeight: '900', fontSize: 15 },
+    materialMeta: { color: colors.textMuted, marginTop: 2, fontSize: 12 },
+    materialDescription: { color: colors.text, marginTop: 12, lineHeight: 18 },
+    fileName: { color: colors.textMuted, marginTop: 8, fontSize: 12 },
+    topicRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
+    topicPill: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4 },
+    topicText: { color: colors.text, fontSize: 12, fontWeight: '700' },
+    noTopicText: { color: colors.textMuted, fontSize: 12 },
+    materialFooter: {
+      marginTop: 12,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: 10,
+    },
+    authorText: { color: colors.textMuted, fontSize: 12, flex: 1 },
+    materialActions: { flexDirection: 'row', gap: 8 },
+    iconAction: {
+      width: 34,
+      height: 34,
+      borderRadius: 8,
+      backgroundColor: colors.surfaceElevated,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    modalOverlay: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' },
+    modalContent: {
+      maxHeight: '88%',
+      backgroundColor: colors.surfaceElevated,
+      borderTopLeftRadius: 18,
+      borderTopRightRadius: 18,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 18,
+    },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    modalTitle: { color: colors.text, fontSize: 18, fontWeight: '900' },
+    closeBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 8,
+      backgroundColor: colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    modalBody: { paddingTop: 16, paddingBottom: 12 },
+    inputLabel: { color: colors.text, fontSize: 12, fontWeight: '900', marginBottom: 8, marginTop: 12 },
+    filePicker: {
+      minHeight: 58,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      padding: 12,
+    },
+    filePickerTextBox: { flex: 1 },
+    filePickerTitle: { color: colors.text, fontWeight: '800' },
+    filePickerSub: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
+    input: {
+      minHeight: 46,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      color: colors.text,
+      paddingHorizontal: 12,
+    },
+    textArea: { minHeight: 82, paddingTop: 12, textAlignVertical: 'top' },
+    topicSelector: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    selectableTopic: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      borderRadius: 999,
+      paddingHorizontal: 10,
+      paddingVertical: 7,
+    },
+    newTopicRow: { flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 10 },
+    newTopicInput: { flex: 1 },
+    createTopicBtn: { width: 46, height: 46, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    saveBtn: { minHeight: 50, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    saveBtnText: { color: '#ffffff', fontWeight: '900' },
+  });

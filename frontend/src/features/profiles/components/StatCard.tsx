@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { useThemeStore } from '../../../store/themeStore';
 
 interface StatCardProps {
   icon: React.ReactNode;
@@ -8,6 +9,33 @@ interface StatCardProps {
 }
 
 export default function StatCard({ icon, value, label }: StatCardProps) {
+  const colors = useThemeStore(state => state.colors);
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        statCard: {
+          width: '47%',
+          backgroundColor: colors.surface,
+          padding: 20,
+          borderRadius: 24,
+          alignItems: 'center',
+        },
+        statNumber: {
+          color: colors.text,
+          fontSize: 22,
+          fontWeight: '900',
+          marginVertical: 5,
+        },
+        statLabel: {
+          color: colors.textMuted,
+          fontSize: 12,
+          fontWeight: 'bold',
+        },
+      }),
+    [colors]
+  );
+
   return (
     <View style={styles.statCard}>
       {icon}
@@ -16,9 +44,3 @@ export default function StatCard({ icon, value, label }: StatCardProps) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  statCard: { width: '47%', backgroundColor: '#1e293b', padding: 20, borderRadius: 24, alignItems: 'center' },
-  statNumber: { color: 'white', fontSize: 22, fontWeight: '900', marginVertical: 5 },
-  statLabel: { color: '#64748b', fontSize: 12, fontWeight: 'bold' },
-});

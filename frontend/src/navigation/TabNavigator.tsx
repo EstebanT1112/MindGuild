@@ -7,11 +7,13 @@ import FriendsScreen from "../features/friends/screens/FriendsScreen";
 import RankingScreen from "../features/rankings/screens/RankingScreen";
 import RoomsStack from "./RoomsStack";
 import { useAppDataStore } from '../store/appDataStore';
+import { useThemeStore } from '../store/themeStore'; //[cite: 13]
 
 const Tab = createMaterialTopTabNavigator();
 
 export default function TabNavigator() {
   const activeStudySession = useAppDataStore(state => state.activeStudySession);
+  const colors = useThemeStore(state => state.colors); //[cite: 13]
 
   return (
     <Tab.Navigator
@@ -20,35 +22,30 @@ export default function TabNavigator() {
       screenListeners={{
         tabPress: (event: any) => {
           if (!activeStudySession) return;
-
           event.preventDefault();
-          Alert.alert(
-            'Sesion activa',
-            'Finaliza la sesion antes de moverte por la app.'
-          );
+          Alert.alert('Sesión activa', 'Finaliza la sesión antes de moverte por la app.');
         },
       }}
       screenOptions={{
-        // 🚀 LA SOLUCIÓN: swipeEnabled va ACÁ adentro según el tipado oficial de MaterialTopTabs
         swipeEnabled: !activeStudySession,
-        tabBarIndicatorStyle: { opacity: 0 }, 
+        tabBarIndicatorStyle: { opacity: 0 },
         tabBarStyle: {
-          backgroundColor: "#111", 
-          borderTopColor: "#222",
+          backgroundColor: colors.surface, //[cite: 13]
+          borderTopColor: colors.border,   //[cite: 13]
           borderTopWidth: 1,
-          height: 65, 
+          height: 65,
         },
-        tabBarActiveTintColor: "#22c55e", 
-        tabBarInactiveTintColor: "#888",
+        tabBarActiveTintColor: colors.accent,     //[cite: 13]
+        tabBarInactiveTintColor: colors.textMuted, //[cite: 13]
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '600',
-          textTransform: 'none', 
+          textTransform: 'none',
         },
         tabBarItemStyle: {
           justifyContent: 'center',
           alignItems: 'center',
-          paddingBottom: 4, 
+          paddingBottom: 4,
           paddingTop: 4,
         },
         tabBarShowIcon: true,

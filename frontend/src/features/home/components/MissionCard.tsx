@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, Pressable } from "react-native";
 import { Check, Target } from 'lucide-react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useEffect } from 'react';
+import { useThemeStore } from '../../../store/themeStore';
 
 type Mission = {
   title: string;
@@ -14,6 +15,7 @@ type Mission = {
 };
 
 export default function MissionCard({ mission, onPress }: { mission: Mission; onPress?: () => void }) {
+  const colors = useThemeStore(state => state.colors);
   const progressRatio = mission.progress / mission.target;
   const progressPercent = Math.min(progressRatio * 100, 100);
   const isCompleted = mission.progress >= mission.target;
@@ -31,23 +33,31 @@ export default function MissionCard({ mission, onPress }: { mission: Mission; on
   }));
 
   return (
-    <Pressable style={[styles.card, isCompleted && styles.completed, mission.expired && styles.expired]} onPress={onPress}>
+    <Pressable 
+      style={[
+        styles.card, 
+        { backgroundColor: colors.surface, borderColor: colors.border },
+        isCompleted && { borderColor: colors.accent, backgroundColor: colors.accentSoft }, 
+        mission.expired && styles.expired
+      ]} 
+      onPress={onPress}
+    >
       <View style={styles.header}>
-        <View style={styles.iconBox}>
-          <Target color={isCompleted ? '#22c55e' : '#3b82f6'} size={18} />
+        <View style={[styles.iconBox, { backgroundColor: colors.background }]}>
+          <Target color={isCompleted ? colors.accent : '#3b82f6'} size={18} />
         </View>
 
         <View style={{ flex: 1 }}>
-          <Text style={styles.title}>{mission.title}</Text>
+          <Text style={[styles.title, { color: colors.text }]}>{mission.title}</Text>
           <View style={styles.metaRow}>
             <Text style={styles.frequency}>
               {mission.frequency === 'weekly' ? 'Semanal' : 'Diaria'}
             </Text>
-            <Text style={styles.meta}>
+            <Text style={[styles.meta, { color: colors.textMuted }]}>
               {mission.progress}/{mission.target}
             </Text>
-            <View style={styles.reward}>
-              <Text style={styles.rewardText}>+{mission.reward_coins ?? 0}</Text>
+            <View style={[styles.reward, { backgroundColor: `${colors.warning}22` }]}>
+              <Text style={[styles.rewardText, { color: colors.warning }]}>+{mission.reward_coins ?? 0}</Text>
             </View>
             {mission.expired && <Text style={styles.expiredText}>Expirada</Text>}
             {mission.claimed && <Text style={styles.claimedText}>Reclamada</Text>}
@@ -55,13 +65,13 @@ export default function MissionCard({ mission, onPress }: { mission: Mission; on
         </View>
 
         {isCompleted && (
-          <View style={styles.checkBadge}>
-            <Check color="#22c55e" size={18} />
+          <View style={[styles.checkBadge, { backgroundColor: `${colors.accent}22` }]}>
+            <Check color={colors.accent} size={18} />
           </View>
         )}
       </View>
 
-      <View style={styles.bar}>
+      <View style={[styles.bar, { backgroundColor: colors.border }]}>
         <Animated.View
           style={[
             styles.progress,
@@ -76,20 +86,13 @@ export default function MissionCard({ mission, onPress }: { mission: Mission; on
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#1a1d29",
     padding: 14,
     borderRadius: 16,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: "#2a2f45",
-  },
-  completed: {
-    borderColor: "#22c55e",
-    backgroundColor: "#22c55e11",
   },
   expired: {
     opacity: 0.65,
-    borderColor: '#f9731633',
   },
   header: {
     flexDirection: "row",
@@ -101,12 +104,10 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#0f172a',
     alignItems: 'center',
     justifyContent: 'center',
   },
   title: {
-    color: "#fff",
     fontWeight: "bold",
     marginBottom: 4,
   },
@@ -116,18 +117,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   meta: {
-    color: "#aaa",
     fontSize: 12,
   },
   frequency: { color: '#38bdf8', fontSize: 11, fontWeight: '900' },
   reward: {
-    backgroundColor: "#facc1522",
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 999,
   },
   rewardText: {
-    color: "#facc15",
     fontSize: 12,
     fontWeight: "bold",
   },
@@ -137,13 +135,11 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#22c55e22',
     alignItems: 'center',
     justifyContent: 'center',
   },
   bar: {
     height: 6,
-    backgroundColor: "#222",
     borderRadius: 6,
     overflow: "hidden",
   },

@@ -64,7 +64,7 @@ export default function AchievementDetailModal({
           <View style={styles.infoRow}>
             <Target color="#38bdf8" size={18} />
             <Text style={styles.infoText}>
-              Requisito: {achievement.description}
+              Objetivo: {achievement.target_value} {achievement.type}
             </Text>
           </View>
 
@@ -116,44 +116,13 @@ function formatDate(value: string) {
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.72)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  card: {
-    width: '100%',
-    backgroundColor: '#1e293b',
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: '#334155',
-    padding: 20,
-  },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', alignItems: 'center', justifyContent: 'center', padding: 20 },
+  card: { width: '100%', backgroundColor: '#1e293b', borderRadius: 24, borderWidth: 1, borderColor: '#334155', padding: 20 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  iconBox: {
-    width: 62,
-    height: 62,
-    borderRadius: 18,
-    borderWidth: 1,
-    backgroundColor: '#0f172a',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  iconBox: { width: 62, height: 62, borderRadius: 18, borderWidth: 2, backgroundColor: '#0f172a', alignItems: 'center', justifyContent: 'center' },
   closeBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#0f172a', alignItems: 'center', justifyContent: 'center' },
   title: { color: '#fff', fontSize: 22, fontWeight: '900', marginTop: 16 },
-  tierBadge: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    marginTop: 8,
-  },
+  tierBadge: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginTop: 8 },
   tierText: { fontSize: 12, fontWeight: '900' },
   description: { color: '#cbd5e1', fontSize: 14, lineHeight: 20, marginTop: 14 },
   infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 14 },

@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
+import { useThemeStore } from '../../../store/themeStore'; // 👈 Importamos el theme
 
 interface RankingItemProps {
   rank: number;
@@ -13,7 +14,21 @@ interface RankingItemProps {
   isUser?: boolean;
 }
 
-export default function RankingItem({ rank, name, value, subtitle, trend, movement = 0, isUser }: RankingItemProps) {
+export default function RankingItem({
+  rank,
+  name,
+  value,
+  subtitle,
+  trend,
+  movement = 0,
+  isUser = false,
+}: RankingItemProps) {
+  // 👇 Obtenemos los colores del tema actual
+  const { colors } = useThemeStore();
+
+  // 👇 Estilos dinámicos que se reconstruyen al cambiar el tema
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const trendScale = useSharedValue(1);
 
   React.useEffect(() => {
@@ -29,12 +44,21 @@ export default function RankingItem({ rank, name, value, subtitle, trend, moveme
     transform: [{ scale: trendScale.value }],
   }));
 
+  // 👇 Función para obtener el estilo del badge según el puesto
+  const getBadgeStyle = (rank: number) => {
+    if (rank === 1) return { backgroundColor: colors.rankGold };
+    if (rank === 2) return { backgroundColor: colors.rankSilver };
+    if (rank === 3) return { backgroundColor: colors.rankBronze };
+    return { backgroundColor: colors.surfaceElevated };
+  };
+
+  // 👇 Render del indicador de tendencia
   const renderTrend = () => {
     if (trend === 'up') {
       return (
         <>
-          <TrendingUp size={14} color="#22c55e" />
-          <Text style={styles.trendUp}>Subio {movement}</Text>
+          <TrendingUp size={14} color={colors.accent} />
+          <Text style={[styles.trendText, styles.trendUp]}>Subió {movement}</Text>
         </>
       );
     }
@@ -42,33 +66,45 @@ export default function RankingItem({ rank, name, value, subtitle, trend, moveme
     if (trend === 'down') {
       return (
         <>
-          <TrendingDown size={14} color="#ef4444" />
-          <Text style={styles.trendDown}>Bajo {movement}</Text>
+          <TrendingDown size={14} color={colors.danger} />
+          <Text style={[styles.trendText, styles.trendDown]}>Bajó {movement}</Text>
         </>
       );
     }
 
     return (
       <>
-        <Minus size={14} color="#94a3b8" />
-        <Text style={styles.trendEqual}>Igual</Text>
+        <Minus size={14} color={colors.textMuted} />
+        <Text style={[styles.trendText, styles.trendEqual]}>Igual</Text>
       </>
     );
   };
 
   return (
-    <View style={[styles.card, isUser && styles.userCard]}>
-      <View style={[styles.rankBadge, getRankBadgeStyle(rank)]}>
+    <View
+      style={[
+        styles.card,
+        isUser && {
+          borderColor: colors.accent,
+          backgroundColor: colors.highlight,
+        },
+      ]}
+    >
+      <View style={[styles.rankBadge, getBadgeStyle(rank)]}>
         <Text style={styles.rankText}>{rank}</Text>
       </View>
 
-      <View style={styles.avatarPlaceholder}>
-        <Text style={styles.avatarText}>{name.charAt(0)}</Text>
+      <View style={[styles.avatarPlaceholder, { backgroundColor: colors.avatarAccent }]}>
+        <Text style={[styles.avatarText, { color: colors.avatarText }]}>
+          {name.charAt(0)}
+        </Text>
       </View>
 
       <View style={styles.infoContainer}>
-        <Text style={styles.nameText}>{isUser ? `Tu (${name})` : name}</Text>
-        <Animated.View style={[styles.trendRow, animatedTrendStyle]}>{renderTrend()}</Animated.View>
+        <Text style={styles.nameText}>{isUser ? `Tú (${name})` : name}</Text>
+        <Animated.View style={[styles.trendRow, animatedTrendStyle]}>
+          {renderTrend()}
+        </Animated.View>
       </View>
 
       <View style={styles.valueContainer}>
@@ -79,31 +115,81 @@ export default function RankingItem({ rank, name, value, subtitle, trend, moveme
   );
 }
 
-function getRankBadgeStyle(rank: number) {
-  if (rank === 1) return styles.gold;
-  if (rank === 2) return styles.silver;
-  if (rank === 3) return styles.bronze;
-  return styles.normal;
-}
-
-const styles = StyleSheet.create({
-  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1e293b', padding: 15, borderRadius: 20, marginBottom: 12 },
-  userCard: { borderWidth: 2, borderColor: '#22c55e', backgroundColor: 'rgba(34, 197, 94, 0.1)' },
-  rankBadge: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  gold: { backgroundColor: '#facc15' },
-  silver: { backgroundColor: '#cbd5e1' },
-  bronze: { backgroundColor: '#b45309' },
-  normal: { backgroundColor: '#334155' },
-  rankText: { color: '#0f172a', fontWeight: 'bold' },
-  avatarPlaceholder: { width: 45, height: 45, borderRadius: 22.5, backgroundColor: '#6366f1', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  avatarText: { color: 'white', fontWeight: 'bold', fontSize: 18 },
-  infoContainer: { flex: 1 },
-  nameText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
-  trendRow: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 4, marginTop: 4 },
-  trendUp: { color: '#22c55e', fontSize: 12, fontWeight: 'bold' },
-  trendDown: { color: '#ef4444', fontSize: 12, fontWeight: 'bold' },
-  trendEqual: { color: '#94a3b8', fontSize: 12 },
-  valueContainer: { alignItems: 'flex-end' },
-  valueText: { color: '#22c55e', fontSize: 18, fontWeight: '900' },
-  subtitleText: { color: '#64748b', fontSize: 10 },
-});
+// 👇 Función que construye los estilos dinámicamente a partir de los colores del tema
+const createStyles = (colors: any) =>
+  StyleSheet.create({
+    card: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.surfaceElevated,
+      padding: 15,
+      borderRadius: 20,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    rankBadge: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+    },
+    rankText: {
+      color: colors.rankBadgeText,
+      fontWeight: 'bold',
+    },
+    avatarPlaceholder: {
+      width: 45,
+      height: 45,
+      borderRadius: 22.5,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+    },
+    avatarText: {
+      fontWeight: 'bold',
+      fontSize: 18,
+    },
+    infoContainer: {
+      flex: 1,
+    },
+    nameText: {
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: 'bold',
+    },
+    trendRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      alignSelf: 'flex-start',
+      gap: 4,
+      marginTop: 4,
+    },
+    trendText: {
+      fontSize: 12,
+      fontWeight: 'bold',
+    },
+    trendUp: {
+      color: colors.accent,
+    },
+    trendDown: {
+      color: colors.danger,
+    },
+    trendEqual: {
+      color: colors.textMuted,
+    },
+    valueContainer: {
+      alignItems: 'flex-end',
+    },
+    valueText: {
+      color: colors.accent,
+      fontSize: 18,
+      fontWeight: '900',
+    },
+    subtitleText: {
+      color: colors.textMuted,
+      fontSize: 10,
+    },
+  });
