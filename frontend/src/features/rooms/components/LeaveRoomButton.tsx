@@ -6,6 +6,7 @@ import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
 import { leaveRoom } from '../services/roomsService';
 import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
+import { useThemeStore } from '../../../store/themeStore';
 
 interface Props {
   roomId?: string;
@@ -16,9 +17,9 @@ export default function LeaveRoomButton({ roomId, hidden = false }: Props) {
   const navigation = useNavigation<any>();
   const accessToken = useAuthStore(state => state.access_token);
   const removeRoom = useAppDataStore(state => state.removeRoom);
+  const colors = useThemeStore((s) => s.colors);
   const [submitting, setSubmitting] = useState(false);
 
-  // ✅ Estado para AppAlert
   const [alert, setAlert] = useState<{
     visible: boolean;
     title: string;
@@ -36,7 +37,6 @@ export default function LeaveRoomButton({ roomId, hidden = false }: Props) {
     type: 'info',
   });
 
-  // ✅ Función para mostrar alertas personalizadas
   const showAlert = (
     title: string,
     message: string,
@@ -102,15 +102,14 @@ export default function LeaveRoomButton({ roomId, hidden = false }: Props) {
   return (
     <>
       <Pressable
-        style={[styles.button, submitting && styles.buttonDisabled]}
+        style={[styles.button, { borderColor: colors.dangerBorder, backgroundColor: colors.dangerSoft }, submitting && styles.buttonDisabled]}
         onPress={confirmLeave}
         disabled={submitting || !roomId}
       >
-        <LogOut color="#f87171" size={20} />
-        <Text style={styles.text}>{submitting ? 'Saliendo...' : 'Abandonar sala'}</Text>
+        <LogOut color={colors.danger} size={20} />
+        <Text style={[styles.text, { color: colors.danger }]}>{submitting ? 'Saliendo...' : 'Abandonar sala'}</Text>
       </Pressable>
 
-      {/* ✅ AppAlert personalizado */}
       <AppAlert
         visible={alert.visible}
         title={alert.title}
@@ -143,13 +142,11 @@ const styles = StyleSheet.create({
     minHeight: 56,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#7f1d1d',
-    backgroundColor: '#450a0a55',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
   },
   buttonDisabled: { opacity: 0.65 },
-  text: { color: '#f87171', fontSize: 16, fontWeight: '900' },
+  text: { fontSize: 16, fontWeight: '900' },
 });

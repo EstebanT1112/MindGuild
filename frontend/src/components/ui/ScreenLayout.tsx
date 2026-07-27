@@ -66,8 +66,8 @@ export default function ScreenLayout({ children, title, type = 'rooms', icon, ri
           </View>
           {hideRightAction ? <View style={styles.headerSpacer} /> : rightAction ?? (
             <Pressable style={[styles.coinBadge, { backgroundColor: colors.warning }]} onPress={() => navigation.navigate('Wallet')}>
-              <View style={[styles.hCoin, { backgroundColor: colors.warning }]}><Brain color="#0f172a" size={20} strokeWidth={2.2} /></View>
-              <Text style={styles.coinAmount}>{coinsBalance}</Text>
+              <View style={[styles.hCoin, { backgroundColor: colors.warning }]}><Brain color={colors.text} size={20} strokeWidth={2.2} /></View>
+              <Text style={[styles.coinAmount, { color: colors.text }]}>{coinsBalance}</Text>
             </Pressable>
           )}
         </View>

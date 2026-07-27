@@ -7,6 +7,7 @@ import ScreenLayout from '../../../components/ui/ScreenLayout';
 import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
 import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
+import { useThemeStore } from '../../../store/themeStore';
 import InviteFriendsModal from '../components/InviteFriendsModal';
 import LeaveRoomButton from '../components/LeaveRoomButton';
 import RoomAdminModal from '../components/RoomAdminModal';
@@ -36,6 +37,7 @@ export default function LiveRoomScreen() {
     const loadRoomRanking = useAppDataStore(state => state.loadRoomRanking);
     const setRoomDetails = useAppDataStore(state => state.setRoomDetails);
     const markRoomActivity = useAppDataStore(state => state.markRoomActivity);
+    const colors = useThemeStore(state => state.colors);
 
     const targetRoomId = route.params?.roomId ? String(route.params.roomId) : null;
 
@@ -314,10 +316,10 @@ export default function LiveRoomScreen() {
 
     if (loading) {
         return (
-            <ScreenLayout title="SALA EN VIVO" type="rooms" icon={<Users color="#22c55e" size={22} />}>
+            <ScreenLayout title="SALA EN VIVO" type="rooms" icon={<Users color={colors.accent} size={22} />}>
                 <View style={styles.loadingState}>
-                    <ActivityIndicator color="#22c55e" />
-                    <Text style={styles.loadingText}>Cargando sala...</Text>
+                    <ActivityIndicator color={colors.accent} />
+                    <Text style={[styles.loadingText, { color: colors.textMuted }]}>Cargando sala...</Text>
                 </View>
             </ScreenLayout>
         );
@@ -336,30 +338,30 @@ export default function LiveRoomScreen() {
         <ScreenLayout
             title={room?.name ?? 'SALA EN VIVO'}
             type="rooms"
-            icon={<Users color="#22c55e" size={22} />}
+            icon={<Users color={colors.accent} size={22} />}
             hideBackButton={isEnfocused}
             hideRightAction={isEnfocused}
             rightAction={
                 room && !isEnfocused ? (
                     <View style={styles.headerActions}>
                         <Pressable
-                            style={styles.infoBtn}
+                            style={[styles.infoBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
                             onPress={() => {
                                 setChatVisible(true);
                                 setUnreadChatCount(0); // Resetear badge al abrir
                             }}
                         >
                             <View style={styles.chatIconWrapper}>
-                                <MessageCircle color="#22c55e" size={20} />
+                                <MessageCircle color={colors.accent} size={20} />
                                 {unreadChatCount > 0 && (
-                                    <View style={styles.chatBadge}>
-                                        <Text style={styles.badgeText}>{unreadChatCount}</Text>
+                                    <View style={[styles.chatBadge, { backgroundColor: colors.danger }]}>
+                                        <Text style={[styles.badgeText, { color: colors.text }]}>{unreadChatCount}</Text>
                                     </View>
                                 )}
                             </View>
                         </Pressable>
-                        <Pressable style={styles.infoBtn} onPress={() => setInfoVisible(true)}>
-                            <Info color="#22c55e" size={20} />
+                        <Pressable style={[styles.infoBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]} onPress={() => setInfoVisible(true)}>
+                            <Info color={colors.accent} size={20} />
                         </Pressable>
                     </View>
                 ) : undefined
@@ -374,23 +376,23 @@ export default function LiveRoomScreen() {
                         refreshing={refreshing}
                         onRefresh={handleRefresh}
                         enabled={!isEnfocused}
-                        tintColor="#22c55e"
-                        colors={['#22c55e']}
+                        tintColor={colors.accent}
+                        colors={[colors.accent]}
                     />
                 }
             >
                 {!isEnfocused && (
-                    <Pressable style={[styles.configCard, styles.btnVibrant]} onPress={() => setConfigVisible(true)}>
-                        <View style={[styles.configIconBox, { backgroundColor: '#15803d' }]}>
-                            <Settings color="#ffffff" size={24} />
+                    <Pressable style={[styles.configCard, styles.btnVibrant, { backgroundColor: colors.accent, borderColor: colors.accent, shadowColor: colors.accent }]} onPress={() => setConfigVisible(true)}>
+                        <View style={[styles.configIconBox, { backgroundColor: colors.accent }]}>
+                            <Settings color={colors.text} size={24} />
                         </View>
                         <View style={styles.configInfo}>
-                            <Text style={styles.configTitleHighlight}>Configurar Sesión</Text>
-                            <Text style={styles.configSubHighlight}>
+                            <Text style={[styles.configTitleHighlight, { color: colors.text }]}>Configurar Sesión</Text>
+                            <Text style={[styles.configSubHighlight, { color: colors.accentSoft }]}>
                                 {sessionType === 'pomodoro' ? `Pomodoro - ${durationMinutes} min` : 'Modo Libre'}
                             </Text>
                         </View>
-                        <ChevronRight color="#ffffff" size={20} />
+                        <ChevronRight color={colors.text} size={20} />
                     </Pressable>
                 )}
 
@@ -400,11 +402,11 @@ export default function LiveRoomScreen() {
                         remainingRatio={durationMinutes > 0 ? displaySeconds / (durationMinutes * 60) : 0}
                     >
                         {status === 'starting' || status === 'finishing' ? (
-                            <ActivityIndicator color="#22c55e" size="large" />
+                            <ActivityIndicator color={colors.accent} size="large" />
                         ) : (
-                            <Text style={styles.timerValue}>{getDisplayTime()}</Text>
+                            <Text style={[styles.timerValue, { color: colors.text }]}>{getDisplayTime()}</Text>
                         )}
-                        <Text style={styles.timerCycles}>
+                        <Text style={[styles.timerCycles, { color: colors.textSoft }]}>
                             {status === 'paused' ? 'Sesion Pausada' : sessionType === 'pomodoro' ? 'Fase de Enfoque' : 'Tiempo Acumulado'}
                         </Text>
                     </TimerProgressRing>
@@ -412,29 +414,29 @@ export default function LiveRoomScreen() {
 
                 <View style={[styles.controlsContainer, isEnfocused && styles.focusControlsContainer]}>
                     {status === 'idle' && (
-                        <Pressable onPress={startSession} style={styles.startBtn}>
-                            <Text style={styles.btnText}>COMENZAR SESION</Text>
+                        <Pressable onPress={startSession} style={[styles.startBtn, { backgroundColor: colors.accent }]}>
+                            <Text style={[styles.btnText, { color: colors.text }]}>COMENZAR SESION</Text>
                         </Pressable>
                     )}
 
                     {status === 'running' && (
                         <View style={styles.rowControls}>
-                            <Pressable onPress={pauseSession} style={[styles.controlBtn, styles.pauseBtn]}>
-                                <Text style={styles.btnText}>PAUSAR</Text>
+                            <Pressable onPress={pauseSession} style={[styles.controlBtn, styles.pauseBtn, { backgroundColor: colors.warning }]}>
+                                <Text style={[styles.btnText, { color: colors.text }]}>PAUSAR</Text>
                             </Pressable>
-                            <Pressable onPress={endSession} style={[styles.controlBtn, styles.finishBtn]}>
-                                <Text style={styles.btnText}>FINALIZAR</Text>
+                            <Pressable onPress={endSession} style={[styles.controlBtn, styles.finishBtn, { backgroundColor: colors.danger }]}>
+                                <Text style={[styles.btnText, { color: colors.text }]}>FINALIZAR</Text>
                             </Pressable>
                         </View>
                     )}
 
                     {status === 'paused' && (
                         <View style={styles.rowControls}>
-                            <Pressable onPress={resumeSession} style={[styles.controlBtn, styles.resumeBtn]}>
-                                <Text style={styles.btnText}>REANUDAR</Text>
+                            <Pressable onPress={resumeSession} style={[styles.controlBtn, styles.resumeBtn, { backgroundColor: colors.cyan }]}>
+                                <Text style={[styles.btnText, { color: colors.text }]}>REANUDAR</Text>
                             </Pressable>
-                            <Pressable onPress={endSession} style={[styles.controlBtn, styles.finishBtn]}>
-                                <Text style={styles.btnText}>FINALIZAR</Text>
+                            <Pressable onPress={endSession} style={[styles.controlBtn, styles.finishBtn, { backgroundColor: colors.danger }]}>
+                                <Text style={[styles.btnText, { color: colors.text }]}>FINALIZAR</Text>
                             </Pressable>
                         </View>
                     )}
@@ -445,7 +447,7 @@ export default function LiveRoomScreen() {
                         <RoomRanking roomId={room?.id} roomType="survival"  />
 
                         <Pressable
-                            style={styles.dashboardBtn}
+                            style={[styles.dashboardBtn, { backgroundColor: colors.cyan }]}
                             onPress={() => room?.id && navigation.navigate('SmartDashboard', {
                                 roomId: room.id,
                                 roomName: room.name,
@@ -453,45 +455,45 @@ export default function LiveRoomScreen() {
                                 mode: 'survival',
                             })}
                         >
-                            <BarChart3 color="white" size={22} />
-                            <Text style={styles.inviteFriendsBtnText}>Dashboard de Sala</Text>
+                            <BarChart3 color={colors.text} size={22} />
+                            <Text style={[styles.inviteFriendsBtnText, { color: colors.text }]}>Dashboard de Sala</Text>
                         </Pressable>
 
                         <Pressable
-                            style={[styles.configCard, styles.btnBlue, styles.relativeContainer]}
+                            style={[styles.configCard, styles.btnBlue, styles.relativeContainer, { backgroundColor: colors.cyan, borderColor: colors.cyan }]}
                             onPress={() => setReviewPeersVisible(true)}
                         >
-                            <View style={[styles.configIconBox, { backgroundColor: '#0284c7' }]}>
-                                <CheckCircle color="#ffffff" size={24} />
+                            <View style={[styles.configIconBox, { backgroundColor: colors.cyan }]}>
+                                <CheckCircle color={colors.text} size={24} />
                             </View>
                             <View style={styles.configInfo}>
-                                <Text style={styles.configTitle}>Validar Compañeros</Text>
-                                <Text style={styles.configSub}>Verifica evidencias y puntajes</Text>
+                                <Text style={[styles.configTitle, { color: colors.text }]}>Validar Compañeros</Text>
+                                <Text style={[styles.configSub, { color: colors.textSoft }]}>Verifica evidencias y puntajes</Text>
                             </View>
-                            <ChevronRight color="#ffffff" size={20} />
+                            <ChevronRight color={colors.text} size={20} />
 
                             {pendingReviewsCount > 0 && (
-                                <View style={styles.badge}>
-                                    <Text style={styles.badgeText}>{pendingReviewsCount}</Text>
+                                <View style={[styles.badge, { backgroundColor: colors.danger }]}>
+                                    <Text style={[styles.badgeText, { color: colors.text }]}>{pendingReviewsCount}</Text>
                                 </View>
                             )}
                         </Pressable>
 
-                        <Pressable style={styles.inviteFriendsMainBtn} onPress={() => setInviteFriendsVisible(true)}>
-                            <UserPlus color="white" size={22} />
-                            <Text style={styles.inviteFriendsBtnText}>Invitar Amigos a la Sala</Text>
+                        <Pressable style={[styles.inviteFriendsMainBtn, { backgroundColor: colors.info }]} onPress={() => setInviteFriendsVisible(true)}>
+                            <UserPlus color={colors.text} size={22} />
+                            <Text style={[styles.inviteFriendsBtnText, { color: colors.text }]}>Invitar Amigos a la Sala</Text>
                         </Pressable>
 
                         <Pressable
-                            style={styles.vaultBtn}
+                            style={[styles.vaultBtn, { backgroundColor: colors.cyan }]}
                             onPress={() => room?.id && navigation.navigate('RoomVault', {
                                 roomId: room.id,
                                 roomName: room.name,
-                                accentColor: '#22c55e',
+                                accentColor: colors.accent,
                             })}
                         >
-                            <FolderOpen color="white" size={22} />
-                            <Text style={styles.inviteFriendsBtnText}>The Vault</Text>
+                            <FolderOpen color={colors.text} size={22} />
+                            <Text style={[styles.inviteFriendsBtnText, { color: colors.text }]}>The Vault</Text>
                         </Pressable>
 
                         {room?.teams_enabled && accessToken && room?.id && (
@@ -587,7 +589,7 @@ export default function LiveRoomScreen() {
                     visible={chatVisible}
                     roomId={room.id}
                     roomName={room.name}
-                    accentColor="#22c55e"
+                    accentColor={colors.accent}
                     onClose={() => {
                         setChatVisible(false);
                     }}
@@ -630,11 +632,12 @@ function TimerProgressRing({
     isPomodoro: boolean;
     remainingRatio: number;
 }) {
+    const colors = useThemeStore(state => state.colors);
     const ticks = Array.from({ length: 48 }, (_, index) => index);
     const safeRemaining = Math.max(0, Math.min(1, remainingRatio));
 
     return (
-        <View style={[styles.timerCircle, !isPomodoro && styles.freeTimerCircle]}>
+        <View style={[styles.timerCircle, !isPomodoro && styles.freeTimerCircle, { backgroundColor: colors.input }, !isPomodoro && { borderColor: colors.cyan }]}>
             {isPomodoro && (
                 <View pointerEvents="none" style={styles.tickLayer}>
                     {ticks.map(index => (
@@ -647,7 +650,7 @@ function TimerProgressRing({
                     ))}
                 </View>
             )}
-            <View style={styles.timerInner}>{children}</View>
+            <View style={[styles.timerInner, { backgroundColor: colors.input, borderColor: colors.surfaceElevated }]}>{children}</View>
         </View>
     );
 }
@@ -661,6 +664,7 @@ function TimerTick({
     total: number;
     remainingRatio: number;
 }) {
+    const colors = useThemeStore(state => state.colors);
     const opacity = useSharedValue(1);
     const scale = useSharedValue(1);
     const active = index / total < remainingRatio;
@@ -680,7 +684,7 @@ function TimerTick({
         ],
     }));
 
-    return <Animated.View style={[styles.timerTick, animatedStyle]} />;
+    return <Animated.View style={[styles.timerTick, { backgroundColor: colors.accent }, animatedStyle]} />;
 }
 
 const styles = StyleSheet.create({

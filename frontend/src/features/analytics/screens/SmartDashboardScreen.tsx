@@ -24,7 +24,8 @@ export default function SmartDashboardScreen() {
 
   // 🎨 Colores dinámicos del tema activo
   const colors = useThemeStore((state) => state.colors);
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const themeMode = useThemeStore((state) => state.themeMode);
+  const styles = useMemo(() => createStyles(colors, themeMode), [colors, themeMode]);
 
   // ✅ Estado para AppAlert
   const [alert, setAlert] = useState<{
@@ -321,7 +322,7 @@ function getSurvivalSummaryText(summary: DashboardSummary) {
 // negro/blanco a baja opacidad fijo, porque es un efecto decorativo de oscurecimiento
 // sobre una tarjeta que YA tiene un color de marca fijo (warning/cyan), no una superficie
 // del sistema de temas.
-const createStyles = (colors: ThemeColors) =>
+const createStyles = (colors: ThemeColors, themeMode?: string) =>
   StyleSheet.create({
     content: { paddingBottom: 36 },
     loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, paddingTop: 80 },
@@ -362,8 +363,8 @@ const createStyles = (colors: ThemeColors) =>
       alignItems: 'center',
     },
     studyCard: { backgroundColor: colors.cyanSoft },
-    academicIconBox: { width: 44, height: 44, borderRadius: 8, backgroundColor: 'rgba(15,23,42,0.12)', alignItems: 'center', justifyContent: 'center' },
-    studyIconBox: { backgroundColor: 'rgba(224,242,254,0.12)' },
+    academicIconBox: { width: 44, height: 44, borderRadius: 8, backgroundColor: themeMode === 'light' ? 'rgba(15,23,42,0.06)' : 'rgba(15,23,42,0.12)', alignItems: 'center', justifyContent: 'center' },
+    studyIconBox: { backgroundColor: themeMode === 'light' ? 'rgba(255,255,255,0.12)' : 'rgba(224,242,254,0.12)' },
     academicTextBox: { flex: 1 },
     academicLabel: { color: colors.rankBadgeText, fontSize: 12, fontWeight: '900' },
     academicValue: { color: colors.rankBadgeText, fontSize: 26, fontWeight: '900' },

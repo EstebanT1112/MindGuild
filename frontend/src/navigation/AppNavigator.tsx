@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import OnboardingScreen from '../features/onboarding/screens/OnboardingScreen';
 import TabNavigator from './TabNavigator';
 import ProfileScreen from '../features/profiles/screens/ProfileScreen';
 import LiveRoomScreen from '../features/rooms/screens/LiveRoomScreen';
@@ -17,6 +19,7 @@ import RegisterScreen from '../features/auth/screens/RegisterScreen';
 import ForgotPasswordScreen from '../features/auth/screens/ForgotPasswordScreen';
 import { useAuthStore } from '../store/authStore';
 import { useAppDataStore } from '../store/appDataStore';
+import { useThemeStore } from '../store/themeStore';
 import { fetchMyProfile, updateMyProfile } from '../features/profiles/services/profileService';
 import { registerForPushNotifications } from '../features/profiles/services/notificationService';
 import { SessionExpiredError } from '../services/authenticatedFetch';
@@ -30,7 +33,17 @@ export default function AppNavigator() {
   const setUser = useAuthStore(state => state.setUser);
   const setProfile = useAppDataStore(state => state.setProfile);
   const clearAppData = useAppDataStore(state => state.clearAll);
+  const colors = useThemeStore(state => state.colors);
   const [validatingSession, setValidatingSession] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const checkOnboarding = async () => {
+      const value = await AsyncStorage.getItem('mindguild_onboarding_complete');
+      setShowOnboarding(value !== 'true');
+    };
+    checkOnboarding();
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -83,9 +96,15 @@ export default function AppNavigator() {
 
   if (isAuthenticated && validatingSession) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a' }}>
-        <ActivityIndicator color="#22c55e" />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator color={colors.accent} />
       </View>
+    );
+  }
+
+  if (isAuthenticated && showOnboarding === null) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background }} />
     );
   }
 
@@ -93,18 +112,32 @@ export default function AppNavigator() {
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
-          <>
-            <Stack.Screen name="MainTabs" component={TabNavigator} />
-            <Stack.Screen name="Perfil" component={ProfileScreen} />
-            <Stack.Screen name="LiveRoom" component={LiveRoomScreen} />
-            <Stack.Screen name="BattleRoyale" component={BattleRoyaleScreen} />
-            <Stack.Screen name="WeeklyQuiz" component={WeeklyQuizScreen} />
-            <Stack.Screen name="SmartDashboard" component={SmartDashboardScreen} />
-            <Stack.Screen name="DifficultyHeatmap" component={DifficultyHeatmapScreen} />
-            <Stack.Screen name="RoomVault" component={RoomVaultScreen} />
+          showOnboarding ? (
+            <Stack.Screen name="Onboarding" options={{ headerShown: false }}>
+              {() => (
+                <OnboardingScreen
+                  onComplete={() => {
+                    setShowOnboarding(false);
+                    AsyncStorage.setItem('mindguild_onboarding_complete', 'true');
+                  }}
+                />
+              )}
+            </Stack.Screen>
+          ) : (
+            <>
+              <Stack.Screen name="MainTabs" component={TabNavigator} />
+              <Stack.Screen name="Perfil" component={ProfileScreen} />
+              <Stack.Screen name="LiveRoom" component={LiveRoomScreen} />
+              <Stack.Screen name="BattleRoyale" component={BattleRoyaleScreen} />
+              <Stack.Screen name="WeeklyQuiz" component={WeeklyQuizScreen} />
+              <Stack.Screen name="SmartDashboard" component={SmartDashboardScreen} />
+              <Stack.Screen name="DifficultyHeatmap" component={DifficultyHeatmapScreen} />
+              <Stack.Screen name="RoomVault" component={RoomVaultScreen} />
             <Stack.Screen name="Wallet" component={WalletScreen} />
             <Stack.Screen name="Notifications" component={NotificationsScreen} />
-          </>
+
+            </>
+          )
         ) : (
           <>
             <Stack.Screen name="Login" component={LoginScreen} />

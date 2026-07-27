@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert, // ✅ Mantenemos Alert para casos puntuales
   Modal,
   Pressable,
   RefreshControl,
@@ -668,7 +667,6 @@ async function saveFileToDevice(fileName: string, mimeType: string, base64: stri
     const permissions = await saf.requestDirectoryPermissionsAsync();
 
     if (!permissions.granted) {
-      Alert.alert('Descarga cancelada', 'No se seleccionó una carpeta para guardar el archivo.');
       return null;
     }
 

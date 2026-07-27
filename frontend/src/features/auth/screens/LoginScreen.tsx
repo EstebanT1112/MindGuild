@@ -10,14 +10,14 @@ import {
     ScrollView,
     StatusBar,
     ActivityIndicator,
-    Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { Mail, Lock, Eye, EyeOff, ShieldCheck } from 'lucide-react-native';
+import { Mail, Lock, Eye, EyeOff, GraduationCap } from 'lucide-react-native';
 import { login, loginWithGoogle } from '../services/authService';
 import { useAuthStore } from '../../../store/authStore';
 import { useThemeStore } from '../../../store/themeStore';
+import AppAlert from '../../../components/ui/AppAlert';
 
 export default function LoginScreen() {
     const navigation = useNavigation<any>();
@@ -30,10 +30,21 @@ export default function LoginScreen() {
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [googleLoading, setGoogleLoading] = useState(false);
+    const [alertVisible, setAlertVisible] = useState(false);
+    const [alertTitle, setAlertTitle] = useState('');
+    const [alertMessage, setAlertMessage] = useState('');
+    const [alertType, setAlertType] = useState<'error' | 'warning' | 'info'>('error');
+
+    const showAlert = (title: string, message: string, type: 'error' | 'warning' | 'info' = 'error') => {
+        setAlertTitle(title);
+        setAlertMessage(message);
+        setAlertType(type);
+        setAlertVisible(true);
+    };
 
     const handleLogin = async () => {
         if (!email.trim() || !password.trim()) {
-            Alert.alert('Campos incompletos', 'Completá todos los campos para continuar.');
+            showAlert('Campos incompletos', 'Completá todos los campos para continuar.', 'warning');
             return;
         }
 
@@ -42,7 +53,7 @@ export default function LoginScreen() {
             const result = await login(email.trim(), password);
             setSession(result.auth_user_id, result.email, result.access_token, result.profile);
         } catch (error: any) {
-            Alert.alert('Error al iniciar sesión', error.message ?? 'Ocurrió un error inesperado.');
+            showAlert('Error al iniciar sesión', error.message ?? 'Ocurrió un error inesperado.');
         } finally {
             setLoading(false);
         }
@@ -55,7 +66,7 @@ export default function LoginScreen() {
             setSession(result.auth_user_id, result.email, result.access_token, result.profile);
         } catch (error: any) {
             if (error.code !== 'auth_cancelled') {
-                Alert.alert('Error con Google', error.message ?? 'Ocurrió un error inesperado.');
+                showAlert('Error con Google', error.message ?? 'Ocurrió un error inesperado.');
             }
         } finally {
             setGoogleLoading(false);
@@ -78,22 +89,34 @@ export default function LoginScreen() {
                 },
                 logoContainer: {
                     alignItems: 'center',
-                    marginBottom: 32,
+                    marginBottom: 40,
                 },
                 logoCircle: {
-                    width: 80,
-                    height: 80,
-                    borderRadius: 40,
-                    backgroundColor: colors.surface,
+                    width: 100,
+                    height: 100,
+                    borderRadius: 50,
+                    backgroundColor: colors.accent,
                     alignItems: 'center',
                     justifyContent: 'center',
-                    marginBottom: 16,
+                    marginBottom: 20,
+                    shadowColor: colors.accent,
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 12,
+                    elevation: 8,
                 },
                 appName: {
                     color: colors.text,
-                    fontSize: 30,
+                    fontSize: 32,
                     fontWeight: '900',
-                    letterSpacing: 4,
+                    letterSpacing: 5,
+                },
+                appSubtitle: {
+                    color: colors.textMuted,
+                    fontSize: 14,
+                    fontWeight: '500',
+                    marginTop: 6,
+                    letterSpacing: 1,
                 },
                 card: {
                     backgroundColor: colors.surfaceElevated,
@@ -223,9 +246,10 @@ export default function LoginScreen() {
                 >
                     <View style={styles.logoContainer}>
                         <View style={styles.logoCircle}>
-                            <ShieldCheck color={colors.accent} size={40} />
+                            <GraduationCap color={colors.text} size={48} />
                         </View>
                         <Text style={styles.appName}>MINDGUILD</Text>
+                        <Text style={styles.appSubtitle}>Plataforma de Estudio Gamificada</Text>
                     </View>
 
                     <View style={styles.card}>
@@ -313,6 +337,13 @@ export default function LoginScreen() {
                     </View>
                 </ScrollView>
             </KeyboardAvoidingView>
+            <AppAlert
+                visible={alertVisible}
+                onClose={() => setAlertVisible(false)}
+                title={alertTitle}
+                message={alertMessage}
+                type={alertType}
+            />
         </SafeAreaView>
     );
 }

@@ -34,13 +34,6 @@ interface AppAlertProps {
   showCancel?: boolean;
 }
 
-const iconMap = {
-  success: { icon: CheckCircle, color: '#22c55e' },
-  error: { icon: XCircle, color: '#ef4444' },
-  warning: { icon: AlertCircle, color: '#f59e0b' },
-  info: { icon: Info, color: '#3b82f6' },
-};
-
 export default function AppAlert({
   visible,
   title,
@@ -54,6 +47,14 @@ export default function AppAlert({
   showCancel = false,
 }: AppAlertProps) {
   const colors = useThemeStore((state) => state.colors);
+
+  const iconMap = {
+    success: { icon: CheckCircle, color: colors.accent },
+    error: { icon: XCircle, color: colors.danger },
+    warning: { icon: AlertCircle, color: colors.warning },
+    info: { icon: Info, color: colors.info },
+  };
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
 
@@ -225,7 +226,7 @@ export default function AppAlert({
               ]}
               onPress={handleConfirm}
             >
-              <Text style={styles.confirmButtonText}>{confirmText}</Text>
+              <Text style={[styles.confirmButtonText, { color: colors.text }]}>{confirmText}</Text>
             </Pressable>
           </View>
         </Animated.View>
@@ -311,7 +312,6 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   confirmButtonText: {
-    color: '#ffffff',
     fontWeight: 'bold',
     fontSize: 16,
   },

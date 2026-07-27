@@ -128,8 +128,8 @@ export default function RoomRanking({ roomId, roomType }: Props) {
 
           {ranking.map((item, index) => (
             <View key={item.user_id} style={[styles.rankItem, { backgroundColor: colors.background }]}>
-              <View style={[styles.rankBadge, getBadgeStyle(index)]}>
-                <Text style={styles.rankNum}>{index + 1}</Text>
+              <View style={[styles.rankBadge, getBadgeStyle(index), index > 2 && { backgroundColor: colors.border }]}>
+                <Text style={[styles.rankNum, { color: colors.text }]}>{index + 1}</Text>
               </View>
               <Image source={{ uri: item.avatar_url || fallbackAvatar }} style={styles.avatar} />
               <View style={styles.info}>

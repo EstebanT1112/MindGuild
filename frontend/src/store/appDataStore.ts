@@ -41,6 +41,7 @@ export interface MissionSummary {
   period_key?: string;
   expires_at?: string | null;
   expired?: boolean;
+  expiredMoreThan24h?: boolean;
   progress: number;
   target: number;
   percentage: number;
@@ -524,6 +525,7 @@ function mapMissions(payload: any): MissionSummary[] {
       period_key: mission.period_key,
       expires_at: mission.expires_at ?? null,
       expired: Boolean(mission.expired),
+      expiredMoreThan24h: isExpiredMoreThan24h,
       progress: currentProgress,
       target: goalValue,
       percentage: calculatedPercentage,

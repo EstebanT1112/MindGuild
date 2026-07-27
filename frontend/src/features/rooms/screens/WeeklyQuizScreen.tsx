@@ -6,6 +6,7 @@ import ScreenLayout from '../../../components/ui/ScreenLayout';
 import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
 import { useAppDataStore } from '../../../store/appDataStore';
 import { useAuthStore } from '../../../store/authStore';
+import { useThemeStore } from '../../../store/themeStore';
 import NewQuestionModal from '../components/NewQuestionModal';
 import WeeklyQuizModal from '../components/WeeklyQuizModal';
 import {
@@ -36,6 +37,7 @@ export default function WeeklyQuizScreen() {
   const accessToken = useAuthStore(state => state.access_token);
   const currentUser = useAuthStore(state => state.user);
   const currentProfile = useAppDataStore(state => state.profile.data);
+  const colors = useThemeStore(state => state.colors);
   const [room, setRoom] = useState<RoomDetails | null>(null);
   const [weeklyQuiz, setWeeklyQuiz] = useState<WeeklyQuiz | null>(null);
   const [quizStatus, setQuizStatus] = useState<WeeklyQuizStatusResult | null>(null);
@@ -326,17 +328,17 @@ export default function WeeklyQuizScreen() {
 
   if (loading) {
     return (
-      <ScreenLayout title="QUIZ SEMANAL" type="rooms" icon={<CalendarClock color="#a855f7" size={22} />}>
+      <ScreenLayout title="QUIZ SEMANAL" type="rooms" icon={<CalendarClock color={colors.purple} size={22} />}>
         <View style={styles.loadingState}>
-          <ActivityIndicator color="#a855f7" />
-          <Text style={styles.loadingText}>Cargando quiz...</Text>
+          <ActivityIndicator color={colors.purple} />
+          <Text style={[styles.loadingText, { color: colors.textMuted }]}>Cargando quiz...</Text>
         </View>
       </ScreenLayout>
     );
   }
 
   return (
-    <ScreenLayout title="QUIZ SEMANAL" type="rooms" icon={<CalendarClock color="#a855f7" size={22} />}>
+    <ScreenLayout title="QUIZ SEMANAL" type="rooms" icon={<CalendarClock color={colors.purple} size={22} />}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -344,122 +346,122 @@ export default function WeeklyQuizScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor="#a855f7"
-            colors={['#a855f7']}
+            tintColor={colors.purple}
+            colors={[colors.purple]}
           />
         }
       >
-        <Text style={styles.roomName}>{room?.name ?? roomName}</Text>
+        <Text style={[styles.roomName, { color: colors.textMuted }]}>{room?.name ?? roomName}</Text>
 
         {mode === 'answering' && attempt && currentQuestion ? (
-          <View style={styles.flowCard}>
-            <Text style={styles.flowLabel}>Pregunta {currentQuestionIndex + 1} de {attempt.questions.length}</Text>
-            <Text style={styles.flowQuestion}>{currentQuestion.question_text}</Text>
+          <View style={[styles.flowCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+            <Text style={[styles.flowLabel, { color: colors.purple }]}>Pregunta {currentQuestionIndex + 1} de {attempt.questions.length}</Text>
+            <Text style={[styles.flowQuestion, { color: colors.text }]}>{currentQuestion.question_text}</Text>
 
             {currentQuestion.type === 'multiple_choice' ? (
               <View style={styles.answerOptions}>
                 {currentQuestion.options.map(option => (
                   <Pressable
                     key={option.id}
-                    style={[styles.answerOption, selectedOptionId === option.id && styles.answerOptionActive]}
+                    style={[styles.answerOption, { backgroundColor: colors.input, borderColor: colors.border }, selectedOptionId === option.id && styles.answerOptionActive, selectedOptionId === option.id && { borderColor: colors.purple, backgroundColor: colors.purpleSoft }]}
                     onPress={() => setSelectedOptionId(option.id)}
                   >
-                    <View style={[styles.answerRadio, selectedOptionId === option.id && styles.answerRadioActive]} />
-                    <Text style={styles.answerOptionText}>{option.option_text}</Text>
+                    <View style={[styles.answerRadio, { borderColor: colors.textSoft }, selectedOptionId === option.id && styles.answerRadioActive, selectedOptionId === option.id && { borderColor: colors.purple, backgroundColor: colors.purple }]} />
+                    <Text style={[styles.answerOptionText, { color: colors.text }]}>{option.option_text}</Text>
                   </Pressable>
                 ))}
               </View>
             ) : (
               <TextInput
-                style={styles.answerInput}
+                style={[styles.answerInput, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border }]}
                 placeholder="Escribí tu respuesta..."
-                placeholderTextColor="#64748b"
+                placeholderTextColor={colors.textSoft}
                 multiline
                 value={openAnswer}
                 onChangeText={setOpenAnswer}
               />
             )}
 
-            <Pressable style={[styles.primaryBtn, actionLoading && styles.disabledBtn]} onPress={handleSubmitAnswer} disabled={actionLoading}>
-              {actionLoading ? <ActivityIndicator color="white" /> : <Text style={styles.primaryBtnText}>{currentQuestionIndex === attempt.questions.length - 1 ? 'Finalizar e ir a validación' : 'Guardar y continuar'}</Text>}
+            <Pressable style={[styles.primaryBtn, { backgroundColor: colors.purple }, actionLoading && styles.disabledBtn]} onPress={handleSubmitAnswer} disabled={actionLoading}>
+              {actionLoading ? <ActivityIndicator color={colors.text} /> : <Text style={[styles.primaryBtnText, { color: colors.text }]}>{currentQuestionIndex === attempt.questions.length - 1 ? 'Finalizar e ir a validación' : 'Guardar y continuar'}</Text>}
             </Pressable>
           </View>
         ) : null}
 
         {mode === 'validation' ? (
-          <View style={styles.flowCard}>
-            <Text style={styles.flowLabel}>Validación Cuestionario Semanal</Text>
-            <Text style={styles.validationPhaseText}>
+          <View style={[styles.flowCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+            <Text style={[styles.flowLabel, { color: colors.purple }]}>Validación Cuestionario Semanal</Text>
+            <Text style={[styles.validationPhaseText, { color: colors.textMuted }]}>
               {validationPhase === 'question'
                 ? 'Primero valida las preguntas propuestas.'
                 : 'Ahora valida si las respuestas de tus compañeros son correctas.'}
             </Text>
             {validationItems.length === 0 ? (
               <>
-                <Text style={styles.emptyTitle}>No tenés items pendientes para validar</Text>
-                <Text style={styles.emptyText}>Ya podés volver al uso normal de la sala.</Text>
+                <Text style={[styles.emptyTitle, { color: colors.text }]}>No tenés items pendientes para validar</Text>
+                <Text style={[styles.emptyText, { color: colors.textMuted }]}>Ya podés volver al uso normal de la sala.</Text>
               </>
             ) : currentValidationItem ? (
-              <View key={`${currentValidationItem.type}-${currentValidationItem.response_id ?? currentValidationItem.question_id}`} style={styles.validationItem}>
-                  <Text style={styles.questionMeta}>
+              <View key={`${currentValidationItem.type}-${currentValidationItem.response_id ?? currentValidationItem.question_id}`} style={[styles.validationItem, { backgroundColor: colors.input, borderColor: colors.border }]}>
+                  <Text style={[styles.questionMeta, { color: colors.textMuted }]}>
                     {currentValidationItem.type === 'question' ? 'Pregunta propuesta' : 'Respuesta de compañero'} {validationIndex + 1} de {currentValidationItems.length}
                   </Text>
-                  <Text style={styles.flowQuestion}>{currentValidationItem.question_text}</Text>
+                  <Text style={[styles.flowQuestion, { color: colors.text }]}>{currentValidationItem.question_text}</Text>
 
                   {currentValidationItem.question_type === 'multiple_choice' && Boolean(currentValidationItem.options?.length) && (
                     <View style={styles.answerOptions}>
                       {currentValidationItem.options?.map(option => (
                         <View
                           key={option.id}
-                          style={[styles.answerOption, option.is_correct && styles.validationCorrectOption]}
+                          style={[styles.answerOption, { backgroundColor: colors.input, borderColor: colors.border }, option.is_correct && styles.validationCorrectOption, option.is_correct && { borderColor: colors.accent, backgroundColor: colors.accentSoft }]}
                         >
-                          <View style={[styles.answerRadio, option.is_correct && styles.answerRadioActive]} />
-                          <Text style={styles.answerOptionText}>{option.option_text}</Text>
+                          <View style={[styles.answerRadio, { borderColor: colors.textSoft }, option.is_correct && styles.answerRadioActive, option.is_correct && { borderColor: colors.purple, backgroundColor: colors.purple }]} />
+                          <Text style={[styles.answerOptionText, { color: colors.text }]}>{option.option_text}</Text>
                         </View>
                       ))}
                     </View>
                   )}
 
                   {currentValidationItem.type === 'question' && currentValidationItem.question_type === 'open' && Boolean(currentValidationItem.expected_answer) && (
-                    <View style={styles.validationAnswerBox}>
-                      <Text style={styles.validationAnswerLabel}>Respuesta esperada cargada</Text>
-                      <Text style={styles.validationAnswerText}>{currentValidationItem.expected_answer}</Text>
+                    <View style={[styles.validationAnswerBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                      <Text style={[styles.validationAnswerLabel, { color: colors.textMuted }]}>Respuesta esperada cargada</Text>
+                      <Text style={[styles.validationAnswerText, { color: colors.text }]}>{currentValidationItem.expected_answer}</Text>
                     </View>
                   )}
 
                   {currentValidationItem.type === 'response' && Boolean(currentValidationItem.answer_text) && (
                     <>
                       {Boolean(currentValidationItem.expected_answer) && (
-                        <View style={styles.validationAnswerBox}>
-                          <Text style={styles.validationAnswerLabel}>Respuesta esperada</Text>
-                          <Text style={styles.validationAnswerText}>{currentValidationItem.expected_answer}</Text>
+                        <View style={[styles.validationAnswerBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                          <Text style={[styles.validationAnswerLabel, { color: colors.textMuted }]}>Respuesta esperada</Text>
+                          <Text style={[styles.validationAnswerText, { color: colors.text }]}>{currentValidationItem.expected_answer}</Text>
                         </View>
                       )}
-                      <View style={styles.validationAnswerBox}>
-                        <Text style={styles.validationAnswerLabel}>Respuesta cargada por el usuario</Text>
-                        <Text style={styles.validationAnswerText}>{currentValidationItem.answer_text}</Text>
+                      <View style={[styles.validationAnswerBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                        <Text style={[styles.validationAnswerLabel, { color: colors.textMuted }]}>Respuesta cargada por el usuario</Text>
+                        <Text style={[styles.validationAnswerText, { color: colors.text }]}>{currentValidationItem.answer_text}</Text>
                       </View>
                     </>
                   )}
 
-                  <Text style={styles.validationAuthorText}>
+                  <Text style={[styles.validationAuthorText, { color: colors.textMuted }]}>
                     {currentValidationItem.type === 'question'
                       ? `Autor: ${currentValidationItem.author?.username ?? 'usuario'}`
                       : `Respondió: ${currentValidationItem.responder?.username ?? 'usuario'}`}
                   </Text>
                   <View style={styles.voteRow}>
-                    <Pressable style={[styles.voteBtn, styles.votePositive]} onPress={() => handleVote(currentValidationItem, 'positive')} disabled={actionLoading}>
-                      <Text style={styles.voteText}>{currentValidationItem.type === 'response' ? 'Respondió bien' : 'Validar'}</Text>
+                    <Pressable style={[styles.voteBtn, styles.votePositive, { backgroundColor: colors.accent }]} onPress={() => handleVote(currentValidationItem, 'positive')} disabled={actionLoading}>
+                      <Text style={[styles.voteText, { color: colors.text }]}>{currentValidationItem.type === 'response' ? 'Respondió bien' : 'Validar'}</Text>
                     </Pressable>
-                    <Pressable style={[styles.voteBtn, styles.voteNegative]} onPress={() => handleVote(currentValidationItem, 'negative')} disabled={actionLoading}>
-                      <Text style={styles.voteText}>{currentValidationItem.type === 'response' ? 'Respondió mal' : 'Rechazar'}</Text>
+                    <Pressable style={[styles.voteBtn, styles.voteNegative, { backgroundColor: colors.danger }]} onPress={() => handleVote(currentValidationItem, 'negative')} disabled={actionLoading}>
+                      <Text style={[styles.voteText, { color: colors.text }]}>{currentValidationItem.type === 'response' ? 'Respondió mal' : 'Rechazar'}</Text>
                     </Pressable>
                   </View>
                 </View>
             ) : (
               <>
-                <Text style={styles.emptyTitle}>No quedan items en esta fase</Text>
-                <Text style={styles.emptyText}>Se está actualizando la siguiente validación.</Text>
+                <Text style={[styles.emptyTitle, { color: colors.text }]}>No quedan items en esta fase</Text>
+                <Text style={[styles.emptyText, { color: colors.textMuted }]}>Se está actualizando la siguiente validación.</Text>
               </>
             )}
           </View>
@@ -468,27 +470,27 @@ export default function WeeklyQuizScreen() {
         {mode === 'overview' ? (
           <>
 
-        <Pressable style={styles.primaryBtn} onPress={() => setConfigVisible(true)}>
-          <CalendarClock color="white" size={22} />
-          <Text style={styles.primaryBtnText}>
+        <Pressable style={[styles.primaryBtn, { backgroundColor: colors.purple }]} onPress={() => setConfigVisible(true)}>
+          <CalendarClock color={colors.text} size={22} />
+          <Text style={[styles.primaryBtnText, { color: colors.text }]}>
             {weeklyQuiz ? 'Ver configuración semanal' : 'Configurar cuestionario semanal'}
           </Text>
         </Pressable>
 
         {weeklyQuiz ? (
-          <View style={styles.quizSummaryCard}>
-            <Text style={styles.quizSummaryTitle}>{weeklyQuiz.title}</Text>
-            <Text style={styles.quizSummaryText}>
+          <View style={[styles.quizSummaryCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+            <Text style={[styles.quizSummaryTitle, { color: colors.text }]}>{weeklyQuiz.title}</Text>
+            <Text style={[styles.quizSummaryText, { color: colors.textMuted }]}>
               {formatWeekday(weeklyQuiz.weekday)} - {String(weeklyQuiz.start_time).slice(0, 5)} hs - {weeklyQuiz.duration_minutes} min
             </Text>
-            <View style={styles.statusBadge}>
-              <Text style={styles.statusText}>{weeklyQuiz.status}</Text>
+            <View style={[styles.statusBadge, { backgroundColor: colors.warningSoft, borderColor: colors.warning }]}>
+              <Text style={[styles.statusText, { color: colors.warning }]}>{weeklyQuiz.status}</Text>
             </View>
           </View>
         ) : (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>Sin cuestionario configurado</Text>
-            <Text style={styles.emptyText}>
+          <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>Sin cuestionario configurado</Text>
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>
               {isOwner
                 ? 'Configura el día y horario recurrente para habilitar el quiz semanal.'
                 : 'El owner todavía no configuró el cuestionario semanal.'}
@@ -497,103 +499,103 @@ export default function WeeklyQuizScreen() {
         )}
 
         {quizStatus && (
-          <View style={styles.statusCard}>
-            <Text style={styles.statusCardTitle}>Estado del quiz</Text>
+          <View style={[styles.statusCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.statusCardTitle, { color: colors.text }]}>Estado del quiz</Text>
             <View style={styles.statusGrid}>
-              <View style={styles.statusMetric}>
-                <Text style={styles.statusMetricValue}>{hasCompletedQuiz ? 'Sí' : 'No'}</Text>
-                <Text style={styles.statusMetricLabel}>Completado</Text>
+              <View style={[styles.statusMetric, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                <Text style={[styles.statusMetricValue, { color: colors.text }]}>{hasCompletedQuiz ? 'Sí' : 'No'}</Text>
+                <Text style={[styles.statusMetricLabel, { color: colors.textMuted }]}>Completado</Text>
               </View>
-              <View style={styles.statusMetric}>
-                <Text style={styles.statusMetricValue}>{quizStatus.can_start ? 'Sí' : 'No'}</Text>
-                <Text style={styles.statusMetricLabel}>Habilitado</Text>
+              <View style={[styles.statusMetric, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                <Text style={[styles.statusMetricValue, { color: colors.text }]}>{quizStatus.can_start ? 'Sí' : 'No'}</Text>
+                <Text style={[styles.statusMetricLabel, { color: colors.textMuted }]}>Habilitado</Text>
               </View>
             </View>
-            <Text style={styles.statusCardText}>Respondidas: {quizStatus.answered_questions_count}/{quizStatus.assigned_questions_count}</Text>
-            <Text style={styles.statusCardText}>Propuestas: {proposedCount}</Text>
-            {quizStatus.reason && <Text style={styles.statusReason}>{quizStatus.reason}</Text>}
+            <Text style={[styles.statusCardText, { color: colors.textMuted }]}>Respondidas: {quizStatus.answered_questions_count}/{quizStatus.assigned_questions_count}</Text>
+            <Text style={[styles.statusCardText, { color: colors.textMuted }]}>Propuestas: {proposedCount}</Text>
+            {quizStatus.reason && <Text style={[styles.statusReason, { color: colors.warning }]}>{quizStatus.reason}</Text>}
           </View>
         )}
 
         {quizResult ? (
-          <Pressable style={styles.resultOpenBtn} onPress={() => setResultVisible(true)}>
-            <BarChart3 color="white" size={22} />
-            <Text style={styles.primaryBtnText}>Ver resultados</Text>
+          <Pressable style={[styles.resultOpenBtn, { backgroundColor: colors.accent }]} onPress={() => setResultVisible(true)}>
+            <BarChart3 color={colors.text} size={22} />
+            <Text style={[styles.primaryBtnText, { color: colors.text }]}>Ver resultados</Text>
           </Pressable>
         ) : hasCompletedQuiz ? (
-          <View style={styles.pendingResultCard}>
-            <Text style={styles.emptyTitle}>Resultado pendiente</Text>
-            <Text style={styles.emptyText}>El resultado aparece cuando termine la validación grupal y el owner lo genere.</Text>
+          <View style={[styles.pendingResultCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>Resultado pendiente</Text>
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>El resultado aparece cuando termine la validación grupal y el owner lo genere.</Text>
           </View>
         ) : null}
 
         <Pressable
-          style={[styles.startQuizBtn, (!canStartQuiz || actionLoading) && styles.disabledBtn]}
+          style={[styles.startQuizBtn, { backgroundColor: colors.purple }, (!canStartQuiz || actionLoading) && styles.disabledBtn]}
           onPress={handleStartQuiz}
           disabled={!canStartQuiz || actionLoading}
         >
-          {actionLoading ? <ActivityIndicator color="white" /> : <Text style={styles.startQuizText}>Comenzar Quiz Semanal</Text>}
+          {actionLoading ? <ActivityIndicator color={colors.text} /> : <Text style={[styles.startQuizText, { color: colors.text }]}>Comenzar Quiz Semanal</Text>}
         </Pressable>
 
         {canValidateQuiz && (
-          <Pressable style={styles.validateQuizBtn} onPress={() => setMode('validation')}>
-            <Text style={styles.startQuizText}>Validación de quiz</Text>
+          <Pressable style={[styles.validateQuizBtn, { backgroundColor: colors.info }]} onPress={() => setMode('validation')}>
+            <Text style={[styles.startQuizText, { color: colors.text }]}>Validación de quiz</Text>
           </Pressable>
         )}
 
         {isOwner && (
           <>
             <Pressable
-              style={[styles.resolveBtn, (!canResolveQuiz || actionLoading) && styles.disabledBtn]}
+              style={[styles.resolveBtn, { backgroundColor: colors.warning }, (!canResolveQuiz || actionLoading) && styles.disabledBtn]}
               onPress={handleResolve}
               disabled={!canResolveQuiz || actionLoading}
             >
-              <Text style={styles.resolveText}>Generar resultados</Text>
+              <Text style={[styles.resolveText, { color: colors.text }]}>Generar resultados</Text>
             </Pressable>
             {quizStatus?.result_available_at && !canResolveQuiz ? (
-              <Text style={styles.hintText}>Resultados disponibles desde: {formatDateTime(quizStatus.result_available_at)}</Text>
+              <Text style={[styles.hintText, { color: colors.textSoft }]}>Resultados disponibles desde: {formatDateTime(quizStatus.result_available_at)}</Text>
             ) : null}
             {weeklyQuiz ? (
               <Pressable
-                style={[styles.resetBtn, (!quizResult || quizResult.status !== 'validated' || actionLoading) && styles.disabledBtn]}
+                style={[styles.resetBtn, { backgroundColor: colors.dangerBorder, borderColor: colors.danger }, (!quizResult || quizResult.status !== 'validated' || actionLoading) && styles.disabledBtn]}
                 onPress={handleResetQuiz}
                 disabled={!quizResult || quizResult.status !== 'validated' || actionLoading}
               >
-                <Text style={styles.resetText}>Reiniciar cuestionario semanal</Text>
+                <Text style={[styles.resetText, { color: colors.text }]}>Reiniciar cuestionario semanal</Text>
               </Pressable>
             ) : null}
           </>
         )}
 
-        <Text style={styles.sectionLabel}>MIS PREGUNTAS PROPUESTAS</Text>
-        <Pressable style={styles.newQuestionBtn} onPress={() => setQuestionVisible(true)}>
-          <Plus color="white" size={22} />
-          <Text style={styles.newQuestionText}>Nueva Pregunta</Text>
+        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>MIS PREGUNTAS PROPUESTAS</Text>
+        <Pressable style={[styles.newQuestionBtn, { backgroundColor: colors.accent }]} onPress={() => setQuestionVisible(true)}>
+          <Plus color={colors.text} size={22} />
+          <Text style={[styles.newQuestionText, { color: colors.text }]}>Nueva Pregunta</Text>
         </Pressable>
-        <Text style={styles.hintText}>Solo ves tus preguntas propuestas. Quedan pendientes para la validación grupal.</Text>
+        <Text style={[styles.hintText, { color: colors.textSoft }]}>Solo ves tus preguntas propuestas. Quedan pendientes para la validación grupal.</Text>
 
         {questions.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>Todavía no propusiste preguntas</Text>
-            <Text style={styles.emptyText}>Podés cargar preguntas multiple choice o de desarrollo para esta sala.</Text>
+          <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>Todavía no propusiste preguntas</Text>
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>Podés cargar preguntas multiple choice o de desarrollo para esta sala.</Text>
           </View>
         ) : (
           questions.map(question => (
-            <View style={styles.questionCard} key={question.id}>
-              <Text style={styles.questionText}>{question.question_text}</Text>
-              <Text style={styles.questionMeta}>
+            <View style={[styles.questionCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]} key={question.id}>
+              <Text style={[styles.questionText, { color: colors.text }]}>{question.question_text}</Text>
+              <Text style={[styles.questionMeta, { color: colors.textMuted }]}>
                 {question.type === 'multiple_choice' ? 'Multiple choice' : 'Desarrollo'} - {question.author.username}
               </Text>
               <View style={styles.topicRow}>
                 {question.topics && question.topics.length > 0 ? (
                   question.topics.map(topic => (
-                    <View key={topic.id} style={[styles.topicChip, topic.color ? { borderColor: topic.color } : null]}>
-                      <Text style={styles.topicText}>{topic.name}</Text>
+                    <View key={topic.id} style={[styles.topicChip, { borderColor: colors.cyan, backgroundColor: colors.cyanSoft }, topic.color ? { borderColor: topic.color } : null]}>
+                      <Text style={[styles.topicText, { color: colors.text }]}>{topic.name}</Text>
                     </View>
                   ))
                 ) : (
-                  <View style={styles.topicChipMuted}>
-                    <Text style={styles.topicTextMuted}>Sin clasificar</Text>
+                  <View style={[styles.topicChipMuted, { borderColor: colors.border, backgroundColor: colors.input }]}>
+                    <Text style={[styles.topicTextMuted, { color: colors.textSoft }]}>Sin clasificar</Text>
                   </View>
                 )}
               </View>
@@ -601,7 +603,7 @@ export default function WeeklyQuizScreen() {
               {question.type === 'multiple_choice' && question.options.length > 0 && (
                 <View style={styles.optionsPreview}>
                   {question.options.map(option => (
-                    <Text key={option.id} style={[styles.optionPreviewText, option.is_correct && styles.correctOption]}>
+                    <Text key={option.id} style={[styles.optionPreviewText, { color: colors.textMuted }, option.is_correct && styles.correctOption, option.is_correct && { color: colors.accent }]}>
                       {option.is_correct ? '[correcta] ' : '- '}
                       {option.option_text}
                     </Text>
@@ -610,21 +612,21 @@ export default function WeeklyQuizScreen() {
               )}
 
               {question.type === 'open' && Boolean(question.expected_answer) && (
-                <Text style={styles.expectedPreview}>Respuesta esperada: {question.expected_answer}</Text>
+                <Text style={[styles.expectedPreview, { color: colors.textMuted }]}>Respuesta esperada: {question.expected_answer}</Text>
               )}
 
               <View style={styles.questionFooter}>
-                <View style={styles.statusBadge}><Text style={styles.statusText}>{question.status}</Text></View>
-                <Text style={styles.weekText}>{question.week_year}</Text>
+                <View style={[styles.statusBadge, { backgroundColor: colors.warningSoft, borderColor: colors.warning }]}><Text style={[styles.statusText, { color: colors.warning }]}>{question.status}</Text></View>
+                <Text style={[styles.weekText, { color: colors.textSoft }]}>{question.week_year}</Text>
               </View>
               {['pending', 'draft'].includes(question.status) && (
                 <Pressable
-                  style={[styles.deleteQuestionBtn, actionLoading && styles.disabledBtn]}
+                  style={[styles.deleteQuestionBtn, { borderColor: colors.dangerBorder, backgroundColor: colors.dangerSoft }, actionLoading && styles.disabledBtn]}
                   onPress={() => handleDeleteQuestion(question)}
                   disabled={actionLoading}
                 >
-                  <Trash2 color="#fca5a5" size={16} />
-                  <Text style={styles.deleteQuestionText}>Eliminar pregunta</Text>
+                  <Trash2 color={colors.danger} size={16} />
+                  <Text style={[styles.deleteQuestionText, { color: colors.danger }]}>Eliminar pregunta</Text>
                 </Pressable>
               )}
             </View>
@@ -651,68 +653,68 @@ export default function WeeklyQuizScreen() {
         onCreated={() => loadData({ showLoading: false })}
       />
       <Modal visible={resultVisible} transparent animationType="fade" onRequestClose={() => setResultVisible(false)}>
-        <View style={styles.resultModalBackdrop}>
-          <View style={styles.resultModal}>
+        <View style={[styles.resultModalBackdrop, { backgroundColor: colors.overlay }]}>
+          <View style={[styles.resultModal, { backgroundColor: colors.input, borderColor: colors.border }]}>
             <View style={styles.resultModalHeader}>
-              <Text style={styles.resultTitle}>Resultados del quiz</Text>
-              <Pressable style={styles.resultCloseBtn} onPress={() => setResultVisible(false)}>
-                <X color="#94a3b8" size={20} />
+              <Text style={[styles.resultTitle, { color: colors.text }]}>Resultados del quiz</Text>
+              <Pressable style={[styles.resultCloseBtn, { backgroundColor: colors.surfaceElevated }]} onPress={() => setResultVisible(false)}>
+                <X color={colors.textMuted} size={20} />
               </Pressable>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
               {quizResult?.status === 'validated' && quizResult.summary ? (
                 <>
-                  <Text style={styles.resultSubtitle}>Resultado general</Text>
+                  <Text style={[styles.resultSubtitle, { color: colors.textMuted }]}>Resultado general</Text>
                   <View style={styles.resultGrid}>
-                    <View style={styles.resultMetric}>
-                      <Text style={styles.resultMetricValue}>{quizResult.summary.score}/{quizResult.summary.total_questions}</Text>
-                      <Text style={styles.resultMetricLabel}>Puntaje</Text>
+                    <View style={[styles.resultMetric, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                      <Text style={[styles.resultMetricValue, { color: colors.text }]}>{quizResult.summary.score}/{quizResult.summary.total_questions}</Text>
+                      <Text style={[styles.resultMetricLabel, { color: colors.textMuted }]}>Puntaje</Text>
                     </View>
-                    <View style={styles.resultMetric}>
-                      <Text style={styles.resultMetricValue}>{quizResult.summary.accuracy_percentage}%</Text>
-                      <Text style={styles.resultMetricLabel}>Acierto</Text>
+                    <View style={[styles.resultMetric, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                      <Text style={[styles.resultMetricValue, { color: colors.text }]}>{quizResult.summary.accuracy_percentage}%</Text>
+                      <Text style={[styles.resultMetricLabel, { color: colors.textMuted }]}>Acierto</Text>
                     </View>
                   </View>
                   <View style={styles.resultCounts}>
-                    <Text style={styles.resultCorrect}>Respuestas aceptadas: {quizResult.summary.correct_count}</Text>
-                    <Text style={styles.resultIncorrect}>Respuestas rechazadas: {quizResult.summary.incorrect_count}</Text>
+                    <Text style={[styles.resultCorrect, { color: colors.accent }]}>Respuestas aceptadas: {quizResult.summary.correct_count}</Text>
+                    <Text style={[styles.resultIncorrect, { color: colors.danger }]}>Respuestas rechazadas: {quizResult.summary.incorrect_count}</Text>
                   </View>
-                  <View style={styles.resultDetailCard}>
-                    <Text style={styles.resultAnswer}>Preguntas propuestas aceptadas: {quizResult.proposed_questions.validated_count}</Text>
-                    <Text style={styles.resultAnswer}>Preguntas propuestas rechazadas: {quizResult.proposed_questions.rejected_count ?? 0}</Text>
+                  <View style={[styles.resultDetailCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <Text style={[styles.resultAnswer, { color: colors.text }]}>Preguntas propuestas aceptadas: {quizResult.proposed_questions.validated_count}</Text>
+                    <Text style={[styles.resultAnswer, { color: colors.text }]}>Preguntas propuestas rechazadas: {quizResult.proposed_questions.rejected_count ?? 0}</Text>
                   </View>
 
-                  <Text style={styles.resultDetailTitle}>Preguntas respondidas</Text>
+                  <Text style={[styles.resultDetailTitle, { color: colors.textMuted }]}>Preguntas respondidas</Text>
                   {quizResult.details.length === 0 ? (
-                    <Text style={styles.emptyText}>No hay respuestas validadas para mostrar.</Text>
+                    <Text style={[styles.emptyText, { color: colors.textMuted }]}>No hay respuestas validadas para mostrar.</Text>
                   ) : quizResult.details.map(detail => (
-                    <View key={detail.question_id} style={styles.resultDetailCard}>
-                      <Text style={styles.resultQuestion}>{detail.question_text}</Text>
-                      <Text style={styles.resultAnswer}>Tu respuesta: {detail.answer_text ?? 'Sin respuesta'}</Text>
-                      <Text style={styles.resultExpected}>Esperada: {detail.expected_answer ?? 'No disponible'}</Text>
-                      <Text style={[styles.resultStatus, detail.is_correct ? styles.resultStatusOk : styles.resultStatusBad]}>
+                    <View key={detail.question_id} style={[styles.resultDetailCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                      <Text style={[styles.resultQuestion, { color: colors.text }]}>{detail.question_text}</Text>
+                      <Text style={[styles.resultAnswer, { color: colors.text }]}>Tu respuesta: {detail.answer_text ?? 'Sin respuesta'}</Text>
+                      <Text style={[styles.resultExpected, { color: colors.textMuted }]}>Esperada: {detail.expected_answer ?? 'No disponible'}</Text>
+                      <Text style={[styles.resultStatus, detail.is_correct ? styles.resultStatusOk : styles.resultStatusBad, detail.is_correct ? { color: colors.accent } : { color: colors.danger }]}>
                         {detail.is_correct ? 'Aceptada' : 'Rechazada'}
                       </Text>
                     </View>
                   ))}
 
-                  <Text style={styles.resultDetailTitle}>Preguntas propuestas</Text>
+                  <Text style={[styles.resultDetailTitle, { color: colors.textMuted }]}>Preguntas propuestas</Text>
                   {quizResult.proposed_questions.items.length === 0 ? (
-                    <Text style={styles.emptyText}>No hay preguntas propuestas validadas o rechazadas para mostrar.</Text>
+                    <Text style={[styles.emptyText, { color: colors.textMuted }]}>No hay preguntas propuestas validadas o rechazadas para mostrar.</Text>
                   ) : quizResult.proposed_questions.items.map(item => (
-                    <View key={item.question_id} style={styles.resultDetailCard}>
-                      <Text style={styles.resultQuestion}>{item.question_text}</Text>
-                      <Text style={[styles.resultStatus, item.status === 'validated' ? styles.resultStatusOk : styles.resultStatusBad]}>
+                    <View key={item.question_id} style={[styles.resultDetailCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                      <Text style={[styles.resultQuestion, { color: colors.text }]}>{item.question_text}</Text>
+                      <Text style={[styles.resultStatus, item.status === 'validated' ? styles.resultStatusOk : styles.resultStatusBad, item.status === 'validated' ? { color: colors.accent } : { color: colors.danger }]}>
                         {item.status === 'validated' ? 'Aceptada' : 'Rechazada'}
                       </Text>
                     </View>
                   ))}
                 </>
               ) : (
-                <View style={styles.pendingResultCard}>
-                  <Text style={styles.emptyTitle}>Resultado pendiente</Text>
-                  <Text style={styles.emptyText}>El resultado se muestra cuando termine la validación grupal y el owner lo genere.</Text>
+                <View style={[styles.pendingResultCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                  <Text style={[styles.emptyTitle, { color: colors.text }]}>Resultado pendiente</Text>
+                  <Text style={[styles.emptyText, { color: colors.textMuted }]}>El resultado se muestra cuando termine la validación grupal y el owner lo genere.</Text>
                 </View>
               )}
             </ScrollView>

@@ -1,23 +1,25 @@
 import { StyleSheet, Text, View } from "react-native";
-//este archivo hay que borrarlo, se refacotizo en  streakcard
+import { useThemeStore } from '../../../store/themeStore';
 
 export default function StreakCard() {
+  const colors = useThemeStore(state => state.colors);
+
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: `${colors.warning}33` }]}>
       <View style={styles.row}>
         <View>
-          <Text style={styles.days}>7 días</Text>
-          <Text style={styles.label}>Racha actual</Text>
+          <Text style={[styles.days, { color: colors.warning }]}>7 días</Text>
+          <Text style={[styles.label, { color: colors.textMuted }]}>Racha actual</Text>
         </View>
 
         <View style={{ alignItems: "flex-end" }}>
-          <Text style={styles.label}>Mejor</Text>
-          <Text style={styles.best}>12 días</Text>
+          <Text style={[styles.label, { color: colors.textMuted }]}>Mejor</Text>
+          <Text style={[styles.best, { color: colors.warning }]}>12 días</Text>
         </View>
       </View>
 
-      <View style={styles.success}>
-        <Text style={{ color: "#4ade80", fontSize: 12 }}>
+      <View style={[styles.success, { backgroundColor: `${colors.accent}22` }]}>
+        <Text style={{ color: colors.accent, fontSize: 12 }}>
           ✔ Racha completada hoy
         </Text>
       </View>
@@ -27,12 +29,10 @@ export default function StreakCard() {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#1a1d29",
     padding: 16,
     borderRadius: 20,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: "#ff880033",
   },
   row: {
     flexDirection: "row",
@@ -41,20 +41,16 @@ const styles = StyleSheet.create({
   days: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#fb923c",
   },
   label: {
-    color: "#aaa",
     fontSize: 12,
   },
   best: {
-    color: "#fdba74",
     fontWeight: "bold",
   },
   success: {
     marginTop: 10,
     padding: 6,
-    backgroundColor: "#22c55e22",
     borderRadius: 8,
   },
 });

@@ -1,21 +1,23 @@
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useState } from "react";
+import { useThemeStore } from '../../../store/themeStore';
 
 export default function TimerCard() {
     const [showConfig, setShowConfig] = useState(false);
+    const colors = useThemeStore(state => state.colors);
 
     return (
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
             <View style={styles.timer}>
-                <Text style={styles.time}>25:00</Text>
-                <Text style={styles.subtitle}>4 ciclos</Text>
+                <Text style={[styles.time, { color: colors.accent }]}>25:00</Text>
+                <Text style={[styles.subtitle, { color: colors.textMuted }]}>4 ciclos</Text>
             </View>
 
             <Pressable onPress={() => setShowConfig(true)}>
-                <Text style={styles.configText}>Configurar</Text>
+                <Text style={[styles.configText, { color: colors.textMuted }]}>Configurar</Text>
             </Pressable>
 
-            <Pressable style={styles.button}>
+            <Pressable style={[styles.button, { backgroundColor: colors.accent }]}>
                 <Text style={styles.buttonText}>COMENZAR SESIÓN</Text>
             </Pressable>
         </View>
@@ -24,7 +26,6 @@ export default function TimerCard() {
 
 const styles = StyleSheet.create({
     card: {
-        backgroundColor: "#1a1d29",
         borderRadius: 20,
         padding: 20,
         marginBottom: 16,
@@ -35,19 +36,14 @@ const styles = StyleSheet.create({
     },
     time: {
         fontSize: 40,
-        color: "#4ade80",
         fontWeight: "bold",
     },
-    subtitle: {
-        color: "#666",
-    },
+    subtitle: {},
     configText: {
-        color: "#94a3b8",
         textAlign: "center",
         marginBottom: 12,
     },
     button: {
-        backgroundColor: "#22c55e",
         padding: 14,
         borderRadius: 16,
         alignItems: "center",

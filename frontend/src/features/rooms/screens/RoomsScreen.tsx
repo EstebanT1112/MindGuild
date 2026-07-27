@@ -217,21 +217,22 @@ export default function RoomsScreen() {
             </Pressable>
 
             <Pressable style={[styles.joinMainBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]} onPress={() => setJoinVisible(true)}>
-                <LogIn color="#3b82f6" size={22} />
-                <Text style={styles.joinBtnText}>Unirse con Código</Text>
+                <LogIn color={colors.info} size={22} />
+                <Text style={[styles.joinBtnText, { color: colors.info }]}>Unirse con Código</Text>
             </Pressable>
 
             <Pressable
                 style={[
                     styles.invitationsMainBtn,
-                    pendingCount > 0 && styles.invitationsMainBtnActive
+                    { backgroundColor: colors.purple },
+                    pendingCount > 0 && [styles.invitationsMainBtnActive, { backgroundColor: colors.info }]
                 ]}
                 onPress={() => setInvitationsVisible(true)}
             >
                 <View style={styles.mailContainer}>
                     <Mail color="#ffffff" size={20} />
                     {pendingCount > 0 && (
-                        <View style={styles.badge}>
+                        <View style={[styles.badge, { backgroundColor: colors.danger }]}>
                             <Text style={styles.badgeText}>{pendingCount}</Text>
                         </View>
                     )}

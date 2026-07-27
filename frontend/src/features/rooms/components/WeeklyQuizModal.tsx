@@ -8,6 +8,7 @@ import {
     type WeeklyQuizInput,
 } from '../services/battleRoyaleService';
 import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
+import { useThemeStore } from '../../../store/themeStore';
 
 interface WeeklyQuizModalProps {
     visible: boolean;
@@ -38,13 +39,13 @@ export default function WeeklyQuizModal({
     isOwner,
     onSaved,
 }: WeeklyQuizModalProps) {
+    const colors = useThemeStore((s) => s.colors);
     const [title, setTitle] = useState('Cuestionario semanal');
     const [weekday, setWeekday] = useState('monday');
     const [startTime, setStartTime] = useState('21:00');
     const [duration, setDuration] = useState('1440');
     const [saving, setSaving] = useState(false);
 
-    // ✅ Estado para AppAlert
     const [alert, setAlert] = useState<{
         visible: boolean;
         title: string;
@@ -62,7 +63,6 @@ export default function WeeklyQuizModal({
         type: 'info',
     });
 
-    // ✅ Función para mostrar alertas personalizadas
     const showAlert = (
         title: string,
         message: string,
@@ -123,83 +123,91 @@ export default function WeeklyQuizModal({
     return (
         <>
             <Modal visible={visible} animationType="fade" transparent>
-                <View style={[styles.overlay, { backgroundColor: 'rgba(0,0,0,0.95)' }]}>
-                    <View style={styles.content}>
+                <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+                    <View style={[styles.content, { backgroundColor: colors.background, borderColor: `${colors.purple}44` }]}>
                         <View style={styles.header}>
                             <View style={styles.titleRow}>
-                                <CalendarClock color="#a855f7" size={22} />
-                                <Text style={styles.title}>Cuestionario semanal</Text>
+                                <CalendarClock color={colors.purple} size={22} />
+                                <Text style={[styles.title, { color: colors.text }]}>Cuestionario semanal</Text>
                             </View>
-                            <Pressable onPress={onClose} style={styles.closeBtn}>
-                                <X color="white" size={20} />
+                            <Pressable onPress={onClose} style={[styles.closeBtn, { backgroundColor: colors.surfaceElevated }]}>
+                                <X color={colors.text} size={20} />
                             </Pressable>
                         </View>
 
                         {!isOwner ? (
-                            <View style={styles.readOnlyBox}>
-                                <Text style={styles.readOnlyTitle}>
+                            <View style={[styles.readOnlyBox, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+                                <Text style={[styles.readOnlyTitle, { color: colors.text }]}>
                                     {quiz ? quiz.title : 'Sin cuestionario configurado'}
                                 </Text>
-                                <Text style={styles.readOnlyText}>
+                                <Text style={[styles.readOnlyText, { color: colors.textMuted }]}>
                                     Solo el owner puede configurar el día y horario del cuestionario.
                                 </Text>
                             </View>
                         ) : (
                             <>
-                                <Text style={styles.label}>Título</Text>
+                                <Text style={[styles.label, { color: colors.textMuted }]}>Título</Text>
                                 <TextInput
-                                    style={styles.input}
+                                    style={[styles.input, { backgroundColor: colors.surfaceElevated, color: colors.text, borderColor: colors.border }]}
                                     value={title}
                                     onChangeText={setTitle}
                                     placeholder="Cuestionario semanal"
-                                    placeholderTextColor="#64748b"
+                                    placeholderTextColor={colors.textSoft}
                                 />
 
-                                <Text style={styles.label}>Día recurrente</Text>
+                                <Text style={[styles.label, { color: colors.textMuted }]}>Día recurrente</Text>
                                 <View style={styles.weekdayRow}>
                                     {weekdays.map(day => (
                                         <Pressable
                                             key={day.value}
-                                            style={[styles.weekdayBtn, weekday === day.value && styles.weekdayBtnActive]}
+                                            style={[
+                                                styles.weekdayBtn,
+                                                { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+                                                weekday === day.value && { backgroundColor: colors.purpleSoft, borderColor: colors.purple }
+                                            ]}
                                             onPress={() => setWeekday(day.value)}
                                         >
-                                            <Text style={[styles.weekdayText, weekday === day.value && styles.weekdayTextActive]}>
+                                            <Text style={[
+                                                styles.weekdayText,
+                                                { color: colors.textMuted },
+                                                weekday === day.value && { color: colors.text }
+                                            ]}>
                                                 {day.label}
                                             </Text>
                                         </Pressable>
                                     ))}
                                 </View>
 
-                                <Text style={styles.label}>Hora de inicio</Text>
+                                <Text style={[styles.label, { color: colors.textMuted }]}>Hora de inicio</Text>
                                 <TextInput
-                                    style={styles.input}
+                                    style={[styles.input, { backgroundColor: colors.surfaceElevated, color: colors.text, borderColor: colors.border }]}
                                     value={startTime}
                                     onChangeText={setStartTime}
                                     placeholder="21:00"
-                                    placeholderTextColor="#64748b"
+                                    placeholderTextColor={colors.textSoft}
                                 />
 
-                                <Text style={styles.label}>Duración en minutos</Text>
+                                <Text style={[styles.label, { color: colors.textMuted }]}>Duración en minutos</Text>
                                 <TextInput
-                                    style={styles.input}
+                                    style={[styles.input, { backgroundColor: colors.surfaceElevated, color: colors.text, borderColor: colors.border }]}
                                     value={duration}
                                     onChangeText={setDuration}
                                     keyboardType="numeric"
                                     placeholder="1440"
-                                    placeholderTextColor="#64748b"
+                                    placeholderTextColor={colors.textSoft}
                                 />
 
-                                <Text style={styles.hint}>Por defecto dura 24 horas. El backend guarda las fechas concretas en UTC.</Text>
+                                <Text style={[styles.hint, { color: colors.textSoft }]}>Por defecto dura 24 horas. El backend guarda las fechas concretas en UTC.</Text>
 
                                 <Pressable
-                                    style={[styles.saveBtn, saving && styles.disabledBtn]}
+                                    style={[styles.saveBtn, { backgroundColor: colors.purple }, saving && styles.disabledBtn]}
                                     onPress={handleSave}
                                     disabled={saving}
                                 >
                                     {saving ? (
-                                        <ActivityIndicator color="white" />
+                                        <ActivityIndicator color={colors.text} />
                                     ) : (
-                                        <Text style={styles.saveText}>{quiz ? 'Actualizar cuestionario' : 'Configurar cuestionario'}</Text>
+                                        <Text style={[styles.saveText, { color: colors.text }]}>{quiz ? 'Actualizar cuestionario' : 'Configurar cuestionario'}</Text>
                                     )}
                                 </Pressable>
                             </>
@@ -208,7 +216,6 @@ export default function WeeklyQuizModal({
                 </View>
             </Modal>
 
-            {/* ✅ AppAlert personalizado */}
             <AppAlert
                 visible={alert.visible}
                 title={alert.title}
@@ -236,23 +243,21 @@ export default function WeeklyQuizModal({
 
 const styles = StyleSheet.create({
     overlay: { flex: 1, justifyContent: 'center', padding: 20 },
-    content: { backgroundColor: '#0f172a', borderRadius: 28, padding: 22, borderWidth: 1, borderColor: '#a855f744' },
+    content: { borderRadius: 28, padding: 22, borderWidth: 1 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
     titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    title: { color: 'white', fontSize: 20, fontWeight: 'bold' },
-    closeBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#1e293b', alignItems: 'center', justifyContent: 'center' },
-    label: { color: '#94a3b8', fontSize: 13, fontWeight: 'bold', marginBottom: 8, marginTop: 12 },
-    input: { backgroundColor: '#1e293b', color: 'white', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: '#334155' },
+    title: { fontSize: 20, fontWeight: 'bold' },
+    closeBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+    label: { fontSize: 13, fontWeight: 'bold', marginBottom: 8, marginTop: 12 },
+    input: { padding: 14, borderRadius: 14, borderWidth: 1 },
     weekdayRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    weekdayBtn: { minWidth: 44, paddingHorizontal: 10, paddingVertical: 10, borderRadius: 12, backgroundColor: '#1e293b', borderWidth: 1, borderColor: '#334155', alignItems: 'center' },
-    weekdayBtnActive: { backgroundColor: '#6b21a8', borderColor: '#a855f7' },
-    weekdayText: { color: '#94a3b8', fontWeight: 'bold' },
-    weekdayTextActive: { color: 'white' },
-    hint: { color: '#64748b', fontSize: 12, marginTop: 12, lineHeight: 18 },
-    saveBtn: { backgroundColor: '#a855f7', height: 54, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginTop: 20 },
+    weekdayBtn: { minWidth: 44, paddingHorizontal: 10, paddingVertical: 10, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
+    weekdayText: { fontWeight: 'bold' },
+    hint: { fontSize: 12, marginTop: 12, lineHeight: 18 },
+    saveBtn: { height: 54, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginTop: 20 },
     disabledBtn: { opacity: 0.7 },
-    saveText: { color: 'white', fontSize: 16, fontWeight: '900' },
-    readOnlyBox: { backgroundColor: '#1e293b', borderRadius: 18, padding: 18, borderWidth: 1, borderColor: '#334155' },
-    readOnlyTitle: { color: 'white', fontSize: 17, fontWeight: 'bold', marginBottom: 8 },
-    readOnlyText: { color: '#94a3b8', lineHeight: 20 },
+    saveText: { fontSize: 16, fontWeight: '900' },
+    readOnlyBox: { borderRadius: 18, padding: 18, borderWidth: 1 },
+    readOnlyTitle: { fontSize: 17, fontWeight: 'bold', marginBottom: 8 },
+    readOnlyText: { lineHeight: 20 },
 });
