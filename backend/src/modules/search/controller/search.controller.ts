@@ -39,15 +39,30 @@ export const searchController = {
         [userId, searchTerm]
       );
 
-      // Search vault materials (from rooms where user is a member)
+      // Search Vault materials from rooms where the user is an active member.
       const materialsResult = await pool.query(
-        `SELECT vm.id, vm.title, vm.resource_type, vm.file_name,
+        `SELECT rmv.id, rmv.title, rmv.resource_type, rmv.file_name,
           r.name as room_name, r.id as room_id
-         FROM vault_materials vm
-         INNER JOIN rooms r ON r.id = vm.room_id
+         FROM room_materials rmv
+         INNER JOIN rooms r ON r.id = rmv.room_id
          INNER JOIN room_members rm ON rm.room_id = r.id
-         WHERE rm.user_id = $1 AND vm.title ILIKE $2
-         ORDER BY vm.created_at DESC
+         WHERE rm.user_id = $1
+           AND rm.is_active = true
+           AND r.is_active = true
+           AND rmv.is_active = true
+           AND (
+             rmv.title ILIKE $2
+             OR rmv.file_name ILIKE $2
+             OR EXISTS (
+               SELECT 1
+               FROM room_material_topics rmt
+               JOIN academic_topics at ON at.id = rmt.topic_id
+               WHERE rmt.material_id = rmv.id
+                 AND at.is_active = true
+                 AND (at.name ILIKE $2 OR at.slug ILIKE $2)
+             )
+           )
+         ORDER BY rmv.created_at DESC
          LIMIT 5;`,
         [userId, searchTerm]
       );
