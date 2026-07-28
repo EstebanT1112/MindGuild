@@ -22,6 +22,7 @@ import { type RoomDetails } from '../services/roomsService';
 import { fetchPendingSessionReviews } from '../services/sessionsService';
 import { fetchRoomMessages, sendRoomMessage, type RoomMessage } from '../services/chatService';
 import { fetchWeeklyQuizStatus, type WeeklyQuizStatusResult } from '../services/battleRoyaleService';
+import { useThemeStore } from '../../../store/themeStore';
 
 const POLLING_INTERVAL_MS = 60000; // 60 segundos
 
@@ -36,6 +37,7 @@ export default function BattleRoyaleScreen() {
     const setRoomDetails = useAppDataStore(state => state.setRoomDetails);
     const invalidateAfterValidStudySession = useAppDataStore(state => state.invalidateAfterValidStudySession);
     const markRoomActivity = useAppDataStore(state => state.markRoomActivity);
+    const colors = useThemeStore(state => state.colors);
 
     const [configVisible, setConfigVisible] = useState(false);
     const [adminVisible, setAdminVisible] = useState(false);
@@ -312,10 +314,10 @@ export default function BattleRoyaleScreen() {
 
     if (loading) {
         return (
-            <ScreenLayout title="BATTLE ROYALE" type="rooms" icon={<Swords color="#a855f7" size={22} />}>
+            <ScreenLayout title="BATTLE ROYALE" type="rooms" icon={<Swords color={colors.purple} size={22} />}>
                 <View style={styles.loadingState}>
-                    <ActivityIndicator color="#a855f7" />
-                    <Text style={styles.loadingText}>Cargando sala...</Text>
+                    <ActivityIndicator color={colors.purple} />
+                    <Text style={[styles.loadingText, { color: colors.textMuted }]}>Cargando sala...</Text>
                 </View>
             </ScreenLayout>
         );
@@ -350,30 +352,30 @@ export default function BattleRoyaleScreen() {
         <ScreenLayout
             title={room?.name ?? 'BATTLE ROYALE'}
             type="rooms"
-            icon={<Swords color="#a855f7" size={22} />}
+            icon={<Swords color={colors.purple} size={22} />}
             hideBackButton={isEnfocused}
             hideRightAction={isEnfocused}
             rightAction={
                 room && !isEnfocused ? (
                     <View style={styles.headerActions}>
                         <Pressable
-                            style={styles.infoBtn}
+                            style={[styles.infoBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
                             onPress={() => {
                                 setChatVisible(true);
                                 setUnreadChatCount(0);
                             }}
                         >
                             <View style={styles.chatIconWrapper}>
-                                <MessageCircle color="#a855f7" size={20} />
+                                <MessageCircle color={colors.purple} size={20} />
                                 {unreadChatCount > 0 && (
-                                    <View style={styles.chatBadge}>
-                                        <Text style={styles.badgeText}>{unreadChatCount}</Text>
+                                    <View style={[styles.chatBadge, { backgroundColor: colors.danger }]}>
+                                        <Text style={[styles.badgeText, { color: colors.text }]}>{unreadChatCount}</Text>
                                     </View>
                                 )}
                             </View>
                         </Pressable>
-                        <Pressable style={styles.infoBtn} onPress={() => setInfoVisible(true)}>
-                            <Info color="#a855f7" size={20} />
+                        <Pressable style={[styles.infoBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]} onPress={() => setInfoVisible(true)}>
+                            <Info color={colors.purple} size={20} />
                         </Pressable>
                     </View>
                 ) : undefined
@@ -388,23 +390,23 @@ export default function BattleRoyaleScreen() {
                         refreshing={refreshing}
                         onRefresh={handleRefresh}
                         enabled={!isEnfocused}
-                        tintColor="#a855f7"
-                        colors={['#a855f7']}
+                        tintColor={colors.purple}
+                        colors={[colors.purple]}
                     />
                 }
             >
                 {!isEnfocused && (
-                    <Pressable style={styles.configCard} onPress={() => setConfigVisible(true)}>
-                        <View style={styles.configIconBox}>
-                            <Settings color="#a855f7" size={24} />
+                    <Pressable style={[styles.configCard, { backgroundColor: colors.input, borderColor: colors.border }]} onPress={() => setConfigVisible(true)}>
+                        <View style={[styles.configIconBox, { backgroundColor: colors.input }]}>
+                            <Settings color={colors.purple} size={24} />
                         </View>
                         <View style={styles.configInfo}>
-                            <Text style={styles.configTitle}>Configurar Sesión</Text>
-                            <Text style={styles.configSub}>
+                            <Text style={[styles.configTitle, { color: colors.text }]}>Configurar Sesión</Text>
+                            <Text style={[styles.configSub, { color: colors.textSoft }]}>
                                 {sessionType === 'pomodoro' ? `Pomodoro - ${durationMinutes} min` : 'Modo Libre - Sin límite'}
                             </Text>
                         </View>
-                        <ChevronRight color="#4b5563" size={20} />
+                        <ChevronRight color={colors.textMuted} size={20} />
                     </Pressable>
                 )}
 
@@ -414,11 +416,11 @@ export default function BattleRoyaleScreen() {
                         remainingRatio={durationMinutes > 0 ? displaySeconds / (durationMinutes * 60) : 0}
                     >
                         {status === 'starting' || status === 'finishing' ? (
-                            <ActivityIndicator color="#a855f7" size="large" />
+                            <ActivityIndicator color={colors.purple} size="large" />
                         ) : (
-                            <Text style={styles.timerValue}>{getDisplayTime()}</Text>
+                            <Text style={[styles.timerValue, { color: colors.text }]}>{getDisplayTime()}</Text>
                         )}
-                        <Text style={styles.timerCycles}>
+                        <Text style={[styles.timerCycles, { color: colors.textSoft }]}>
                             {status === 'paused' ? 'Sesión Pausada' : sessionType === 'pomodoro' ? 'Fase de Enfoque' : 'Tiempo Acumulado'}
                         </Text>
                     </TimerProgressRing>
@@ -426,29 +428,29 @@ export default function BattleRoyaleScreen() {
 
                 <View style={[styles.controlsContainer, isEnfocused && styles.focusControlsContainer]}>
                     {status === 'idle' && (
-                        <Pressable onPress={startSession} style={styles.startBtn}>
-                            <Text style={styles.startBtnText}>COMENZAR SESIÓN</Text>
+                        <Pressable onPress={startSession} style={[styles.startBtn, { backgroundColor: colors.purple }]}>
+                            <Text style={[styles.startBtnText, { color: colors.text }]}>COMENZAR SESIÓN</Text>
                         </Pressable>
                     )}
 
                     {status === 'running' && (
                         <View style={styles.rowControls}>
-                            <Pressable onPress={pauseSession} style={[styles.controlBtn, styles.pauseBtn]}>
-                                <Text style={styles.startBtnText}>PAUSAR</Text>
+                            <Pressable onPress={pauseSession} style={[styles.controlBtn, styles.pauseBtn, { backgroundColor: colors.warning }]}>
+                                <Text style={[styles.startBtnText, { color: colors.text }]}>PAUSAR</Text>
                             </Pressable>
-                            <Pressable onPress={endSession} style={[styles.controlBtn, styles.finishBtn]}>
-                                <Text style={styles.startBtnText}>FINALIZAR</Text>
+                            <Pressable onPress={endSession} style={[styles.controlBtn, styles.finishBtn, { backgroundColor: colors.danger }]}>
+                                <Text style={[styles.startBtnText, { color: colors.text }]}>FINALIZAR</Text>
                             </Pressable>
                         </View>
                     )}
 
                     {status === 'paused' && (
                         <View style={styles.rowControls}>
-                            <Pressable onPress={resumeSession} style={[styles.controlBtn, styles.resumeBtn]}>
-                                <Text style={styles.startBtnText}>REANUDAR</Text>
+                            <Pressable onPress={resumeSession} style={[styles.controlBtn, styles.resumeBtn, { backgroundColor: colors.cyan }]}>
+                                <Text style={[styles.startBtnText, { color: colors.text }]}>REANUDAR</Text>
                             </Pressable>
-                            <Pressable onPress={endSession} style={[styles.controlBtn, styles.finishBtn]}>
-                                <Text style={styles.startBtnText}>FINALIZAR</Text>
+                            <Pressable onPress={endSession} style={[styles.controlBtn, styles.finishBtn, { backgroundColor: colors.danger }]}>
+                                <Text style={[styles.startBtnText, { color: colors.text }]}>FINALIZAR</Text>
                             </Pressable>
                         </View>
                     )}
@@ -459,49 +461,49 @@ export default function BattleRoyaleScreen() {
                         <RoomRanking roomId={room?.id} roomType="battle_royale" />
 
                         <Pressable
-                            style={[styles.configCard, styles.reviewCard, styles.relativeContainer]}
+                            style={[styles.configCard, styles.reviewCard, styles.relativeContainer, { backgroundColor: colors.input, borderColor: colors.purple }]}
                             onPress={() => setReviewPeersVisible(true)}
                         >
-                            <View style={[styles.configIconBox, { backgroundColor: '#2e1065' }]}>
-                                <Users color="#c084fc" size={24} />
+                            <View style={[styles.configIconBox, { backgroundColor: colors.purpleSoft }]}>
+                                <Users color={colors.purple} size={24} />
                             </View>
                             <View style={styles.configInfo}>
-                                <Text style={styles.configTitle}>Validar Compañeros</Text>
-                                <Text style={styles.configSub}>Panel de verificación social de apuntes y evidencias</Text>
+                                <Text style={[styles.configTitle, { color: colors.text }]}>Validar Compañeros</Text>
+                                <Text style={[styles.configSub, { color: colors.textSoft }]}>Panel de verificación social de apuntes y evidencias</Text>
                             </View>
-                            <ChevronRight color="#4b5563" size={20} />
+                            <ChevronRight color={colors.textMuted} size={20} />
 
                             {pendingReviewsCount > 0 && (
-                                <View style={styles.badge}>
-                                    <Text style={styles.badgeText}>{pendingReviewsCount}</Text>
+                                <View style={[styles.badge, { backgroundColor: colors.danger }]}>
+                                    <Text style={[styles.badgeText, { color: colors.text }]}>{pendingReviewsCount}</Text>
                                 </View>
                             )}
                         </Pressable>
 
-                        <Pressable style={styles.inviteFriendsBtn} onPress={() => setInviteFriendsVisible(true)}>
-                            <UserPlus color="white" size={22} />
-                            <Text style={styles.inviteFriendsBtnText}>Invitar Amigos a la Sala</Text>
+                        <Pressable style={[styles.inviteFriendsBtn, { backgroundColor: colors.info }]} onPress={() => setInviteFriendsVisible(true)}>
+                            <UserPlus color={colors.text} size={22} />
+                            <Text style={[styles.inviteFriendsBtnText, { color: colors.text }]}>Invitar Amigos a la Sala</Text>
                         </Pressable>
 
                         <Pressable
-                            style={styles.vaultBtn}
+                            style={[styles.vaultBtn, { backgroundColor: colors.cyan }]}
                             onPress={() => room?.id && navigation.navigate('RoomVault', {
                                 roomId: room.id,
                                 roomName: room.name,
-                                accentColor: '#14b8a6',
+                                accentColor: colors.cyan,
                             })}
                         >
-                            <FolderOpen color="white" size={22} />
-                            <Text style={styles.inviteFriendsBtnText}>The Vault</Text>
+                            <FolderOpen color={colors.text} size={22} />
+                            <Text style={[styles.inviteFriendsBtnText, { color: colors.text }]}>The Vault</Text>
                         </Pressable>
 
                         {room?.teams_enabled && accessToken && room?.id && (
                             <TeamsSection roomId={room.id} accessToken={accessToken} mode="battle_royale" />
                         )}
 
-                        <Text style={styles.sectionLabel}>QUIZ SEMANAL</Text>
+                        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>QUIZ SEMANAL</Text>
                         <Pressable
-                            style={[styles.quizBtn, styles.relativeContainer]}
+                            style={[styles.quizBtn, styles.relativeContainer, { backgroundColor: colors.purple }]}
                             onPress={() => {
                                 setQuizBadgeVisible(false);
                                 if (room?.id) {
@@ -509,44 +511,44 @@ export default function BattleRoyaleScreen() {
                                 }
                             }}
                         >
-                            <CalendarClock color="white" size={24} />
-                            <Text style={styles.quizBtnText}>Quiz Semanal</Text>
+                            <CalendarClock color={colors.text} size={24} />
+                            <Text style={[styles.quizBtnText, { color: colors.text }]}>Quiz Semanal</Text>
                             {quizBadgeVisible && (
-                                <View style={[styles.badge, styles.quizBadge]}>
-                                    <Text style={styles.badgeText}>!</Text>
+                                <View style={[styles.badge, styles.quizBadge, { backgroundColor: colors.danger }]}>
+                                    <Text style={[styles.badgeText, { color: colors.text }]}>!</Text>
                                 </View>
                             )}
                         </Pressable>
-                        <Text style={styles.hintText}>Configuración, carga de preguntas y estado del cuestionario.</Text>
+                        <Text style={[styles.hintText, { color: colors.textSoft }]}>Configuración, carga de preguntas y estado del cuestionario.</Text>
 
-                        <Text style={styles.sectionLabel}>PRÁCTICA</Text>
+                        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>PRÁCTICA</Text>
                         <Pressable
-                            style={styles.practiceBtn}
+                            style={[styles.practiceBtn, { backgroundColor: colors.accent }]}
                             onPress={() => room?.id && navigation.navigate('PracticeQuiz', { roomId: room.id, roomName: room.name })}
                         >
-                            <BrainCircuit color="white" size={24} />
-                            <Text style={styles.quizBtnText}>Quiz Atemporal</Text>
+                            <BrainCircuit color={colors.text} size={24} />
+                            <Text style={[styles.quizBtnText, { color: colors.text }]}>Quiz Atemporal</Text>
                         </Pressable>
-                        <Text style={styles.hintText}>Práctica atemporal. No guarda resultados ni afecta rankings.</Text>
+                        <Text style={[styles.hintText, { color: colors.textSoft }]}>Práctica atemporal. No guarda resultados ni afecta rankings.</Text>
 
-                        <Text style={styles.sectionLabel}>ANÁLISIS</Text>
+                        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>ANÁLISIS</Text>
                         <Pressable
-                            style={styles.dashboardBtn}
+                            style={[styles.dashboardBtn, { backgroundColor: colors.cyan }]}
                             onPress={() => room?.id && navigation.navigate('SmartDashboard', { roomId: room.id, roomName: room.name, scope: 'room' })}
                         >
-                            <BarChart3 color="white" size={24} />
-                            <Text style={styles.quizBtnText}>Dashboard de Sala</Text>
+                            <BarChart3 color={colors.text} size={24} />
+                            <Text style={[styles.quizBtnText, { color: colors.text }]}>Dashboard de Sala</Text>
                         </Pressable>
-                        <Text style={styles.hintText}>Resumen semanal de estudio, quizzes e insights de esta sala.</Text>
+                        <Text style={[styles.hintText, { color: colors.textSoft }]}>Resumen semanal de estudio, quizzes e insights de esta sala.</Text>
 
                         <Pressable
-                            style={styles.heatmapBtn}
+                            style={[styles.heatmapBtn, { backgroundColor: colors.warning }]}
                             onPress={() => room?.id && navigation.navigate('DifficultyHeatmap', { roomId: room.id, roomName: room.name, scope: 'room' })}
                         >
-                            <ThermometerSun color="white" size={24} />
-                            <Text style={styles.quizBtnText}>Heatmap de Dificultad</Text>
+                            <ThermometerSun color={colors.text} size={24} />
+                            <Text style={[styles.quizBtnText, { color: colors.text }]}>Heatmap de Dificultad</Text>
                         </Pressable>
-                        <Text style={styles.hintText}>Detecta los temas con más errores validados en la sala.</Text>
+                        <Text style={[styles.hintText, { color: colors.textSoft }]}>Detecta los temas con más errores validados en la sala.</Text>
 
                         <LeaveRoomButton roomId={room?.id} />
                     </>
@@ -628,7 +630,7 @@ export default function BattleRoyaleScreen() {
                     visible={chatVisible}
                     roomId={room.id}
                     roomName={room.name}
-                    accentColor="#a855f7"
+                    accentColor={colors.purple}
                     onClose={() => setChatVisible(false)}
                     messages={messages}
                     onSendMessage={handleSendMessage}
@@ -668,11 +670,12 @@ function TimerProgressRing({
     isPomodoro: boolean;
     remainingRatio: number;
 }) {
+    const colors = useThemeStore(state => state.colors);
     const ticks = Array.from({ length: 48 }, (_, index) => index);
     const safeRemaining = Math.max(0, Math.min(1, remainingRatio));
 
     return (
-        <View style={[styles.timerCircle, !isPomodoro && styles.freeTimerCircle]}>
+        <View style={[styles.timerCircle, { backgroundColor: colors.input }, !isPomodoro && [styles.freeTimerCircle, { borderColor: colors.purple }]]}>
             {isPomodoro && (
                 <View pointerEvents="none" style={styles.tickLayer}>
                     {ticks.map(index => (
@@ -685,12 +688,12 @@ function TimerProgressRing({
                     ))}
                 </View>
             )}
-            <View style={styles.timerInner}>{children}</View>
+            <View style={[styles.timerInner, { backgroundColor: colors.input, borderColor: colors.surfaceElevated }]}>{children}</View>
         </View>
     );
 }
 
-function TimerTick({
+    function TimerTick({
     index,
     total,
     remainingRatio,
@@ -699,6 +702,7 @@ function TimerTick({
     total: number;
     remainingRatio: number;
 }) {
+    const colors = useThemeStore(state => state.colors);
     const opacity = useSharedValue(1);
     const scale = useSharedValue(1);
     const active = index / total < remainingRatio;
@@ -718,7 +722,7 @@ function TimerTick({
         ],
     }));
 
-    return <Animated.View style={[styles.timerTick, animatedStyle]} />;
+    return <Animated.View style={[styles.timerTick, { backgroundColor: colors.purple }, animatedStyle]} />;
 }
 
 const styles = StyleSheet.create({

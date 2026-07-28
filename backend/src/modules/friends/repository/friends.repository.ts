@@ -94,6 +94,22 @@ export const FriendsRepository = {
     await pool.query(query, [requestId]);
   },
 
+  async searchUsers(query: string, currentUserId: string, limit = 10): Promise<Array<{ id: string; username: string; avatar_url: string | null; streak_days: number; total_study_minutes: number; are_friends: boolean; request_pending: boolean }>> {
+    const searchQuery = `
+      SELECT 
+        p.id, p.username, p.avatar_url, p.streak_days, p.total_study_minutes,
+        EXISTS(SELECT 1 FROM friendships WHERE user_id = $2 AND friend_id = p.id) AS are_friends,
+        EXISTS(SELECT 1 FROM friend_requests WHERE status = 'pending' AND ((sender_id = $2 AND receiver_id = p.id) OR (sender_id = p.id AND receiver_id = $2))) AS request_pending
+      FROM profiles p
+      WHERE p.username ILIKE $1
+        AND p.id != $2
+      ORDER BY p.username
+      LIMIT $3;
+    `;
+    const { rows } = await pool.query(searchQuery, [`%${query}%`, currentUserId, limit]);
+    return rows as any;
+  },
+
   async getFriends(userId: string): Promise<FriendProfile[]> {
     const query = `
       SELECT p.id, p.username, p.avatar_url, p.streak_days, p.total_study_minutes, p.last_login_at

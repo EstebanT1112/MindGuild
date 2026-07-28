@@ -2,6 +2,13 @@ import { FriendsRepository } from '../repository/friends.repository.js';
 import { FriendValidationError, FriendNotFoundError, FriendConflictError } from '../types/friends.types.js';
 
 export const FriendsService = {
+  async searchUsers(userId: string, query: string) {
+    if (!query || query.trim().length < 2) {
+      return [];
+    }
+    return await FriendsRepository.searchUsers(query.trim(), userId);
+  },
+
   async sendRequest(senderId: string, targetUsername: string) {
     if (!targetUsername || targetUsername.trim() === '') {
       throw new FriendValidationError('El username es requerido.');

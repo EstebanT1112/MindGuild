@@ -18,6 +18,7 @@ type Mission = {
     frequency?: 'daily' | 'weekly';
     expires_at?: string | null;
     expired?: boolean;
+    expiredMoreThan24h?: boolean;
 };
 
 interface MissionsModalProps {
@@ -32,15 +33,15 @@ export default function MissionsModal({ visible, onClose, missions = [], onClaim
     const colors = useThemeStore(state => state.colors);
     const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
 
-    const active = missions.filter(m => !m.completed && !m.expired).sort((a, b) => b.percentage - a.percentage);
+    const active = missions.filter(m => !m.completed && !m.expired && !m.expiredMoreThan24h).sort((a, b) => b.percentage - a.percentage);
     const daily = active.filter(m => m.frequency !== 'weekly');
     const weekly = active.filter(m => m.frequency === 'weekly');
-    const completed = missions.filter(m => m.completed && !m.expired);
-    const expired = missions.filter(m => m.expired);
+    const completed = missions.filter(m => m.completed && !m.expired && !m.expiredMoreThan24h);
+    const expired = missions.filter(m => m.expired || m.expiredMoreThan24h);
 
     return (
         <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-            <Pressable style={styles.overlay} onPress={onClose} />
+            <Pressable style={[styles.overlay, { backgroundColor: colors.overlay }]} onPress={onClose} />
             <View style={[styles.sheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <View style={[styles.handle, { backgroundColor: colors.border }]} />
                 <View style={styles.sheetHeader}>
@@ -114,7 +115,7 @@ function MissionRow({ mission, done, onClaimMission, claiming, onPress, expired 
                 </View>
                 {done ? <View style={[styles.checkBadge, { backgroundColor: `${colors.accent}22` }]}><Check color={colors.accent} size={18} /></View> : <Text style={[styles.percentText, { color: colors.accent }]}>{mission.percentage}%</Text>}
             </View>
-            <View style={[styles.barBg, { backgroundColor: colors.border }]}><Animated.View style={[styles.barFill, done && { backgroundColor: colors.accent }, progressStyle]} /></View>
+            <View style={[styles.barBg, { backgroundColor: colors.border }]}><Animated.View style={[styles.barFill, { backgroundColor: colors.info }, done && { backgroundColor: colors.accent }, progressStyle]} /></View>
             {done && (
                 <Pressable style={[styles.claimBtn, { backgroundColor: colors.accent }, mission.claimed && { backgroundColor: colors.border }]} disabled={mission.claimed || claiming} onPress={() => onClaimMission?.(String(mission.id))}>
                     <Text style={styles.claimText}>{mission.claimed ? 'Reclamada' : claiming ? 'Reclamando...' : 'Reclamar'}</Text>

@@ -7,7 +7,6 @@ import {
   Pressable,
   ActivityIndicator,
   RefreshControl,
-  Modal,
   TextInput,
   Image,
 } from 'react-native';
@@ -24,6 +23,7 @@ import {
 } from 'lucide-react-native';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
+import AddFriendModal from '../components/AddFriendModal';
 import { authenticatedFetch } from '../../../services/authenticatedFetch';
 import Constants from 'expo-constants';
 import { useAuthStore } from '../../../store/authStore';
@@ -105,8 +105,6 @@ export default function FriendsScreen() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | 'none'>('none');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [searchUsername, setSearchUsername] = useState('');
-  const [sendingRequest, setSendingRequest] = useState(false);
   const [pendingRequests, setPendingRequests] = useState<IncomingRequest[]>([]);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [removingFriendId, setRemovingFriendId] = useState<string | null>(null);
@@ -274,38 +272,6 @@ export default function FriendsScreen() {
       showAlert('Error', 'Ocurrió un error al eliminar el amigo.', 'error');
     } finally {
       setRemovingFriendId(null);
-    }
-  };
-
-  const handleSendRequest = async () => {
-    if (!searchUsername.trim()) {
-      showAlert('Campos incompletos', 'Por favor ingresá un nombre de usuario.', 'warning');
-      return;
-    }
-    try {
-      setSendingRequest(true);
-      const response = await authenticatedFetch(
-        `${API_URL}/friends/requests`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: searchUsername.trim() }),
-        },
-        token
-      );
-      const json = (await response.json()) as { success: boolean; error?: string };
-      if (json.success) {
-        showAlert('Solicitud enviada', `Se envió la solicitud a ${searchUsername.trim()} correctamente.`, 'success');
-        setSearchUsername('');
-        setModalVisible(false);
-        loadData(false);
-      } else {
-        showAlert('Atención', json.error || 'No se pudo procesar la solicitud.', 'error');
-      }
-    } catch (err) {
-      showAlert('Error', 'Fallo de conexión con el servidor.', 'error');
-    } finally {
-      setSendingRequest(false);
     }
   };
 
@@ -520,54 +486,13 @@ export default function FriendsScreen() {
         </View>
       </ScrollView>
 
-      <Modal
-        animationType="fade"
-        transparent={true}
+      <AddFriendModal
         visible={isModalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Agregar Amigo</Text>
-            <Text style={styles.modalSubtitle}>
-              Ingresá el username exacto de tu compañero de gremio.
-            </Text>
-
-            <TextInput
-              style={styles.input}
-              placeholder="Username"
-              placeholderTextColor={colors.textMuted}
-              value={searchUsername}
-              onChangeText={setSearchUsername}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-
-            <View style={styles.modalActions}>
-              <Pressable
-                style={[styles.modalBtn, styles.cancelBtn]}
-                onPress={() => {
-                  setModalVisible(false);
-                  setSearchUsername('');
-                }}
-              >
-                <Text style={styles.cancelBtnText}>Cancelar</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.modalBtn, styles.confirmBtn]}
-                onPress={handleSendRequest}
-                disabled={sendingRequest}
-              >
-                {sendingRequest ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <Text style={styles.confirmBtnText}>Enviar</Text>
-                )}
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => {
+          setModalVisible(false);
+          loadData(false);
+        }}
+      />
 
       {/* ✅ AppAlert personalizado */}
       <AppAlert
@@ -822,75 +747,6 @@ const createStyles = (colors: any) =>
     },
     emptyText: {
       color: colors.textMuted,
-      fontSize: 14,
-    },
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: colors.overlay,
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: 20,
-    },
-    modalContent: {
-      width: '100%',
-      maxWidth: 340,
-      backgroundColor: colors.surfaceElevated,
-      padding: 24,
-      borderRadius: 24,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    modalTitle: {
-      fontSize: 20,
-      fontWeight: '900',
-      color: colors.text,
-      marginBottom: 8,
-    },
-    modalSubtitle: {
-      fontSize: 13,
-      color: colors.textMuted,
-      marginBottom: 20,
-      lineHeight: 18,
-    },
-    input: {
-      width: '100%',
-      height: 48,
-      backgroundColor: colors.input,
-      borderRadius: 12,
-      paddingHorizontal: 16,
-      color: colors.text,
-      fontSize: 15,
-      borderWidth: 1,
-      borderColor: colors.inputBorder,
-      marginBottom: 24,
-    },
-    modalActions: {
-      flexDirection: 'row',
-      gap: 12,
-      justifyContent: 'flex-end',
-    },
-    modalBtn: {
-      paddingHorizontal: 18,
-      paddingVertical: 10,
-      borderRadius: 12,
-      minWidth: 90,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    cancelBtn: {
-      backgroundColor: colors.surface,
-    },
-    cancelBtnText: {
-      color: colors.textMuted,
-      fontWeight: 'bold',
-      fontSize: 14,
-    },
-    confirmBtn: {
-      backgroundColor: colors.accent,
-    },
-    confirmBtnText: {
-      color: '#ffffff',
-      fontWeight: 'bold',
       fontSize: 14,
     },
   });

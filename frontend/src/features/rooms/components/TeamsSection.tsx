@@ -11,6 +11,7 @@ import {
   type TeamsOverview,
 } from '../services/teamsService';
 import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
+import { useThemeStore, type ThemeColors } from '../../../store/themeStore';
 
 interface TeamsSectionProps {
   roomId: string;
@@ -18,7 +19,7 @@ interface TeamsSectionProps {
   mode: 'survival' | 'battle_royale';
 }
 
-const colors = ['#3b82f6', '#a855f7', '#ec4899', '#f59e0b', '#10b981', '#ef4444'];
+const teamColors = ['#3b82f6', '#a855f7', '#ec4899', '#f59e0b', '#10b981', '#ef4444'];
 type TeamRankingType = 'time' | 'qa' | 'academic' | 'boss';
 
 const teamRankingTabs: Array<{
@@ -64,6 +65,8 @@ const teamRankingTabs: Array<{
 ];
 
 export default function TeamsSection({ roomId, accessToken }: TeamsSectionProps) {
+  const colors = useThemeStore(state => state.colors);
+  const styles = makeStyles(colors);
   const [isExpanded, setIsExpanded] = useState(false);
   const [overview, setOverview] = useState<TeamsOverview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -74,7 +77,6 @@ export default function TeamsSection({ roomId, accessToken }: TeamsSectionProps)
   const [isRenamingTeam, setIsRenamingTeam] = useState(false);
   const [renameValue, setRenameValue] = useState('');
 
-  // ✅ Estado para AppAlert
   const [alert, setAlert] = useState<{
     visible: boolean;
     title: string;
@@ -92,7 +94,6 @@ export default function TeamsSection({ roomId, accessToken }: TeamsSectionProps)
     type: 'info',
   });
 
-  // ✅ Función para mostrar alertas personalizadas
   const showAlert = (
     title: string,
     message: string,
@@ -200,7 +201,7 @@ export default function TeamsSection({ roomId, accessToken }: TeamsSectionProps)
   const teams = overview?.teams ?? [];
   const ranking = overview?.ranking ?? [];
   const myTeamId = overview?.my_team?.team_id ?? null;
-  const selectedTeamColor = selectedTeam?.color ?? '#3b82f6';
+  const selectedTeamColor = selectedTeam?.color ?? colors.info;
   const selectedTeamIsMine = Boolean(selectedTeam && myTeamId === selectedTeam.id);
   const canJoinSelectedTeam = Boolean(selectedTeam && !myTeamId);
   const canRenameTeams = Boolean(overview?.rename_permission?.can_rename_all);
@@ -210,10 +211,10 @@ export default function TeamsSection({ roomId, accessToken }: TeamsSectionProps)
       <View style={[styles.container, !isExpanded && styles.containerCollapsed]}>
         <Pressable style={[styles.header, !isExpanded && styles.headerCollapsed]} onPress={() => setIsExpanded(!isExpanded)}>
           <View style={styles.titleRow}>
-            <Shield color="#3b82f6" size={20} />
+            <Shield color={colors.info} size={20} />
             <Text style={styles.title}>Equipos</Text>
           </View>
-          {isExpanded ? <ChevronUp color="#64748b" size={20} /> : <ChevronDown color="#64748b" size={20} />}
+          {isExpanded ? <ChevronUp color={colors.textSoft} size={20} /> : <ChevronDown color={colors.textSoft} size={20} />}
         </Pressable>
 
         {isExpanded && (
@@ -222,7 +223,7 @@ export default function TeamsSection({ roomId, accessToken }: TeamsSectionProps)
 
             {loading ? (
               <View style={styles.loadingState}>
-                <ActivityIndicator color="#3b82f6" />
+                <ActivityIndicator color={colors.info} />
                 <Text style={styles.mutedText}>Cargando equipos...</Text>
               </View>
             ) : teams.length === 0 ? (
@@ -235,7 +236,7 @@ export default function TeamsSection({ roomId, accessToken }: TeamsSectionProps)
                 <TeamCard
                   key={team.id}
                   team={team}
-                  color={team.color ?? colors[index % colors.length]}
+                  color={team.color ?? teamColors[index % teamColors.length]}
                   myTeamId={myTeamId}
                   onPress={() => openTeamDetail(team)}
                 />
@@ -261,11 +262,11 @@ export default function TeamsSection({ roomId, accessToken }: TeamsSectionProps)
                         setIsRenamingTeam(true);
                       }}
                     >
-                      <Pencil color="#facc15" size={16} />
+                      <Pencil color={colors.warning} size={16} />
                     </Pressable>
                   )}
                   <Pressable style={styles.closeBtn} onPress={closeTeamDetail}>
-                    <X color="#94a3b8" size={18} />
+                    <X color={colors.textMuted} size={18} />
                   </Pressable>
                 </View>
               </View>
@@ -277,7 +278,7 @@ export default function TeamsSection({ roomId, accessToken }: TeamsSectionProps)
                     onChangeText={setRenameValue}
                     maxLength={40}
                     placeholder="Nombre del equipo"
-                    placeholderTextColor="#64748b"
+                    placeholderTextColor={colors.textSoft}
                     style={styles.renameInput}
                   />
                   <View style={styles.renameActions}>
@@ -292,14 +293,14 @@ export default function TeamsSection({ roomId, accessToken }: TeamsSectionProps)
                       <Text style={styles.cancelRenameText}>Cancelar</Text>
                     </Pressable>
                     <Pressable style={[styles.confirmRenameBtn, saving && styles.disabled]} onPress={handleRenameTeam} disabled={saving}>
-                      {saving ? <ActivityIndicator color="white" /> : <Text style={styles.confirmRenameText}>Guardar</Text>}
+                      {saving ? <ActivityIndicator color={colors.text} /> : <Text style={styles.confirmRenameText}>Guardar</Text>}
                     </Pressable>
                   </View>
                 </View>
               )}
 
               <View style={styles.memberCountDetail}>
-                <Users color="#64748b" size={14} />
+                <Users color={colors.textSoft} size={14} />
                 <Text style={styles.countText}>{selectedTeam?.members.length ?? 0} integrantes</Text>
               </View>
 
@@ -323,7 +324,7 @@ export default function TeamsSection({ roomId, accessToken }: TeamsSectionProps)
                       onPress={() => handleJoinTeam(selectedTeam.id).then(success => success && closeTeamDetail())}
                       disabled={actionTeamId === selectedTeam.id}
                     >
-                      {actionTeamId === selectedTeam.id ? <ActivityIndicator color="white" /> : <Text style={styles.teamActionText}>Unirme</Text>}
+                      {actionTeamId === selectedTeam.id ? <ActivityIndicator color={colors.text} /> : <Text style={styles.teamActionText}>Unirme</Text>}
                     </Pressable>
                   )}
                   {selectedTeamIsMine && selectedTeam && (
@@ -332,7 +333,7 @@ export default function TeamsSection({ roomId, accessToken }: TeamsSectionProps)
                       onPress={() => handleLeaveTeam(selectedTeam.id).then(success => success && closeTeamDetail())}
                       disabled={actionTeamId === selectedTeam.id}
                     >
-                      {actionTeamId === selectedTeam.id ? <ActivityIndicator color="#fecaca" /> : <Text style={styles.leaveBtnText}>Salir del equipo</Text>}
+                      {actionTeamId === selectedTeam.id ? <ActivityIndicator color={colors.danger} /> : <Text style={styles.leaveBtnText}>Salir del equipo</Text>}
                     </Pressable>
                   )}
                 </View>
@@ -342,7 +343,6 @@ export default function TeamsSection({ roomId, accessToken }: TeamsSectionProps)
         </Modal>
       </View>
 
-      {/* ✅ AppAlert personalizado */}
       <AppAlert
         visible={alert.visible}
         title={alert.title}
@@ -379,6 +379,8 @@ function TeamCard({
   myTeamId: string | null;
   onPress: () => void;
 }) {
+  const colors = useThemeStore(state => state.colors);
+  const styles = makeStyles(colors);
   const isMyTeam = myTeamId === team.id;
 
   return (
@@ -389,7 +391,7 @@ function TeamCard({
           <Text style={styles.teamName}>{team.name}</Text>
         </View>
         <View style={styles.memberCount}>
-          <Users color="#64748b" size={14} />
+          <Users color={colors.textSoft} size={14} />
           <Text style={styles.countText}>{team.members.length}</Text>
         </View>
       </View>
@@ -408,6 +410,8 @@ function TeamRanking({
   activeType: TeamRankingType;
   onChangeType: (type: TeamRankingType) => void;
 }) {
+  const colors = useThemeStore(state => state.colors);
+  const styles = makeStyles(colors);
   const activeTab = teamRankingTabs.find(tab => tab.type === activeType) ?? teamRankingTabs[0];
   const HeaderIcon = activeTab.icon;
   const sortedRanking = sortTeamRanking(ranking, activeType);
@@ -415,7 +419,7 @@ function TeamRanking({
   return (
     <View style={styles.rankingCard}>
       <View style={styles.rankingHeader}>
-        <HeaderIcon color="#facc15" size={18} />
+        <HeaderIcon color={colors.warning} size={18} />
         <View style={styles.rankingHeaderText}>
           <Text style={styles.rankingTitle}>{activeTab.title}</Text>
           <Text style={styles.rankingSubtitle}>{activeTab.subtitle}</Text>
@@ -445,7 +449,7 @@ function TeamRanking({
             <Text style={styles.positionText}>#{index + 1}</Text>
             <View style={styles.rankingInfo}>
               <View style={styles.rankingTeamTitleRow}>
-                <View style={[styles.rankingColorDot, { backgroundColor: entry.color ?? colors[index % colors.length] }]} />
+                <View style={[styles.rankingColorDot, { backgroundColor: entry.color ?? teamColors[index % teamColors.length] }]} />
                 <Text style={styles.rankingTeamName}>{entry.team_name}</Text>
               </View>
               <Text style={styles.rankingSub}>{entry.members_count} integrantes - {activeTab.itemLabel}</Text>
@@ -502,80 +506,82 @@ function formatHours(minutes: number) {
   return `${hours}h ${remainingMinutes}m`;
 }
 
-const styles = StyleSheet.create({
-  container: { backgroundColor: '#1e293b', borderRadius: 22, padding: 16, marginTop: 20, borderWidth: 1, borderColor: '#334155' },
-  containerCollapsed: { paddingVertical: 12, paddingHorizontal: 14, borderRadius: 18 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  headerCollapsed: { marginBottom: 0 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  title: { color: 'white', fontSize: 18, fontWeight: 'bold' },
-  loadingState: { alignItems: 'center', gap: 8, paddingVertical: 18 },
-  emptyCard: { backgroundColor: '#0f172a', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: '#334155' },
-  emptyTitle: { color: 'white', fontWeight: '900', marginBottom: 4 },
-  mutedText: { color: '#94a3b8', fontSize: 13 },
-  teamCard: { backgroundColor: '#0f172a', borderRadius: 20, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: '#334155' },
-  myActiveTeamCard: { borderWidth: 2 },
-  teamHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  teamTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
-  colorDot: { width: 12, height: 12, borderRadius: 6 },
-  teamName: { color: 'white', fontWeight: 'bold', fontSize: 16, flex: 1 },
-  memberCount: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#1e293b', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
-  memberCountDetail: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#1e293b', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 10, alignSelf: 'flex-start', marginBottom: 12 },
-  countText: { color: '#64748b', fontSize: 12, fontWeight: 'bold' },
-  teamHint: { color: '#64748b', fontSize: 12, marginTop: 8, fontWeight: '700' },
-  memberChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  chip: { backgroundColor: '#1e293b', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
-  chipText: { color: '#94a3b8', fontSize: 13 },
-  teamActions: { gap: 10, marginTop: 14 },
-  teamActionBtn: { backgroundColor: '#2563eb', borderRadius: 14, alignItems: 'center', justifyContent: 'center', paddingVertical: 11, marginTop: 14 },
-  teamActionText: { color: 'white', fontWeight: '900' },
-  leaveBtn: { backgroundColor: '#7f1d1d', marginTop: 0 },
-  leaveBtnText: { color: '#fecaca', fontWeight: '900' },
-  rankingCard: { backgroundColor: '#0f172a', borderRadius: 22, padding: 16, borderWidth: 1, borderColor: '#334155', marginTop: 4, marginBottom: 15 },
-  rankingHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  rankingHeaderText: { flex: 1 },
-  rankingTitle: { color: 'white', fontWeight: '900' },
-  rankingSubtitle: { color: '#64748b', fontSize: 12, marginTop: 2 },
-  rankingTabs: { flexDirection: 'row', gap: 6, marginBottom: 10 },
-  rankingTabButton: {
-    flex: 1,
-    minHeight: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#334155',
-    backgroundColor: '#1e293b',
-    paddingHorizontal: 4,
-  },
-  rankingTabButtonActive: {
-    borderColor: '#facc15',
-    backgroundColor: '#3b2f0c',
-  },
-  rankingTabText: { color: '#94a3b8', fontSize: 10, fontWeight: '900', textAlign: 'center' },
-  rankingTabTextActive: { color: '#fef3c7' },
-  rankingRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderTopWidth: 1, borderTopColor: '#1e293b' },
-  positionText: { color: '#facc15', fontWeight: '900', width: 34 },
-  rankingInfo: { flex: 1 },
-  rankingTeamTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  rankingColorDot: { width: 10, height: 10, borderRadius: 5 },
-  rankingTeamName: { color: '#e2e8f0', fontWeight: '800' },
-  rankingSub: { color: '#64748b', fontSize: 12, marginTop: 2 },
-  rankingStats: { alignItems: 'flex-end' },
-  scoreText: { color: '#22c55e', fontWeight: '900' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(2, 6, 23, 0.82)', alignItems: 'center', justifyContent: 'center', padding: 20 },
-  teamDetailModal: { width: '100%', backgroundColor: '#0f172a', borderRadius: 24, padding: 20, borderWidth: 2 },
-  teamDetailHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
-  teamDetailTitle: { color: 'white', fontSize: 20, fontWeight: '900', flex: 1 },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  editTeamBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#3b2f0c', borderWidth: 1, borderColor: '#facc1544', alignItems: 'center', justifyContent: 'center' },
-  closeBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#1e293b', alignItems: 'center', justifyContent: 'center' },
-  renameBox: { backgroundColor: '#020617', borderRadius: 16, borderWidth: 1, borderColor: '#334155', padding: 12, marginBottom: 14 },
-  renameInput: { backgroundColor: '#1e293b', color: 'white', borderRadius: 14, borderWidth: 1, borderColor: '#334155', paddingHorizontal: 14, paddingVertical: 11, fontSize: 15, fontWeight: '800' },
-  renameActions: { flexDirection: 'row', gap: 10, marginTop: 10 },
-  cancelRenameBtn: { flex: 1, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1e293b', borderWidth: 1, borderColor: '#334155' },
-  cancelRenameText: { color: '#cbd5e1', fontWeight: '900' },
-  confirmRenameBtn: { flex: 1, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#22c55e' },
-  confirmRenameText: { color: 'white', fontWeight: '900' },
-  disabled: { opacity: 0.65 },
-});
+function makeStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    container: { backgroundColor: colors.surfaceElevated, borderRadius: 22, padding: 16, marginTop: 20, borderWidth: 1, borderColor: colors.border },
+    containerCollapsed: { paddingVertical: 12, paddingHorizontal: 14, borderRadius: 18 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+    headerCollapsed: { marginBottom: 0 },
+    titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    title: { color: colors.text, fontSize: 18, fontWeight: 'bold' },
+    loadingState: { alignItems: 'center', gap: 8, paddingVertical: 18 },
+    emptyCard: { backgroundColor: colors.input, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: colors.border },
+    emptyTitle: { color: colors.text, fontWeight: '900', marginBottom: 4 },
+    mutedText: { color: colors.textMuted, fontSize: 13 },
+    teamCard: { backgroundColor: colors.input, borderRadius: 20, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: colors.border },
+    myActiveTeamCard: { borderWidth: 2 },
+    teamHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    teamTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+    colorDot: { width: 12, height: 12, borderRadius: 6 },
+    teamName: { color: colors.text, fontWeight: 'bold', fontSize: 16, flex: 1 },
+    memberCount: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surfaceElevated, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
+    memberCountDetail: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surfaceElevated, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 10, alignSelf: 'flex-start', marginBottom: 12 },
+    countText: { color: colors.textSoft, fontSize: 12, fontWeight: 'bold' },
+    teamHint: { color: colors.textSoft, fontSize: 12, marginTop: 8, fontWeight: '700' },
+    memberChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    chip: { backgroundColor: colors.surfaceElevated, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
+    chipText: { color: colors.textMuted, fontSize: 13 },
+    teamActions: { gap: 10, marginTop: 14 },
+    teamActionBtn: { backgroundColor: colors.info, borderRadius: 14, alignItems: 'center', justifyContent: 'center', paddingVertical: 11, marginTop: 14 },
+    teamActionText: { color: colors.text, fontWeight: '900' },
+    leaveBtn: { backgroundColor: colors.dangerBorder, marginTop: 0 },
+    leaveBtnText: { color: colors.danger, fontWeight: '900' },
+    rankingCard: { backgroundColor: colors.input, borderRadius: 22, padding: 16, borderWidth: 1, borderColor: colors.border, marginTop: 4, marginBottom: 15 },
+    rankingHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+    rankingHeaderText: { flex: 1 },
+    rankingTitle: { color: colors.text, fontWeight: '900' },
+    rankingSubtitle: { color: colors.textSoft, fontSize: 12, marginTop: 2 },
+    rankingTabs: { flexDirection: 'row', gap: 6, marginBottom: 10 },
+    rankingTabButton: {
+      flex: 1,
+      minHeight: 34,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceElevated,
+      paddingHorizontal: 4,
+    },
+    rankingTabButtonActive: {
+      borderColor: colors.warning,
+      backgroundColor: colors.warningSoft,
+    },
+    rankingTabText: { color: colors.textMuted, fontSize: 10, fontWeight: '900', textAlign: 'center' },
+    rankingTabTextActive: { color: colors.warningStrong },
+    rankingRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderTopWidth: 1, borderTopColor: colors.surfaceElevated },
+    positionText: { color: colors.warning, fontWeight: '900', width: 34 },
+    rankingInfo: { flex: 1 },
+    rankingTeamTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    rankingColorDot: { width: 10, height: 10, borderRadius: 5 },
+    rankingTeamName: { color: colors.text, fontWeight: '800' },
+    rankingSub: { color: colors.textSoft, fontSize: 12, marginTop: 2 },
+    rankingStats: { alignItems: 'flex-end' },
+    scoreText: { color: colors.accent, fontWeight: '900' },
+    modalOverlay: { flex: 1, backgroundColor: colors.overlay, alignItems: 'center', justifyContent: 'center', padding: 20 },
+    teamDetailModal: { width: '100%', backgroundColor: colors.input, borderRadius: 24, padding: 20, borderWidth: 2 },
+    teamDetailHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+    teamDetailTitle: { color: colors.text, fontSize: 20, fontWeight: '900', flex: 1 },
+    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    editTeamBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.warningSoft, borderWidth: 1, borderColor: colors.warning, alignItems: 'center', justifyContent: 'center' },
+    closeBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.surfaceElevated, alignItems: 'center', justifyContent: 'center' },
+    renameBox: { backgroundColor: colors.input, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: 12, marginBottom: 14 },
+    renameInput: { backgroundColor: colors.surfaceElevated, color: colors.text, borderRadius: 14, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 11, fontSize: 15, fontWeight: '800' },
+    renameActions: { flexDirection: 'row', gap: 10, marginTop: 10 },
+    cancelRenameBtn: { flex: 1, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceElevated, borderWidth: 1, borderColor: colors.border },
+    cancelRenameText: { color: colors.text, fontWeight: '900' },
+    confirmRenameBtn: { flex: 1, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accent },
+    confirmRenameText: { color: colors.text, fontWeight: '900' },
+    disabled: { opacity: 0.65 },
+  });
+}

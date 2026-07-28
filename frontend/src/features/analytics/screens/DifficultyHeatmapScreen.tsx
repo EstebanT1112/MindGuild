@@ -111,10 +111,10 @@ export default function DifficultyHeatmapScreen() {
   const title = initialScope === 'global' ? 'MI HEATMAP' : 'HEATMAP DE SALA';
 
   return (
-    <ScreenLayout title={title} type="rooms" icon={<ThermometerSun color="#f97316" size={22} />}>
+    <ScreenLayout title={title} type="rooms" icon={<ThermometerSun color={colors.warning} size={22} />}>
       {loading ? (
         <View style={styles.loadingState}>
-          <ActivityIndicator color="#f97316" />
+          <ActivityIndicator color={colors.warning} />
           <Text style={styles.loadingText}>Calculando dificultad...</Text>
         </View>
       ) : (
@@ -125,8 +125,8 @@ export default function DifficultyHeatmapScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => loadHeatmap({ refreshing: true })}
-              tintColor="#f97316"
-              colors={['#f97316']}
+              tintColor={colors.warning}
+              colors={[colors.warning]}
             />
           }
         >
@@ -203,7 +203,7 @@ export default function DifficultyHeatmapScreen() {
 function TopicDifficultyCard({ topic }: { topic: DifficultyHeatmapTopic }) {
   const { colors } = useThemeStore();
   const percentage = Math.round(topic.difficulty_score * 100);
-  const levelStyle = getLevelStyle(topic.level);
+  const levelStyle = getLevelStyle(topic.level, colors);
 
   const styles = useMemo(
     () =>
@@ -299,14 +299,14 @@ function TopicDifficultyCard({ topic }: { topic: DifficultyHeatmapTopic }) {
   );
 }
 
-function getLevelStyle(level: DifficultyHeatmapTopic['level']) {
+function getLevelStyle(level: DifficultyHeatmapTopic['level'], colors: any) {
   if (level === 'low') {
-    return { color: '#38bdf8', background: '#082f49', label: 'Dificultad baja' };
+    return { color: colors.cyan, background: colors.cyanSoft, label: 'Dificultad baja' };
   }
   if (level === 'medium') {
-    return { color: '#facc15', background: '#422006', label: 'Dificultad media' };
+    return { color: colors.warning, background: colors.warningSoft, label: 'Dificultad media' };
   }
-  return { color: '#f97316', background: '#431407', label: 'Dificultad alta' };
+  return { color: colors.danger, background: colors.dangerSoft, label: 'Dificultad alta' };
 }
 
 // ------------------------------------------------------------
@@ -350,7 +350,7 @@ const createStyles = (colors: any) =>
       justifyContent: 'center',
     },
     segmentActive: {
-      backgroundColor: '#f97316',
+      backgroundColor: colors.warning,
     },
     segmentText: {
       color: colors.textMuted,

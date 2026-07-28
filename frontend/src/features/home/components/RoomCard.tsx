@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { ChevronRight, Trophy, Users } from 'lucide-react-native';
+import { useThemeStore } from '../../../store/themeStore';
 
 type Room = {
   id: number;
@@ -11,32 +12,34 @@ type Room = {
 };
 
 export default function RoomCard({ room, onPress }: { room: Room; onPress: () => void }) {
+  const colors = useThemeStore(state => state.colors);
+
   return (
-    <Pressable style={styles.card} onPress={onPress}>
+    <Pressable style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={onPress}>
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.name}>{room.name}</Text>
+          <Text style={[styles.name, { color: colors.text }]}>{room.name}</Text>
 
-          <View style={styles.codeBox}>
-            <Text style={styles.code}>{room.code}</Text>
+          <View style={[styles.codeBox, { backgroundColor: colors.background }]}>
+            <Text style={[styles.code, { color: colors.accent }]}>{room.code}</Text>
           </View>
         </View>
 
-        <ChevronRight color="#64748b" size={18} />
+        <ChevronRight color={colors.textMuted} size={18} />
       </View>
 
       <View style={styles.footer}>
         <View style={styles.left}>
           <View style={styles.metaIconRow}>
-            <Users color="#94a3b8" size={13} />
-            <Text style={styles.meta}>{room.members}</Text>
+            <Users color={colors.textMuted} size={13} />
+            <Text style={[styles.meta, { color: colors.textMuted }]}>{room.members}</Text>
           </View>
-          <Text style={styles.meta}>{room.mode}</Text>
+          <Text style={[styles.meta, { color: colors.textMuted }]}>{room.mode}</Text>
         </View>
 
-        <View style={styles.ranking}>
-          <Trophy color="#22c55e" size={13} />
-          <Text style={styles.rankText}>#{room.ranking}</Text>
+        <View style={[styles.ranking, { backgroundColor: `${colors.accent}22` }]}>
+          <Trophy color={colors.accent} size={13} />
+          <Text style={[styles.rankText, { color: colors.accent }]}>#{room.ranking}</Text>
         </View>
       </View>
     </Pressable>
@@ -45,12 +48,10 @@ export default function RoomCard({ room, onPress }: { room: Room; onPress: () =>
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#1a1d29",
     padding: 14,
     borderRadius: 18,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: "#2a2f45",
   },
   header: {
     flexDirection: "row",
@@ -59,20 +60,17 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   name: {
-    color: "#fff",
     fontWeight: "bold",
     fontSize: 16,
     marginBottom: 4,
   },
   codeBox: {
-    backgroundColor: "#111",
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
     alignSelf: "flex-start",
   },
   code: {
-    color: "#22c55e",
     fontSize: 12,
     fontWeight: "bold",
   },
@@ -88,11 +86,9 @@ const styles = StyleSheet.create({
   },
   metaIconRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   meta: {
-    color: "#aaa",
     fontSize: 12,
   },
   ranking: {
-    backgroundColor: "#22c55e22",
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 999,
@@ -101,7 +97,6 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   rankText: {
-    color: "#22c55e",
     fontSize: 12,
     fontWeight: "bold",
   },

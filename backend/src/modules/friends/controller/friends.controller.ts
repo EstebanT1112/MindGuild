@@ -7,6 +7,24 @@ import {
 } from '../types/friends.types.js';
 
 export const FriendsController = {
+  async searchUsers(req: Request, res: Response): Promise<Response | void> {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ success: false, message: 'No autorizado.' });
+      }
+      const query = String(req.query.q || '').trim();
+      if (query.length < 2) {
+        return res.status(200).json({ success: true, data: [] });
+      }
+      const data = await FriendsService.searchUsers(userId, query);
+      return res.status(200).json({ success: true, data });
+    } catch (error: any) {
+      console.error('❌ Error en FriendsController.searchUsers:', error);
+      return res.status(500).json({ error: 'Error interno al buscar usuarios' });
+    }
+  },
+
   /**
    * Obtiene la lista de amigos del usuario autenticado.
    * GET /api/friends

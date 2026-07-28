@@ -15,6 +15,7 @@ import analyticsRoutes from '../modules/analytics/analytics.routes.js';
 import vaultRoutes from '../modules/vault/vault.routes.js';
 import teamsRoutes from '../modules/teams/teams.routes.js';
 import notificationRoutes from '../modules/notifications/notifications.routes.js';
+import searchRoutes from '../modules/search/search.routes.js';
 import { FriendsController } from '../modules/friends/controller/friends.controller.js'; // ✅ Solo una vez
 import RoomInvitationsController from '../modules/room-invitations/controller/room-invitations.controller.js';
 
@@ -74,6 +75,9 @@ router.use('/achievements', checkAuth, achievementRoutes);
 // --- NOTIFICACIONES INTERNAS (E3) ---
 router.use('/', checkAuth, notificationRoutes);
 
+// --- BÚSQUEDA GLOBAL ---
+router.use('/', checkAuth, searchRoutes);
+
 // --- MISIONES (RF-12) PROTEGIDAS ---
 router.get('/missions', checkAuth, missionsController.getUserMissions);
 router.post('/missions/progress', checkAuth, missionsController.updateUserMissionProgress);
@@ -87,6 +91,7 @@ router.post('/room-invitations/:invitationId/accept', checkAuth, RoomInvitations
 router.post('/room-invitations/:invitationId/reject', checkAuth, RoomInvitationsController.rejectInvitation);
 
 // --- SISTEMA DE AMIGOS (RF-04) PROTEGIDO ---
+router.get('/friends/search', checkAuth, FriendsController.searchUsers);
 router.get('/friends', checkAuth, FriendsController.getFriends);
 router.get('/friends/requests', checkAuth, FriendsController.getRequests);
 router.post('/friends/requests', checkAuth, FriendsController.sendRequest);

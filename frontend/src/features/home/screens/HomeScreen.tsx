@@ -36,14 +36,19 @@ export default function HomeScreen() {
   const roomsLoading = useAppDataStore(state => state.rooms.isLoading);
   const missionsRaw = useAppDataStore(state => state.missions.data) ?? [];
   const missionsLoading = useAppDataStore(state => state.missions.isLoading);
+  const achievements = useAppDataStore(state => state.achievements.data) ?? [];
 
-  // 🔥 Filtro de misiones expiradas directamente desde el store
-  const activeMissions = missionsRaw.filter(m => !m.expired);
+  // 🔥 Filtro de misiones expiradas: ocultar si expiró hace >24hs
+  const activeMissions = missionsRaw.filter(m => !m.expired && !m.expiredMoreThan24h);
+
+  // Logros con recompensa sin reclamar
+  const hasClaimableAchievements = achievements.some(a => a.unlocked && !a.reward_claimed_at);
 
   // ── Store actions ──
   const loadProfile = useAppDataStore(state => state.loadProfile);
   const loadRooms = useAppDataStore(state => state.loadRooms);
   const loadMissions = useAppDataStore(state => state.loadMissions);
+  const loadAchievements = useAppDataStore(state => state.loadAchievements);
   const setProfile = useAppDataStore(state => state.setProfile);
 
   // ── Estados locales ──
@@ -55,12 +60,14 @@ export default function HomeScreen() {
   const loadProfileRef = useRef(loadProfile);
   const loadRoomsRef = useRef(loadRooms);
   const loadMissionsRef = useRef(loadMissions);
+  const loadAchievementsRef = useRef(loadAchievements);
   const accessTokenRef = useRef(accessToken);
 
   // Actualizar refs cuando cambien las funciones o el token
   loadProfileRef.current = loadProfile;
   loadRoomsRef.current = loadRooms;
   loadMissionsRef.current = loadMissions;
+  loadAchievementsRef.current = loadAchievements;
   accessTokenRef.current = accessToken;
 
   // ── Carga inicial y refresco al enfocar ──
@@ -73,6 +80,7 @@ export default function HomeScreen() {
         loadProfileRef.current(token),
         loadRoomsRef.current(token),
         loadMissionsRef.current(token),
+        loadAchievementsRef.current(token),
       ]);
     } catch (error) {
       if (error instanceof SessionExpiredError) return;
@@ -143,14 +151,17 @@ export default function HomeScreen() {
   const dailyStudyMinutes = normalizeDailyStudyMinutes(profile?.weekly_stats?.daily_minutes);
   const maxDailyMinutes = Math.max(...dailyStudyMinutes.map(day => day.minutes), 1);
 
-  const hasClaimableAchievements = false; // placeholder, según lógica original
-
   // ── Render ──
   return (
     <ScreenLayout 
       title="MINDGUILD" 
       type="home"
-      // ✅ Eliminamos avatarUrl porque ScreenLayout lo obtiene del store
+      rightAction={
+        <Pressable style={[styles.walletBadge, { backgroundColor: colors.warning }]} onPress={() => navigation.navigate('Wallet')}>
+          <View style={[styles.hCoin, { backgroundColor: colors.warning }]}><Brain color={colors.text} size={20} strokeWidth={2.2} /></View>
+          <Text style={[styles.coinAmount, { color: colors.text }]}>{profile?.coins_balance ?? 0}</Text>
+        </Pressable>
+      }
     >
       <ScrollView
         contentContainerStyle={[styles.content, { backgroundColor: colors.background }]}
@@ -435,4 +446,8 @@ const styles = StyleSheet.create({
   roomRight: { alignItems: 'center', gap: 6 },
   emptyState: { alignItems: 'center', gap: 8, marginTop: 12 },
   emptyText: { fontSize: 13, textAlign: 'center', marginTop: 10 },
+
+  walletBadge: { flexDirection: 'row', alignItems: 'center', borderRadius: 25, padding: 5, paddingRight: 15 },
+  hCoin: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  coinAmount: { fontWeight: 'bold', marginLeft: 8, fontSize: 16 },
 });

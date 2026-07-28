@@ -12,6 +12,7 @@ type Mission = {
   claimed?: boolean;
   frequency?: 'daily' | 'weekly';
   expired?: boolean;
+  expiredMoreThan24h?: boolean;
 };
 
 export default function MissionCard({ mission, onPress }: { mission: Mission; onPress?: () => void }) {
@@ -44,13 +45,13 @@ export default function MissionCard({ mission, onPress }: { mission: Mission; on
     >
       <View style={styles.header}>
         <View style={[styles.iconBox, { backgroundColor: colors.background }]}>
-          <Target color={isCompleted ? colors.accent : '#3b82f6'} size={18} />
+          <Target color={isCompleted ? colors.accent : colors.info} size={18} />
         </View>
 
         <View style={{ flex: 1 }}>
           <Text style={[styles.title, { color: colors.text }]}>{mission.title}</Text>
           <View style={styles.metaRow}>
-            <Text style={styles.frequency}>
+            <Text style={[styles.frequency, { color: colors.cyan }]}>
               {mission.frequency === 'weekly' ? 'Semanal' : 'Diaria'}
             </Text>
             <Text style={[styles.meta, { color: colors.textMuted }]}>
@@ -59,8 +60,8 @@ export default function MissionCard({ mission, onPress }: { mission: Mission; on
             <View style={[styles.reward, { backgroundColor: `${colors.warning}22` }]}>
               <Text style={[styles.rewardText, { color: colors.warning }]}>+{mission.reward_coins ?? 0}</Text>
             </View>
-            {mission.expired && <Text style={styles.expiredText}>Expirada</Text>}
-            {mission.claimed && <Text style={styles.claimedText}>Reclamada</Text>}
+            {mission.expired && <Text style={[styles.expiredText, { color: colors.warning }]}>Expirada</Text>}
+            {mission.claimed && <Text style={[styles.claimedText, { color: colors.accent }]}>Reclamada</Text>}
           </View>
         </View>
 
@@ -75,7 +76,8 @@ export default function MissionCard({ mission, onPress }: { mission: Mission; on
         <Animated.View
           style={[
             styles.progress,
-            isCompleted && styles.progressCompleted,
+            { backgroundColor: colors.info },
+            isCompleted && { backgroundColor: colors.accent },
             progressStyle,
           ]}
         />

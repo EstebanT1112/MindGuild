@@ -1,17 +1,26 @@
 import { StyleSheet, View } from "react-native";
-import { colors, radius, spacing } from "../../theme";
+import { useThemeStore } from "../../store/themeStore";
+import { radius, spacing } from "../../theme";
 
-export default function Card({ children }: any) {
-  return <View style={styles.card}>{children}</View>;
+export function PogressBar({ children }: any) {
+  const colors = useThemeStore((s) => s.colors);
+  return (
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: colors.surface, borderColor: colors.border },
+      ]}
+    >
+      {children}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.surface,
     padding: spacing.lg,
     borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: colors.border,
     marginBottom: spacing.md,
   },
 });
