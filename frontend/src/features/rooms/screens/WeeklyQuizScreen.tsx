@@ -273,7 +273,7 @@ export default function WeeklyQuizScreen() {
 
     showAlert(
       'Reiniciar cuestionario',
-      'Se va a borrar el cuestionario semanal actual, sus preguntas, respuestas, votos y resultados. Después vas a poder configurarlo nuevamente.',
+      'Se va a cerrar el cuestionario semanal actual y limpiar intentos, respuestas, votos y preguntas no validadas. Las preguntas aceptadas y las estadísticas ya impactadas se conservan.',
       'warning',
       async () => {
         setActionLoading(true);
@@ -286,7 +286,7 @@ export default function WeeklyQuizScreen() {
           setAttempt(null);
           setValidationItems([]);
           setMode('overview');
-          showAlert('Cuestionario reiniciado', `Se eliminaron ${result.deleted_questions} preguntas del cuestionario anterior.`, 'success');
+          showAlert('Cuestionario reiniciado', `Se limpiaron ${result.deleted_questions} preguntas no validadas del cuestionario anterior.`, 'success');
           await loadData({ showLoading: false });
           setConfigVisible(true);
         } catch (error: any) {
@@ -383,7 +383,7 @@ export default function WeeklyQuizScreen() {
             )}
 
             <Pressable style={[styles.primaryBtn, { backgroundColor: colors.purple }, actionLoading && styles.disabledBtn]} onPress={handleSubmitAnswer} disabled={actionLoading}>
-              {actionLoading ? <ActivityIndicator color={colors.text} /> : <Text style={[styles.primaryBtnText, { color: colors.text }]}>{currentQuestionIndex === attempt.questions.length - 1 ? 'Finalizar e ir a validación' : 'Guardar y continuar'}</Text>}
+              {actionLoading ? <ActivityIndicator color={colors.text} /> : <Text style={[styles.primaryBtnText, { color: colors.text }]}>{currentQuestionIndex === attempt.questions.length - 1 ? 'Finalizar' : 'Guardar y continuar'}</Text>}
             </Pressable>
           </View>
         ) : null}
