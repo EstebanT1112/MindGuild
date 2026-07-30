@@ -1,4 +1,4 @@
-
+﻿
 Conversación con Gemini
 BUENO TE ACORDAS LO DE MINDGUILD NO
 
@@ -33354,7 +33354,7 @@ tegno esto en el env
 
 PORT=3000
 
-DATABASE_URL=postgresql://postgres:@Casarodry1@db.plqszirpxyeecygatoeq.supabase.co:5432/postgres
+DATABASE_URL=postgresql://postgres:<DB_PASSWORD>@db.<SUPABASE_PROJECT_REF>.supabase.co:5432/postgres
 
 SUPABASE_URL=https://tu-proyecto.supabase.co
 
@@ -33371,16 +33371,16 @@ Fragmento de código
 PORT=3000
 
 # Esta ya la tenés bien (es para Prisma/Drizzle si los usás)
-DATABASE_URL=postgresql://postgres:@Casarodry1@db.plqszirpxyeecygatoeq.supabase.co:5432/postgres
+DATABASE_URL=postgresql://postgres:<DB_PASSWORD>@db.<SUPABASE_PROJECT_REF>.supabase.co:5432/postgres
 
 # ESTO ES LO QUE TENÉS QUE CAMBIAR:
 # Sacá la URL de la captura donde decía "Project URL"
-SUPABASE_URL=https://plqszirpxyeecygatoeq.supabase.co
+SUPABASE_URL=https://<SUPABASE_PROJECT_REF>.supabase.co
 
 # Sacá la clave de la captura donde decía "anon public"
 SUPABASE_ANON_KEY=ACA_PEGA_TODA_LA_CHORRERA_DE_LETRAS_Y_NUMEROS_DE_TU_KEY
 🔍 ¿De dónde sacás esos datos?
-SUPABASE_URL: Es la que aparece en tu captura de Settings > API o la que se ve en la barra de direcciones de Supabase: [https://plqszirpxyeecygatoeq.supabase.co](https://plqszirpxyeecygatoeq.supabase.co).
+SUPABASE_URL: Es la que aparece en tu captura de Settings > API o la que se ve en la barra de direcciones de Supabase: [https://<SUPABASE_PROJECT_REF>.supabase.co](https://<SUPABASE_PROJECT_REF>.supabase.co).
 
 SUPABASE_ANON_KEY: En la misma pantalla de API en el dashboard de Supabase, buscá donde dice anon y public. Dale al botón "Copy" y pegalo ahí.
 
@@ -33399,12 +33399,12 @@ Aquí te digo cuál es cuál según la imagen que pasaste:
 Copiá y pegá esto reemplazando lo que tenías antes:
 
 SUPABASE_URL: Es el pedacito de la URL que se ve en tu navegador:
-[https://plqszirpxyeecygatoeq.supabase.co](https://plqszirpxyeecygatoeq.supabase.co)
+[https://<SUPABASE_PROJECT_REF>.supabase.co](https://<SUPABASE_PROJECT_REF>.supabase.co)
 
 SUPABASE_ANON_KEY: Es la que dice Publishable key (la de arriba en tu captura). Dale al botón del cuadradito (Copy) a la derecha de esa clave que empieza con sb_publishable_....
 
 Fragmento de código
-SUPABASE_URL=https://plqszirpxyeecygatoeq.supabase.co
+SUPABASE_URL=https://<SUPABASE_PROJECT_REF>.supabase.co
 SUPABASE_ANON_KEY=pega_aqui_la_publishable_key_de_tu_captura
 🔍 ¿Por qué la de arriba?
 Publishable key (Anon): Es la que usamos para las consultas estándar desde el backend o el front.
@@ -33634,9 +33634,9 @@ Y después lo importás en tus features.
 
 ¿Qué archivos ves dentro de frontend/src/features/rankings? Pasame los nombres y te digo exactamente dónde pegar la IP.
 
-const AUTH0_DOMAIN = 'mindguildestebanapp.au.auth0.com';
+const AUTH0_DOMAIN = '<AUTH0_DOMAIN>';
 
-const AUTH0_CLIENT_ID = 'Roe6rfTONBQJg3PwSZqObN2XCPwBR1b9';
+const AUTH0_CLIENT_ID = '<AUTH0_CLIENT_ID>';
 
 const AUTH0_CONNECTION = 'Username-Password-Authentication';
 
@@ -33911,7 +33911,7 @@ export async function fetchRanking(type: 'semanal' | 'racha' | 'academico' | 'je
     return await response.json();
 }
 🔍 ¿Por qué el de Auth0 no te sirve para esto?
-Destino: El archivo que pasaste manda los datos a mindguildestebanapp.au.auth0.com. El ranking vive en tu base de datos de Supabase, no en Auth0.
+Destino: El archivo que pasaste manda los datos a <AUTH0_DOMAIN>. El ranking vive en tu base de datos de Supabase, no en Auth0.
 
 Función: Ese archivo maneja tokens y contraseñas. El ranking solo necesita pedir una lista de usuarios y sus puntos.
 
@@ -45570,7 +45570,7 @@ PORT=3000
 
 # Esta ya la tenés bien (es para Prisma/Drizzle si los usás)
 
-DATABASE_URL=postgresql://postgres.plqszirpxyeecygatoeq:%40Casarodry1@aws-1-us-west-2.pooler.supabase.com:6543/postgres
+DATABASE_URL=postgresql://postgres.<SUPABASE_PROJECT_REF>:<DB_PASSWORD_ENCODED>@aws-1-us-west-2.pooler.supabase.com:6543/postgres
 
 
 
@@ -45578,13 +45578,13 @@ DATABASE_URL=postgresql://postgres.plqszirpxyeecygatoeq:%40Casarodry1@aws-1-us-w
 
 # Sacá la URL de la captura donde decía "Project URL"
 
-SUPABASE_URL=https://plqszirpxyeecygatoeq.supabase.co
+SUPABASE_URL=https://<SUPABASE_PROJECT_REF>.supabase.co
 
 
 
 # Sacá la clave de la captura donde decía "anon public"
 
-SUPABASE_ANON_KEY=sb_publishable_OAcXyfUPE74QoBZOF7P7Sg_M0F65bMA
+SUPABASE_ANON_KEY=<SUPABASE_ANON_PUBLIC_KEY>
 
 
 
@@ -45663,7 +45663,7 @@ Abrí tu archivo .env.
 Modificá el final de la URL cambiando el :6543 por :5432. Debería quedarte así:
 
 Plaintext
-DATABASE_URL=postgresql://postgres.plqszirpxyeecygatoeq:%40Casarodry1@aws-1-us-west-2.pooler.supabase.com:5432/postgres
+DATABASE_URL=postgresql://postgres.<SUPABASE_PROJECT_REF>:<DB_PASSWORD_ENCODED>@aws-1-us-west-2.pooler.supabase.com:5432/postgres
 En tu db.ts, dejá el ssl: false como lo habíamos puesto antes.
 
 🚀 ¿Por qué a tu amigo le anda?
@@ -45767,7 +45767,7 @@ Vamos a solucionarlo de raíz con dos retoques rápidos.
 Abrí tu archivo .env y agregá ?sslmode=disable al final de tu DATABASE_URL. Debería quedarte exactamente así:
 
 Plaintext
-DATABASE_URL=postgresql://postgres.plqszirpxyeecygatoeq:%40Casarodry1@aws-1-us-west-2.pooler.supabase.com:6543/postgres?sslmode=disable
+DATABASE_URL=postgresql://postgres.<SUPABASE_PROJECT_REF>:<DB_PASSWORD_ENCODED>@aws-1-us-west-2.pooler.supabase.com:6543/postgres?sslmode=disable
 🛠️ El Ajuste en tu archivo db.ts
 Dejá tu archivo src/common/config/db.ts con el ssl totalmente desactivado para que respete el parámetro de la URL. Copia y pega esto:
 
@@ -45851,10 +45851,10 @@ dotenv.config({ override: true });
 
 export const pool = new Pool({
   // En lugar de usar connectionString, desarmamos los datos para ir a lo seguro:
-  user: 'postgres.plqszirpxyeecygatoeq',
+  user: 'postgres.<SUPABASE_PROJECT_REF>',
   host: 'aws-1-us-west-2.pooler.supabase.com',
   database: 'postgres',
-  password: '@Casarodry1', // Tu contraseña directa libre de errores de parseo
+  password: '<DB_PASSWORD>', // Tu contraseña directa libre de errores de parseo
   port: 6543,
   ssl: false // Mantenemos el fix anterior sin SSL
 });
@@ -45868,7 +45868,7 @@ pool.query('SELECT NOW()', (err, res) => {
   }
 });
 🔍 ¿Por qué esto sí va a funcionar?
-Al poner la contraseña @Casarodry1 directamente como un parámetro separado en lugar de meterla adentro de un texto largo con :// y %40, el driver pg la lee de forma literal y pura. Ya no hay riesgo de que se rompa por culpa de los caracteres especiales o del ?sslmode.
+Al poner la contraseña <DB_PASSWORD> directamente como un parámetro separado en lugar de meterla adentro de un texto largo con :// y %40, el driver pg la lee de forma literal y pura. Ya no hay riesgo de que se rompa por culpa de los caracteres especiales o del ?sslmode.
 
 Guardá el archivo db.ts, cruzá los dedos y mirá la terminal de tsx watch. ¡Este tiene que ser el definitivo para ver el cartel verde! 🏎️🚀
 
@@ -49479,13 +49479,13 @@ export const pool = new Pool({
 
   // En lugar de usar connectionString, desarmamos los datos para ir a lo seguro:
 
-  user: 'postgres.plqszirpxyeecygatoeq',
+  user: 'postgres.<SUPABASE_PROJECT_REF>',
 
   host: 'aws-1-us-west-2.pooler.supabase.com',
 
   database: 'postgres',
 
-  password: '@Casarodry1', // Tu contraseña directa libre de errores de parseo
+  password: '<DB_PASSWORD>', // Tu contraseña directa libre de errores de parseo
 
   port: 6543,
 
@@ -59338,9 +59338,9 @@ Guardá ese archivo, dale un cierre definitivo al controlador y andá a tomarte 
 
 
 
-una amiga inteneta en expogo en evz del cel en la compi Access to fetch at 'https://mindguildestebanapp.au.auth0.com/oauth/token' from origin 'http://localhost:8081' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+una amiga inteneta en expogo en evz del cel en la compi Access to fetch at 'https://<AUTH0_DOMAIN>/oauth/token' from origin 'http://localhost:8081' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
 
-C:\Git\MindGuild\frontend\src\features\auth\services\authService.ts:205  POST https://mindguildestebanapp.au.auth0.com/oauth/token net::ERR_FAILED 200 (OK)
+C:\Git\MindGuild\frontend\src\features\auth\services\authService.ts:205  POST https://<AUTH0_DOMAIN>/oauth/token net::ERR_FAILED 200 (OK)
 
 safeFetch @ C:\Git\MindGuild\frontend\src\features\auth\services\authService.ts:205
 
@@ -59368,7 +59368,7 @@ dispatchEvent @ C:\Git\MindGuild\frontend\node_modules\react-dom\cjs\react-dom-c
 
 dispatchDiscreteEvent @ C:\Git\MindGuild\frontend\node_modules\react-dom\cjs\react-dom-client.development.js:20626
 
-C:\Git\MindGuild\frontend\src\features\auth\services\authService.ts:207 Fetch failed https://mindguildestebanapp.au.auth0.com/oauth/token TypeError: Failed to fetch
+C:\Git\MindGuild\frontend\src\features\auth\services\authService.ts:207 Fetch failed https://<AUTH0_DOMAIN>/oauth/token TypeError: Failed to fetch
 
     at safeFetch (C:\Git\MindGuild\frontend\src\features\auth\services\authService.ts:205:22)
 
@@ -71377,4 +71377,5 @@ Quedate súper tranquilo: que uses Gemini no te cambia en nada la entrega. Agarr
 
 
 Gemini es una IA y puede cometer errores.
+
 
