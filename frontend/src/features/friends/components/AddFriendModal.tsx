@@ -26,7 +26,6 @@ interface SearchResult {
   username: string;
   avatar_url: string | null;
   streak_days: number;
-  total_study_minutes: number;
   are_friends: boolean;
   request_pending: boolean;
 }
@@ -185,9 +184,6 @@ export default function AddFriendModal({ visible, onClose }: AddFriendModalProps
                   {item.streak_days}d
                 </Text>
               </View>
-              <Text style={[styles.minutesText, { color: colors.textMuted }]}>
-                {item.total_study_minutes} min
-              </Text>
             </View>
           </View>
           {!isFriend && (
@@ -416,9 +412,6 @@ const styles = StyleSheet.create({
   streakText: {
     fontSize: 11,
     fontWeight: 'bold',
-  },
-  minutesText: {
-    fontSize: 11,
   },
   addBtn: {
     width: 36,
