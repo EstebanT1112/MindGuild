@@ -1,4 +1,4 @@
-# Historial de chat con Codex en VS Code
+﻿# Historial de chat con Codex en VS Code
 
 Archivo generado a partir del `.jsonl` local de Codex. Se filtraron eventos técnicos internos, razonamiento cifrado, conteos de tokens y ruido de herramienta para dejar una lectura más clara.
 
@@ -974,7 +974,7 @@ Para arreglar el usuario que quedó “a medias”, usá otro email para probar 
 #### Usuario
 
 ```text
-esto me habia salido en el back "❌ Error conectando a Supabase: Error: getaddrinfo ENOTFOUND db.plqszirpxyeecygatoeq.supabase.co
+esto me habia salido en el back "❌ Error conectando a Supabase: Error: getaddrinfo ENOTFOUND db.<SUPABASE_PROJECT_REF>.supabase.co
     at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
 "
 ```
@@ -986,13 +986,13 @@ Ese error explica por qué Auth0 registra pero no aparece nada en la BD.
 El backend **no está pudiendo resolver/conectarse al host de Supabase**:
 
 ```text
-getaddrinfo ENOTFOUND db.plqszirpxyeecygatoeq.supabase.co
+getaddrinfo ENOTFOUND db.<SUPABASE_PROJECT_REF>.supabase.co
 ```
 
 Significa que Node intentó conectarse a:
 
 ```text
-db.plqszirpxyeecygatoeq.supabase.co
+db.<SUPABASE_PROJECT_REF>.supabase.co
 ```
 
 pero DNS no lo encontró.
@@ -1066,7 +1066,7 @@ primero volvi a hcaer el buils y despues el star del back y me sale esto "> back
 > node dist/server.js
 
 🚀 Servidor de MindGuild corriendo en http://localhost:3000
-❌ Error conectando a Supabase: Error: getaddrinfo ENOTFOUND db.plqszirpxyeecygatoeq.supabase.co
+❌ Error conectando a Supabase: Error: getaddrinfo ENOTFOUND db.<SUPABASE_PROJECT_REF>.supabase.co
     at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
 
 "
@@ -1169,14 +1169,14 @@ el registro en Auth0 va a funcionar, pero `profiles` no se va a insertar.
 asi tiene el .env mi amigo "PORT=3000
 
 # Esta ya la tenés bien (es para Prisma/Drizzle si los usás)
-DATABASE_URL=postgresql://postgres:@Casarodry1@db.plqszirpxyeecygatoeq.supabase.co:5432/postgres
+DATABASE_URL=postgresql://postgres:<DB_PASSWORD>@db.<SUPABASE_PROJECT_REF>.supabase.co:5432/postgres
 
 # ESTO ES LO QUE TENÉS QUE CAMBIAR:
 # Sacá la URL de la captura donde decía "Project URL"
-SUPABASE_URL=https://plqszirpxyeecygatoeq.supabase.co
+SUPABASE_URL=https://<SUPABASE_PROJECT_REF>.supabase.co
 
 # Sacá la clave de la captura donde decía "anon public"
-SUPABASE_ANON_KEY=sb_publishable_OAcXyfUPE74QoBZOF7P7Sg_M0F65bMA" y src/server.ts "import express from 'express';
+SUPABASE_ANON_KEY=<SUPABASE_ANON_PUBLIC_KEY>" y src/server.ts "import express from 'express';
 import 'dotenv/config';
 import router from './common/routes.js';
 
@@ -1206,7 +1206,7 @@ Servidor de MindGuild corriendo en http://localhost:3000
 El problema es este host:
 
 ```env
-db.plqszirpxyeecygatoeq.supabase.co
+db.<SUPABASE_PROJECT_REF>.supabase.co
 ```
 
 En tu máquina Node devuelve:
@@ -1226,7 +1226,7 @@ postgresql://postgres:@PASSWORD@db...
 Lo ideal es encodearla:
 
 ```env
-DATABASE_URL=postgresql://postgres:%40PASSWORD@db.plqszirpxyeecygatoeq.supabase.co:5432/postgres
+DATABASE_URL=postgresql://postgres:%40PASSWORD@db.<SUPABASE_PROJECT_REF>.supabase.co:5432/postgres
 ```
 
 Pero aun así, si tu Node no resuelve el host directo, va a seguir fallando.
@@ -1246,7 +1246,7 @@ En Supabase:
 Quedaría algo similar a:
 
 ```env
-DATABASE_URL=postgresql://postgres.plqszirpxyeecygatoeq:TU_PASSWORD@aws-...pooler.supabase.com:6543/postgres
+DATABASE_URL=postgresql://postgres.<SUPABASE_PROJECT_REF>:TU_PASSWORD@aws-...pooler.supabase.com:6543/postgres
 ```
 
 Ese host suele funcionar mejor porque no depende igual del acceso directo IPv6 al `db.<project>.supabase.co`.
@@ -1388,7 +1388,7 @@ postgres.PROJECT_REF
 Ejemplo típico de pooler:
 
 ```env
-DATABASE_URL=postgresql://postgres.plqszirpxyeecygatoeq:TU_PASSWORD@aws-1-us-west-2.pooler.supabase.com:6543/postgres
+DATABASE_URL=postgresql://postgres.<SUPABASE_PROJECT_REF>:TU_PASSWORD@aws-1-us-west-2.pooler.supabase.com:6543/postgres
 ```
 
 No:
@@ -1437,7 +1437,7 @@ El backend ya está llegando al servidor correcto; falta corregir credenciales/f
 ## Active file: backend/.env
 
 ## Active selection of the file:
-postgresql://postgres.plqszirpxyeecygatoeq:[YOUR-PASSWORD]@aws-1-us-west-2.pooler.supabase.com:6543/postgres
+postgresql://postgres.<SUPABASE_PROJECT_REF>:[YOUR-PASSWORD]@aws-1-us-west-2.pooler.supabase.com:6543/postgres
 ## Open tabs:
 - .env: backend/.env
 - server.ts: backend/src/server.ts
@@ -1450,7 +1450,7 @@ postgresql://postgres.plqszirpxyeecygatoeq:[YOUR-PASSWORD]@aws-1-us-west-2.poole
 #### Usuario
 
 ```text
-esto me sale "postgresql://postgres.plqszirpxyeecygatoeq:[YOUR-PASSWORD]@aws-1-us-west-2.pooler.supabase.com:6543/postgres"
+esto me sale "postgresql://postgres.<SUPABASE_PROJECT_REF>:[YOUR-PASSWORD]@aws-1-us-west-2.pooler.supabase.com:6543/postgres"
 ```
 
 #### Codex
@@ -1466,19 +1466,19 @@ por la contraseña real de la base de datos de Supabase.
 Te tiene que quedar así:
 
 ```env
-DATABASE_URL=postgresql://postgres.plqszirpxyeecygatoeq:TU_PASSWORD_REAL@aws-1-us-west-2.pooler.supabase.com:6543/postgres
+DATABASE_URL=postgresql://postgres.<SUPABASE_PROJECT_REF>:TU_PASSWORD_REAL@aws-1-us-west-2.pooler.supabase.com:6543/postgres
 ```
 
 Si tu password tiene caracteres especiales, encodealos. Ejemplo si tu password fuera:
 
 ```text
-@Casarodry1
+<DB_PASSWORD>
 ```
 
 Entonces debe quedar:
 
 ```env
-DATABASE_URL=postgresql://postgres.plqszirpxyeecygatoeq:%40Casarodry1@aws-1-us-west-2.pooler.supabase.com:6543/postgres
+DATABASE_URL=postgresql://postgres.<SUPABASE_PROJECT_REF>:<DB_PASSWORD_ENCODED>@aws-1-us-west-2.pooler.supabase.com:6543/postgres
 ```
 
 Porque `@` dentro de una URL se escribe como `%40`.
@@ -1536,7 +1536,7 @@ La URL tiene host correcto, pero no empieza con `postgresql://`. Eso puede hacer
 En `backend/.env`, la línea tiene que empezar exactamente así:
 
 ```env
-DATABASE_URL=postgresql://postgres.plqszirpxyeecygatoeq:TU_PASSWORD@aws-1-us-west-2.pooler.supabase.com:6543/postgres
+DATABASE_URL=postgresql://postgres.<SUPABASE_PROJECT_REF>:TU_PASSWORD@aws-1-us-west-2.pooler.supabase.com:6543/postgres
 ```
 
 No debe quedar así:
@@ -1559,10 +1559,10 @@ Según lo que revisé, tu `DATABASE_URL` **no empieza con `postgresql://`**, por
 getaddrinfo ENOTFOUND base
 ```
 
-Si tu contraseña es, por ejemplo, `@Casarodry1`, debe quedar encodeada:
+Si tu contraseña es, por ejemplo, `<DB_PASSWORD>`, debe quedar encodeada:
 
 ```env
-DATABASE_URL=postgresql://postgres.plqszirpxyeecygatoeq:%40Casarodry1@aws-1-us-west-2.pooler.supabase.com:6543/postgres
+DATABASE_URL=postgresql://postgres.<SUPABASE_PROJECT_REF>:<DB_PASSWORD_ENCODED>@aws-1-us-west-2.pooler.supabase.com:6543/postgres
 ```
 
 Después guardá `.env` y reiniciá el backend completamente:
@@ -7727,3 +7727,4 @@ Incluye:
 - `c:\Users\esteb\OneDrive\Escritorio\TPMINDGUILD\docs\README.MD`
 
 ---
+
