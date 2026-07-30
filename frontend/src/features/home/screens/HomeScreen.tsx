@@ -148,9 +148,6 @@ export default function HomeScreen() {
   const completedMissionsCount = activeMissions.filter(m => m.completed && !m.expired).length;
   const claimableMissionsCount = activeMissions.filter(m => m.completed && !m.claimed && !m.expired).length;
 
-  const dailyStudyMinutes = normalizeDailyStudyMinutes(profile?.weekly_stats?.daily_minutes);
-  const maxDailyMinutes = Math.max(...dailyStudyMinutes.map(day => day.minutes), 1);
-
   // ── Render ──
   return (
     <ScreenLayout 
@@ -158,8 +155,8 @@ export default function HomeScreen() {
       type="home"
       rightAction={
         <Pressable style={[styles.walletBadge, { backgroundColor: colors.warning }]} onPress={() => navigation.navigate('Wallet')}>
-          <View style={[styles.hCoin, { backgroundColor: colors.warning }]}><Brain color={colors.text} size={20} strokeWidth={2.2} /></View>
-          <Text style={[styles.coinAmount, { color: colors.text }]}>{profile?.coins_balance ?? 0}</Text>
+          <View style={[styles.hCoin, { backgroundColor: colors.warning }]}><Brain color="#000000" size={20} strokeWidth={2.2} /></View>
+          <Text style={[styles.coinAmount, { color: '#000000' }]}>{profile?.coins_balance ?? 0}</Text>
         </Pressable>
       }
     >
@@ -189,7 +186,7 @@ export default function HomeScreen() {
             onPress={() => navigation.navigate('Perfil')}
           >
             <Text style={[styles.claimIndicatorText, { color: colors.rankBadgeText }]}>
-              🏆 Tenés logros para reclamar!
+              Tenés logros para reclamar!
             </Text>
           </Pressable>
         )}
@@ -258,7 +255,7 @@ export default function HomeScreen() {
             <Text style={[styles.weekSummaryTitle, { color: colors.text }]}>TU SEMANA</Text>
             {claimableMissionsCount > 0 && (
               <View style={[styles.claimBadge, { backgroundColor: colors.accentStrong }]}>
-                <Text style={[styles.claimBadgeText, { color: colors.text }]}>
+                <Text style={[styles.claimBadgeText, { color: '#000000' }]}>
                   {claimableMissionsCount} por reclamar
                 </Text>
               </View>
@@ -376,12 +373,6 @@ function logLoadError(message: string, error: any) {
 
 function getRoomAccentColor(mode: UserRoom['mode']) {
   return mode === 'battle_royale' ? '#a855f7' : '#22c55e';
-}
-
-function normalizeDailyStudyMinutes(days?: Array<{ day: string; minutes: number }>) {
-  const defaults = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'];
-  const byDay = new Map((days ?? []).map(day => [day.day, Number(day.minutes) || 0]));
-  return defaults.map(day => ({ day, minutes: byDay.get(day) ?? 0 }));
 }
 
 // ── Estilos ──
