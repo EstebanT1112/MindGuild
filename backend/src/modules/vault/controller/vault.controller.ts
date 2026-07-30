@@ -2,6 +2,33 @@ import type { Request, Response } from 'express';
 import { VaultService } from '../service/vault.service.js';
 
 export class VaultController {
+  static async listTopics(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = (req as any).user?.id;
+      const topics = await VaultService.listTopics(String(req.params.roomId), userId);
+
+      res.json({ success: true, topics });
+    } catch (error: any) {
+      handleVaultError(res, error, 'Error interno al obtener temas');
+    }
+  }
+
+  static async createTopic(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = (req as any).user?.id;
+      const topic = await VaultService.createTopic({
+        roomId: String(req.params.roomId),
+        userId,
+        name: req.body?.name,
+        color: req.body?.color,
+      });
+
+      res.status(201).json({ success: true, topic });
+    } catch (error: any) {
+      handleVaultError(res, error, 'Error interno al crear tema');
+    }
+  }
+
   static async listMaterials(req: Request, res: Response): Promise<void> {
     try {
       const userId = (req as any).user?.id;

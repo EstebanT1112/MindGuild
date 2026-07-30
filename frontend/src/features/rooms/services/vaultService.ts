@@ -3,6 +3,16 @@ import { authenticatedFetch } from '../../../services/authenticatedFetch';
 
 export type VaultResourceType = 'pdf' | 'image' | 'text' | 'other';
 
+export interface VaultTopic {
+  id: string;
+  room_id: string;
+  name: string;
+  slug: string;
+  color: string | null;
+  created_by: string | null;
+  is_active: boolean;
+}
+
 export interface VaultMaterial {
   id: string;
   room_id: string;
@@ -17,11 +27,11 @@ export interface VaultMaterial {
     username: string;
     avatar_url: string | null;
   };
-  topics: Array<{
+  topics: {
     id: string;
     name: string;
     color: string | null;
-  }>;
+  }[];
   created_at: string;
 }
 
@@ -40,6 +50,40 @@ export interface DownloadVaultMaterialResult {
   mime_type: string;
   file_size_bytes: number;
   file_base64: string;
+}
+
+export async function fetchVaultTopics(accessToken: string, roomId: string): Promise<VaultTopic[]> {
+  const response = await authenticatedFetch(`${API_BASE_URL}/rooms/${roomId}/topics`, {}, accessToken);
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudieron cargar los temas');
+  }
+
+  return Array.isArray(data.topics) ? data.topics : [];
+}
+
+export async function createVaultTopic(
+  accessToken: string,
+  roomId: string,
+  input: { name: string; color?: string | null }
+): Promise<VaultTopic> {
+  const response = await authenticatedFetch(
+    `${API_BASE_URL}/rooms/${roomId}/topics`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+    accessToken
+  );
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? 'No se pudo crear el tema');
+  }
+
+  return data.topic;
 }
 
 export async function fetchVaultMaterials(

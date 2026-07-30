@@ -1,5 +1,5 @@
 import { pool } from '../../../common/config/db.js';
-import type { VaultMaterialFile, VaultMaterialSummary, VaultResourceType } from '../types/vault.types.js';
+import type { VaultMaterialFile, VaultMaterialSummary, VaultResourceType, VaultTopic } from '../types/vault.types.js';
 
 export class VaultRepository {
   static async isActiveRoomMember(roomId: string, userId: string): Promise<boolean> {
@@ -34,6 +34,62 @@ export class VaultRepository {
     );
 
     return rows.length > 0;
+  }
+
+  static async listRoomTopics(roomId: string): Promise<VaultTopic[]> {
+    const { rows } = await pool.query<VaultTopic>(
+      `
+        SELECT id, room_id, name, slug, color, created_by, is_active
+        FROM academic_topics
+        WHERE room_id = $1
+          AND is_active = true
+        ORDER BY name ASC;
+      `,
+      [roomId]
+    );
+
+    return rows;
+  }
+
+  static async findRoomTopicBySlug(roomId: string, slug: string): Promise<VaultTopic | null> {
+    const { rows } = await pool.query<VaultTopic>(
+      `
+        SELECT id, room_id, name, slug, color, created_by, is_active
+        FROM academic_topics
+        WHERE room_id = $1
+          AND slug = $2
+          AND is_active = true
+        LIMIT 1;
+      `,
+      [roomId, slug]
+    );
+
+    return rows[0] ?? null;
+  }
+
+  static async createRoomTopic(input: {
+    roomId: string;
+    name: string;
+    slug: string;
+    color: string | null;
+    createdBy: string;
+  }): Promise<VaultTopic> {
+    const { rows } = await pool.query<VaultTopic>(
+      `
+        INSERT INTO academic_topics (room_id, name, slug, color, created_by)
+        VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (room_id, slug)
+        WHERE is_active = true
+        DO UPDATE SET
+          name = EXCLUDED.name,
+          color = COALESCE(EXCLUDED.color, academic_topics.color),
+          updated_at = NOW()
+        RETURNING id, room_id, name, slug, color, created_by, is_active;
+      `,
+      [input.roomId, input.name, input.slug, input.color, input.createdBy]
+    );
+
+    return rows[0];
   }
 
   static async listMaterials(input: {
