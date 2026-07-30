@@ -1,5 +1,5 @@
 import { pool } from '../../../common/config/db.js';
-import type { DashboardSummary, DifficultyHeatmapTopic } from '../types/analytics.types.js';
+import type { DashboardDailyMinutes, DashboardSummary, DifficultyHeatmapTopic } from '../types/analytics.types.js';
 
 type DifficultyRow = {
   topic_id: string | null;
@@ -192,6 +192,64 @@ export const AnalyticsRepository = {
       sessions_count: Number(rows[0]?.sessions_count ?? 0),
       days_active: Number(rows[0]?.days_active ?? 0),
     };
+  },
+
+  async getWeeklyDailyMinutes(userId: string, roomId?: string): Promise<DashboardDailyMinutes[]> {
+    const params: any[] = [userId, 'America/Argentina/Buenos_Aires'];
+    const roomFilter = roomId
+      ? (() => {
+          params.push(roomId);
+          return `AND room_id = $${params.length}`;
+        })()
+      : '';
+
+    const { rows } = await pool.query(
+      `
+        WITH current_week AS (
+          SELECT date_trunc('week', (NOW() AT TIME ZONE $2)::timestamp)::date AS starts_on
+        ),
+        week_days AS (
+          SELECT
+            generate_series(0, 6) AS day_index,
+            starts_on + generate_series(0, 6) AS day_date
+          FROM current_week
+        ),
+        session_minutes AS (
+          SELECT
+            ((COALESCE(ended_at, updated_at, created_at) AT TIME ZONE $2)::date) AS session_date,
+            COALESCE(SUM(duration_minutes), 0)::int AS minutes
+          FROM study_sessions
+          CROSS JOIN current_week cw
+          WHERE user_id = $1
+            AND valid = true
+            AND duration_minutes > 0
+            ${roomFilter}
+            AND ((COALESCE(ended_at, updated_at, created_at) AT TIME ZONE $2)::date) >= cw.starts_on
+            AND ((COALESCE(ended_at, updated_at, created_at) AT TIME ZONE $2)::date) < cw.starts_on + 7
+          GROUP BY session_date
+        )
+        SELECT
+          CASE wd.day_index
+            WHEN 0 THEN 'Lun'
+            WHEN 1 THEN 'Mar'
+            WHEN 2 THEN 'Mie'
+            WHEN 3 THEN 'Jue'
+            WHEN 4 THEN 'Vie'
+            WHEN 5 THEN 'Sab'
+            ELSE 'Dom'
+          END AS day,
+          COALESCE(sm.minutes, 0)::int AS minutes
+        FROM week_days wd
+        LEFT JOIN session_minutes sm ON sm.session_date = wd.day_date
+        ORDER BY wd.day_index ASC;
+      `,
+      params
+    );
+
+    return rows.map(row => ({
+      day: String(row.day),
+      minutes: Number(row.minutes) || 0,
+    }));
   },
 
   async getQuizAverage(input: {

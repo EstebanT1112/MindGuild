@@ -29,22 +29,28 @@ export interface DashboardSummary {
   academic_score: number;
 }
 
+export interface DashboardDailyMinutes {
+  day: string;
+  minutes: number;
+}
+
 export interface DashboardResult {
   week_year: string;
   scope: 'global' | 'room';
   room_id?: string;
   summary: DashboardSummary;
   previous_week: DashboardSummary | null;
+  daily_minutes: DashboardDailyMinutes[];
   deltas: {
     minutes_percent: number | null;
     quiz_percent: number | null;
     academic_percent: number | null;
     days_active_delta: number | null;
   };
-  insights: Array<{
+  insights: {
     type: 'positive' | 'warning' | 'neutral';
     message: string;
-  }>;
+  }[];
 }
 
 export async function fetchMyDashboard(accessToken: string): Promise<DashboardResult> {

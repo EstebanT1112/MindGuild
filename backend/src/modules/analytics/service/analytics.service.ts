@@ -12,9 +12,10 @@ import {
 export const AnalyticsService = {
   async getMyDashboard(userId: string): Promise<DashboardResult> {
     const week = getCurrentWeekContext();
-    const [summary, previousWeek] = await Promise.all([
+    const [summary, previousWeek, dailyMinutes] = await Promise.all([
       buildDashboardSummary({ userId, weekYear: week.currentWeekYear, from: week.currentStart, to: week.currentEnd }),
       buildDashboardSummary({ userId, weekYear: week.previousWeekYear, from: week.previousStart, to: week.currentStart }),
+      AnalyticsRepository.getWeeklyDailyMinutes(userId),
     ]);
 
     const hasPreviousData = hasAnyDashboardData(previousWeek);
@@ -24,6 +25,7 @@ export const AnalyticsService = {
       scope: 'global',
       summary,
       previous_week: hasPreviousData ? previousWeek : null,
+      daily_minutes: dailyMinutes,
       deltas: buildDeltas(summary, hasPreviousData ? previousWeek : null),
       insights: buildInsights(summary, hasPreviousData ? previousWeek : null),
     };
@@ -38,9 +40,10 @@ export const AnalyticsService = {
     }
 
     const week = getCurrentWeekContext();
-    const [summary, previousWeek] = await Promise.all([
+    const [summary, previousWeek, dailyMinutes] = await Promise.all([
       buildDashboardSummary({ userId, roomId, weekYear: week.currentWeekYear, from: week.currentStart, to: week.currentEnd }),
       buildDashboardSummary({ userId, roomId, weekYear: week.previousWeekYear, from: week.previousStart, to: week.currentStart }),
+      AnalyticsRepository.getWeeklyDailyMinutes(userId, roomId),
     ]);
     const hasPreviousData = hasAnyDashboardData(previousWeek);
 
@@ -50,6 +53,7 @@ export const AnalyticsService = {
       room_id: roomId,
       summary,
       previous_week: hasPreviousData ? previousWeek : null,
+      daily_minutes: dailyMinutes,
       deltas: buildDeltas(summary, hasPreviousData ? previousWeek : null),
       insights: buildInsights(summary, hasPreviousData ? previousWeek : null),
     };
@@ -292,7 +296,14 @@ function getCurrentWeekYear() {
 }
 
 function getWeekYearFromDate(date: Date) {
-  const target = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  // La fecha recibida puede ser el inicio de semana en UTC. Usar getters
+  // locales en Argentina convertia el lunes 00:00 UTC en domingo y restaba
+  // una semana (por ejemplo, W31 se mostraba como W30).
+  const target = new Date(Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate()
+  ));
   const dayNumber = target.getUTCDay() || 7;
   target.setUTCDate(target.getUTCDate() + 4 - dayNumber);
   const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
