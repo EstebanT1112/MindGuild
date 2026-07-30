@@ -3,12 +3,14 @@ import {
   VaultAccessError,
   VaultNotFoundError,
   VaultValidationError,
+  type CreateVaultTopicInput,
   type CreateVaultMaterialInput,
   type DeleteVaultMaterialInput,
   type ListVaultMaterialsInput,
   type VaultMaterialFile,
   type VaultMaterialSummary,
   type VaultResourceType,
+  type VaultTopic,
 } from '../types/vault.types.js';
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
@@ -23,6 +25,41 @@ const ALLOWED_MIME_TYPES = new Set([
 const ALLOWED_RESOURCE_TYPES = new Set<VaultResourceType>(['pdf', 'image', 'text', 'other']);
 
 export class VaultService {
+  static async listTopics(roomId: string, userId: string): Promise<VaultTopic[]> {
+    validateUuidLike(roomId, 'Sala invalida.');
+    await ensureUserCanAccessRoom(roomId, userId);
+
+    return VaultRepository.listRoomTopics(roomId);
+  }
+
+  static async createTopic(input: CreateVaultTopicInput): Promise<VaultTopic> {
+    validateUuidLike(input.roomId, 'Sala invalida.');
+    await ensureUserCanAccessRoom(input.roomId, input.userId);
+
+    const name = normalizeRequiredText(input.name, 'El nombre del tema es obligatorio.', 50);
+    if (name.length < 2) {
+      throw new VaultValidationError('El tema debe tener entre 2 y 50 caracteres.');
+    }
+
+    const slug = slugify(name);
+    if (!slug) {
+      throw new VaultValidationError('El tema debe incluir letras o numeros.');
+    }
+
+    const existingTopic = await VaultRepository.findRoomTopicBySlug(input.roomId, slug);
+    if (existingTopic) {
+      return existingTopic;
+    }
+
+    return VaultRepository.createRoomTopic({
+      roomId: input.roomId,
+      name,
+      slug,
+      color: normalizeTopicColor(input.color),
+      createdBy: input.userId,
+    });
+  }
+
   static async listMaterials(input: ListVaultMaterialsInput): Promise<VaultMaterialSummary[]> {
     validateUuidLike(input.roomId, 'Sala invalida.');
     if (input.topicId) validateUuidLike(input.topicId, 'Tema invalido.');
@@ -167,6 +204,27 @@ function normalizeTopicIds(value: unknown): string[] {
   uniqueIds.forEach(id => validateUuidLike(id, 'Tema invalido.'));
 
   return uniqueIds.slice(0, 5);
+}
+
+function normalizeTopicColor(value: unknown): string | null {
+  const color = String(value ?? '').trim();
+  if (!color) return null;
+
+  if (!/^#[0-9A-Fa-f]{6}$/.test(color)) {
+    throw new VaultValidationError('El color debe tener formato hexadecimal.');
+  }
+
+  return color;
+}
+
+function slugify(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
 }
 
 function decodeBase64File(value: unknown): Buffer {

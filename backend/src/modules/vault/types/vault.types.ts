@@ -6,6 +6,13 @@ export interface VaultMaterialTopic {
   color: string | null;
 }
 
+export interface VaultTopic extends VaultMaterialTopic {
+  room_id: string;
+  slug: string;
+  created_by: string | null;
+  is_active: boolean;
+}
+
 export interface VaultMaterialSummary {
   id: string;
   room_id: string;
@@ -51,6 +58,13 @@ export interface DeleteVaultMaterialInput {
   roomId: string;
   materialId: string;
   userId: string;
+}
+
+export interface CreateVaultTopicInput {
+  roomId: string;
+  userId: string;
+  name?: string;
+  color?: string | null;
 }
 
 export class VaultValidationError extends Error {
