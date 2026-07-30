@@ -154,10 +154,9 @@ export default function WalletScreen() {
         coinIcon: {
           width: 58,
           height: 58,
-          borderRadius: 29,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: colors.surface,
+          backgroundColor: 'transparent',
         },
         balanceLabel: {
           color: colors.rankBadgeText,
@@ -240,8 +239,10 @@ export default function WalletScreen() {
           minWidth: 82,
           height: 38,
           borderRadius: 14,
+          flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
+          gap: 5,
           backgroundColor: colors.warning,
         },
         ownedBtn: {
@@ -292,7 +293,7 @@ export default function WalletScreen() {
         >
           <View style={styles.balanceCard}>
             <View style={styles.coinIcon}>
-              <Brain color={colors.rankBadgeText} size={34} strokeWidth={2.3} />
+              <Brain color="#000000" size={40} strokeWidth={2.3} />
             </View>
             <View>
               <Text style={styles.balanceLabel}>Saldo disponible</Text>
@@ -370,7 +371,16 @@ export default function WalletScreen() {
                     {isBusy ? (
                       <ActivityIndicator color={colors.rankBadgeText} size="small" />
                     ) : (
-                      <Text style={textStyle}>{buttonText}</Text>
+                      <>
+                        {!item.owned && (
+                          <Brain
+                            color="#000000"
+                            size={15}
+                            strokeWidth={2.3}
+                          />
+                        )}
+                        <Text style={textStyle}>{buttonText}</Text>
+                      </>
                     )}
                   </Pressable>
                 </View>
