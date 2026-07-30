@@ -141,12 +141,18 @@ function validateUpdateInput(input: UpdateProfileDTO) {
 }
 
 function getWeekYear(): string {
-  // Calcula la semana usada para leer user_weekly_stats.
-  const now = new Date();
-  const oneJan = new Date(now.getFullYear(), 0, 1);
-  const numberOfDays = Math.floor((now.getTime() - oneJan.getTime()) / (24 * 60 * 60 * 1000));
-  const weekNumber = Math.ceil((now.getDay() + 1 + numberOfDays) / 7);
-  return `${weekNumber}-${now.getFullYear()}`;
+  // Mantiene el mismo formato ISO YYYY-WNN usado por sesiones, rankings y analytics.
+  const target = new Date();
+  target.setUTCHours(0, 0, 0, 0);
+
+  const dayNumber = target.getUTCDay() || 7;
+  target.setUTCDate(target.getUTCDate() + 4 - dayNumber);
+
+  const weekYear = target.getUTCFullYear();
+  const yearStart = new Date(Date.UTC(weekYear, 0, 1));
+  const weekNumber = Math.ceil((((target.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+
+  return `${weekYear}-W${String(weekNumber).padStart(2, '0')}`;
 }
 
 function getStreakStatus(

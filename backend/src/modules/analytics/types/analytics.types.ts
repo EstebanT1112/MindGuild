@@ -42,12 +42,18 @@ export interface DashboardInsight {
   message: string;
 }
 
+export interface DashboardDailyMinutes {
+  day: string;
+  minutes: number;
+}
+
 export interface DashboardResult {
   week_year: string;
   scope: DashboardScope;
   room_id?: string;
   summary: DashboardSummary;
   previous_week: DashboardSummary | null;
+  daily_minutes: DashboardDailyMinutes[];
   deltas: DashboardDeltas;
   insights: DashboardInsight[];
 }
