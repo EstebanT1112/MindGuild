@@ -9,6 +9,7 @@ import { useThemeStore, ThemeColors } from '../../../store/themeStore';
 import {
   fetchMyDashboard,
   fetchRoomDashboard,
+  type DashboardDailyMinutes,
   type DashboardResult,
   type DashboardSummary,
 } from '../services/analyticsService';
@@ -190,6 +191,9 @@ export default function SmartDashboardScreen() {
                 )}
               </View>
 
+              <Text style={styles.sectionTitle}>ESTUDIO POR DÍA</Text>
+              <WeeklyStudyChart days={data.daily_minutes ?? []} colors={colors} styles={styles} />
+
               <View style={[styles.academicCard, !showAcademicMetrics && styles.studyCard]}>
                 <View style={[styles.academicIconBox, !showAcademicMetrics && styles.studyIconBox]}>
                   <BarChart3 color={showAcademicMetrics ? colors.rankBadgeText : colors.cyanSoft} size={24} />
@@ -280,6 +284,56 @@ function MetricCard({
   );
 }
 
+function WeeklyStudyChart({
+  days,
+  colors,
+  styles,
+}: {
+  days: DashboardDailyMinutes[];
+  colors: ThemeColors;
+  styles: ReturnType<typeof createStyles>;
+}) {
+  const normalizedDays = normalizeDashboardDays(days);
+  const maxMinutes = Math.max(...normalizedDays.map(day => day.minutes), 1);
+
+  return (
+    <View style={styles.dailyChartCard}>
+      <View style={styles.dailyChartRow}>
+        {normalizedDays.map(day => {
+          const barHeight = day.minutes > 0
+            ? Math.max(8, Math.round((day.minutes / maxMinutes) * 96))
+            : 3;
+
+          return (
+            <View key={day.day} style={styles.dailyChartColumn}>
+              <Text style={styles.dailyMinutes}>{day.minutes}m</Text>
+              <View style={styles.dailyBarArea}>
+                <View
+                  style={[
+                    styles.dailyBar,
+                    {
+                      height: barHeight,
+                      backgroundColor: day.minutes > 0 ? colors.cyan : colors.border,
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={styles.dailyDay}>{day.day}</Text>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+function normalizeDashboardDays(days: DashboardDailyMinutes[]): DashboardDailyMinutes[] {
+  const labels = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'];
+  const minutesByDay = new Map(days.map(day => [day.day, Number(day.minutes) || 0]));
+
+  return labels.map(day => ({ day, minutes: minutesByDay.get(day) ?? 0 }));
+}
+
 function formatPrevious(label: string, value: number) {
   if (label === 'Minutos') return `${value}m`;
   if (label === 'Quiz') return `${Math.round(value)}%`;
@@ -361,6 +415,47 @@ const createStyles = (colors: ThemeColors, themeMode?: string) =>
       flexDirection: 'row',
       gap: 12,
       alignItems: 'center',
+    },
+    dailyChartCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 10,
+      paddingVertical: 14,
+    },
+    dailyChartRow: {
+      height: 150,
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      justifyContent: 'space-between',
+    },
+    dailyChartColumn: {
+      flex: 1,
+      height: '100%',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+    },
+    dailyMinutes: {
+      color: colors.textMuted,
+      fontSize: 10,
+      fontWeight: '800',
+      marginBottom: 5,
+    },
+    dailyBarArea: {
+      height: 100,
+      justifyContent: 'flex-end',
+      alignItems: 'center',
+    },
+    dailyBar: {
+      width: 22,
+      borderRadius: 6,
+    },
+    dailyDay: {
+      color: colors.textSoft,
+      fontSize: 11,
+      fontWeight: '800',
+      marginTop: 7,
     },
     studyCard: { backgroundColor: colors.cyanSoft },
     academicIconBox: { width: 44, height: 44, borderRadius: 8, backgroundColor: themeMode === 'light' ? 'rgba(15,23,42,0.06)' : 'rgba(15,23,42,0.12)', alignItems: 'center', justifyContent: 'center' },
