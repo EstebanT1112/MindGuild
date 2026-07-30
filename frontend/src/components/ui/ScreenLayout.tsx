@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, StatusBar, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Brain, Users, Crown, Users2, UserCircle } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useAppDataStore } from '../../store/appDataStore';
+import { useAuthStore } from '../../store/authStore';
 import { useThemeStore } from '../../store/themeStore';
+import { fetchUnreadNotificationsCount } from '../../features/notifications/services/notificationsService';
 
 interface Props {
   children: React.ReactNode;
@@ -20,12 +22,37 @@ const fallbackAvatar = 'https://ui-avatars.com/api/?background=1e293b&color=ffff
 
 export default function ScreenLayout({ children, title, type = 'rooms', icon, rightAction, hideBackButton, hideRightAction }: Props) {
   const navigation = useNavigation<any>();
+  const accessToken = useAuthStore(state => state.access_token);
   const profile = useAppDataStore(state => state.profile.data);
   const coinsBalance = useAppDataStore(state => state.profile.data?.coins_balance ?? 0);
   const colors = useThemeStore(state => state.colors);
   const themeMode = useThemeStore(state => state.themeMode);
+  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
 
   const avatarUri = profile?.avatar_url || fallbackAvatar;
+
+  useFocusEffect(
+    useCallback(() => {
+      if (type !== 'home' || !accessToken) {
+        setHasUnreadNotifications(false);
+        return undefined;
+      }
+
+      let isActive = true;
+
+      fetchUnreadNotificationsCount(accessToken)
+        .then(count => {
+          if (isActive) setHasUnreadNotifications(count > 0);
+        })
+        .catch(() => {
+          // Conserva el ultimo estado visible si falla una actualizacion puntual.
+        });
+
+      return () => {
+        isActive = false;
+      };
+    }, [accessToken, type])
+  );
 
   const renderLeftButton = () => {
     // ✅ Si hideBackButton es true, mostramos un spacer
@@ -39,6 +66,12 @@ export default function ScreenLayout({ children, title, type = 'rooms', icon, ri
             <Image source={{ uri: avatarUri }} style={styles.profileImage} />
           ) : (
             <Text style={[styles.profileBtnText, { color: colors.textMuted }]}>P</Text>
+          )}
+          {hasUnreadNotifications && (
+            <View
+              accessibilityLabel="Hay notificaciones sin leer"
+              style={[styles.notificationDot, { borderColor: colors.background }]}
+            />
           )}
         </Pressable>
       );
@@ -66,8 +99,8 @@ export default function ScreenLayout({ children, title, type = 'rooms', icon, ri
           </View>
           {hideRightAction ? <View style={styles.headerSpacer} /> : rightAction ?? (
             <Pressable style={[styles.coinBadge, { backgroundColor: colors.warning }]} onPress={() => navigation.navigate('Wallet')}>
-              <View style={[styles.hCoin, { backgroundColor: colors.warning }]}><Brain color={colors.text} size={20} strokeWidth={2.2} /></View>
-              <Text style={[styles.coinAmount, { color: colors.text }]}>{coinsBalance}</Text>
+              <View style={[styles.hCoin, { backgroundColor: colors.warning }]}><Brain color="#000000" size={20} strokeWidth={2.2} /></View>
+              <Text style={[styles.coinAmount, { color: '#000000' }]}>{coinsBalance}</Text>
             </Pressable>
           )}
         </View>
@@ -88,7 +121,6 @@ const styles = StyleSheet.create({
     alignItems: "center", 
     justifyContent: "center", 
     borderWidth: 1,
-    overflow: 'hidden',
   },
   profileImage: {
     width: 40,
@@ -96,6 +128,16 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   profileBtnText: { fontWeight: "bold" },
+  notificationDot: {
+    position: 'absolute',
+    top: -1,
+    right: -1,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+    backgroundColor: '#ef4444',
+  },
   backBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   headerSpacer: { width: 40, height: 40 },
   titleGroup: { flexDirection: 'row', alignItems: 'center', gap: 10 },
