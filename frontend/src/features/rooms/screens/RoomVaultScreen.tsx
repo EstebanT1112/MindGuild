@@ -20,13 +20,15 @@ import { useAuthStore } from '../../../store/authStore';
 import { useThemeStore } from '../../../store/themeStore';
 import {
   createVaultMaterial,
+  createVaultTopic,
   deleteVaultMaterial,
   downloadVaultMaterial,
   fetchVaultMaterials,
+  fetchVaultTopics,
   type VaultMaterial,
   type VaultResourceType,
+  type VaultTopic,
 } from '../services/vaultService';
-import { createRoomTopic, fetchRoomTopics, type AcademicTopic } from '../services/battleRoyaleService';
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 
@@ -41,7 +43,7 @@ export default function RoomVaultScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [materials, setMaterials] = useState<VaultMaterial[]>([]);
-  const [topics, setTopics] = useState<AcademicTopic[]>([]);
+  const [topics, setTopics] = useState<VaultTopic[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [uploadVisible, setUploadVisible] = useState(false);
@@ -100,7 +102,7 @@ export default function RoomVaultScreen() {
           search: search.trim() || undefined,
           type: typeFilter === 'all' ? undefined : typeFilter,
         }),
-        fetchRoomTopics(accessToken, roomId),
+        fetchVaultTopics(accessToken, roomId),
       ]);
       setMaterials(materialsData);
       setTopics(topicsData);
@@ -372,10 +374,10 @@ function UploadMaterialModal({
   roomId: string;
   accessToken: string | null;
   accentColor: string;
-  topics: AcademicTopic[];
+  topics: VaultTopic[];
   onClose: () => void;
   onCreated: (material: VaultMaterial) => void;
-  onTopicCreated: (topic: AcademicTopic) => void;
+  onTopicCreated: (topic: VaultTopic) => void;
   colors: any;
   styles: any;
 }) {
@@ -500,7 +502,7 @@ function UploadMaterialModal({
     }
 
     try {
-      const topic = await createRoomTopic(accessToken, roomId, { name: newTopicName.trim() });
+      const topic = await createVaultTopic(accessToken, roomId, { name: newTopicName.trim() });
       onTopicCreated(topic);
       setSelectedTopicIds((current) => [...current, topic.id]);
       setNewTopicName('');
