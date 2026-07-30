@@ -16,7 +16,11 @@ import { createAppToken, isAppToken, verifyAppToken } from './app-token.service.
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,30}$/;
-const AUTH0_DOMAIN = process.env.AUTH0_DOMAIN ?? 'mindguildestebanapp.au.auth0.com';
+const AUTH0_DOMAIN = process.env.AUTH0_DOMAIN;
+
+if (!AUTH0_DOMAIN) {
+  throw new Error('AUTH0_DOMAIN no esta configurado');
+}
 
 export const AuthService = {
   async registerProfile(input: Partial<RegisterProfileDTO> = {}): Promise<RegisteredProfile> {
