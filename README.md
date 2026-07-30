@@ -70,22 +70,6 @@ TPMINDGUILD/
 `-- README.md      Guia principal del proyecto
 ```
 
-## Screenshots
-
-Agregar capturas finales de la app antes de la entrega en esta seccion. Pantallas sugeridas:
-
-| Pantalla | Descripcion |
-| --- | --- |
-| Login | Acceso con email/clave y Google |
-| Home | Racha, salas favoritas, misiones y resumen semanal |
-| Perfil | Datos del usuario, logros, wallet y configuracion |
-| Salas | Listado, invitaciones, favoritos y acceso a salas |
-| Sala Supervivencia | Timer, ranking, validaciones, chat y acciones |
-| Battle Royale | Quiz semanal, practica, ranking, dashboard y heatmap |
-| The Vault | Materiales compartidos por sala |
-| Dashboard | Analiticas de rendimiento |
-| Wallet | Saldo, tienda y escudos de racha |
-
 ## Requisitos previos
 
 - Git
