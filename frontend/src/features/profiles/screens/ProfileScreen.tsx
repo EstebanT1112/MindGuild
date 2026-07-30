@@ -280,6 +280,10 @@ export default function ProfileScreen({ navigation }: any) {
             borderColor: colors.info,
             borderWidth: 1,
         },
+        settingsBtnActive: {
+            borderColor: colors.textMuted,
+            borderWidth: 1,
+        },
         profileSection: {
             alignItems: 'center',
             marginBottom: 20,
@@ -453,7 +457,7 @@ export default function ProfileScreen({ navigation }: any) {
                         <Pressable style={[styles.iconBtn, styles.editBtnActive]} onPress={() => setEditModalVisible(true)}>
                             <Edit2 color={colors.info} size={18} />
                         </Pressable>
-                        <Pressable style={styles.iconBtn} onPress={() => setSettingsVisible(true)}>
+                        <Pressable style={[styles.iconBtn, styles.settingsBtnActive]} onPress={() => setSettingsVisible(true)}>
                             <Settings color={colors.textMuted} size={18} />
                         </Pressable>
                     </View>

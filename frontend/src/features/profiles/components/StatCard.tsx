@@ -16,10 +16,19 @@ export default function StatCard({ icon, value, label }: StatCardProps) {
       StyleSheet.create({
         statCard: {
           width: '47%',
-          backgroundColor: colors.surface,
+          minHeight: 128,
+          backgroundColor: colors.surfaceElevated,
           padding: 20,
           borderRadius: 24,
           alignItems: 'center',
+          justifyContent: 'center',
+          borderWidth: 1,
+          borderColor: colors.inputBorder,
+          shadowColor: '#000000',
+          shadowOffset: { width: 0, height: 3 },
+          shadowOpacity: 0.16,
+          shadowRadius: 6,
+          elevation: 3,
         },
         statNumber: {
           color: colors.text,
@@ -31,6 +40,7 @@ export default function StatCard({ icon, value, label }: StatCardProps) {
           color: colors.textMuted,
           fontSize: 12,
           fontWeight: 'bold',
+          textAlign: 'center',
         },
       }),
     [colors]
