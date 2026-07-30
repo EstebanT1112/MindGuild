@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { BarChart3, ChevronRight, FolderOpen, Info, MessageCircle, Settings, UserPlus, Users, CheckCircle } from 'lucide-react-native';
+import { BarChart3, ChevronRight, FolderOpen, Info, MessageCircle, Settings, UserPlus, Users } from 'lucide-react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import ScreenLayout from '../../../components/ui/ScreenLayout';
 import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
@@ -382,17 +382,17 @@ export default function LiveRoomScreen() {
                 }
             >
                 {!isEnfocused && (
-                    <Pressable style={[styles.configCard, styles.btnVibrant, { backgroundColor: colors.accent, borderColor: colors.accent, shadowColor: colors.accent }]} onPress={() => setConfigVisible(true)}>
-                        <View style={[styles.configIconBox, { backgroundColor: colors.accent }]}>
-                            <Settings color={colors.text} size={24} />
+                    <Pressable style={[styles.configCard, { backgroundColor: colors.input, borderColor: colors.border }]} onPress={() => setConfigVisible(true)}>
+                        <View style={[styles.configIconBox, { backgroundColor: colors.input }]}>
+                            <Settings color={colors.accent} size={24} />
                         </View>
                         <View style={styles.configInfo}>
-                            <Text style={[styles.configTitleHighlight, { color: colors.text }]}>Configurar Sesión</Text>
-                            <Text style={[styles.configSubHighlight, { color: colors.accentSoft }]}>
+                            <Text style={[styles.configTitle, { color: colors.text }]}>Configurar Sesión</Text>
+                            <Text style={[styles.configSub, { color: colors.textSoft }]}>
                                 {sessionType === 'pomodoro' ? `Pomodoro - ${durationMinutes} min` : 'Modo Libre'}
                             </Text>
                         </View>
-                        <ChevronRight color={colors.text} size={20} />
+                        <ChevronRight color={colors.textMuted} size={20} />
                     </Pressable>
                 )}
 
@@ -460,17 +460,17 @@ export default function LiveRoomScreen() {
                         </Pressable>
 
                         <Pressable
-                            style={[styles.configCard, styles.btnBlue, styles.relativeContainer, { backgroundColor: colors.cyan, borderColor: colors.cyan }]}
+                            style={[styles.configCard, styles.reviewCard, styles.relativeContainer, { backgroundColor: colors.input, borderColor: colors.accent }]}
                             onPress={() => setReviewPeersVisible(true)}
                         >
-                            <View style={[styles.configIconBox, { backgroundColor: colors.cyan }]}>
-                                <CheckCircle color={colors.text} size={24} />
+                            <View style={[styles.configIconBox, { backgroundColor: colors.accentSoft }]}>
+                                <Users color={colors.accent} size={24} />
                             </View>
                             <View style={styles.configInfo}>
                                 <Text style={[styles.configTitle, { color: colors.text }]}>Validar Compañeros</Text>
-                                <Text style={[styles.configSub, { color: colors.textSoft }]}>Verifica evidencias y puntajes</Text>
+                                <Text style={[styles.configSub, { color: colors.textSoft }]}>Panel de verificación social de apuntes y evidencias</Text>
                             </View>
-                            <ChevronRight color={colors.text} size={20} />
+                            <ChevronRight color={colors.textMuted} size={20} />
 
                             {pendingReviewsCount > 0 && (
                                 <View style={[styles.badge, { backgroundColor: colors.danger }]}>
@@ -753,30 +753,6 @@ const styles = StyleSheet.create({
     resumeBtn: { backgroundColor: '#06b6d4' },
     finishBtn: { backgroundColor: '#dc2626' },
     btnText: { color: 'white', fontSize: 18, fontWeight: '900', letterSpacing: 1 },
-    btnVibrant: {
-        backgroundColor: '#16a34a',
-        borderColor: '#22c55e',
-        borderWidth: 2,
-        elevation: 6,
-        shadowColor: '#22c55e',
-        shadowOpacity: 0.3
-    },
-    btnBlue: {
-        backgroundColor: '#0284c7',
-        borderColor: '#38bdf8',
-        borderWidth: 1,
-        marginTop: 12
-    },
-    configTitleHighlight: {
-        color: 'white',
-        fontSize: 17,
-        fontWeight: '900'
-    },
-    configSubHighlight: {
-        color: '#dcfce7',
-        fontSize: 14,
-        fontWeight: '600'
-    },
     relativeContainer: {
         position: 'relative',
     },

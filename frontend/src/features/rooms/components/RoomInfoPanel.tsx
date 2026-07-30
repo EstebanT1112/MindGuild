@@ -56,6 +56,44 @@ export default function RoomInfoPanel({ room, accessToken, currentUserId, onRoom
           </View>
         ))}
       </View>
+
+      {room.teams_enabled && (
+        <View style={styles.teamsSection}>
+          <View style={styles.membersHeader}>
+            <Shield color={colors.textMuted} size={18} />
+            <Text style={[styles.membersTitle, { color: colors.text }]}>Equipos ({teams.length})</Text>
+          </View>
+
+          {teams.length > 0 ? (
+            <View style={styles.membersList}>
+              {teams.map((team, index) => {
+                const teamColor = team.color || teamFallbackColors[index % teamFallbackColors.length];
+                const membersLabel = team.members_count === 1 ? '1 integrante' : `${team.members_count} integrantes`;
+
+                return (
+                  <View
+                    key={team.id}
+                    style={[
+                      styles.teamRow,
+                      { backgroundColor: colors.background, borderColor: teamColor },
+                    ]}
+                  >
+                    <View style={[styles.teamColor, { backgroundColor: teamColor }]} />
+                    <View style={styles.teamInfo}>
+                      <Text style={[styles.memberName, { color: colors.text }]}>{team.name}</Text>
+                      <Text style={[styles.memberRole, { color: colors.textMuted }]}>{membersLabel}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
+            <View style={[styles.emptyTeams, { backgroundColor: colors.background, borderColor: colors.border }]}>
+              <Text style={[styles.emptyTeamsText, { color: colors.textMuted }]}>Todavía no hay equipos creados.</Text>
+            </View>
+          )}
+        </View>
+      )}
     </View>
   );
 }
@@ -74,4 +112,10 @@ const styles = StyleSheet.create({
   avatar: { width: 38, height: 38, borderRadius: 19 },
   memberName: { fontWeight: 'bold', fontSize: 14 },
   memberRole: { fontSize: 12, marginTop: 2 },
+  teamsSection: { marginTop: 20 },
+  teamRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, padding: 12, borderWidth: 1 },
+  teamColor: { width: 12, height: 38, borderRadius: 6 },
+  teamInfo: { flex: 1 },
+  emptyTeams: { borderRadius: 16, padding: 14, borderWidth: 1 },
+  emptyTeamsText: { fontSize: 13, fontWeight: '600', textAlign: 'center' },
 });

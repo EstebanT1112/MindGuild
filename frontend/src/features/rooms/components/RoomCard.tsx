@@ -23,10 +23,14 @@ interface Props {
 
 export default function RoomCard({ room, onPress, onToggleFavorite }: Props) {
   const colors = useThemeStore(state => state.colors);
+  const roomAccent = getRoomAccentColor(room.rawMode);
 
   return (
     <Pressable
-      style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+      style={[
+        styles.card,
+        { backgroundColor: colors.surface, borderColor: `${roomAccent}66` },
+      ]}
       onPress={onPress}
     >
       {/* ⭐ Botón de favorito absoluto, colocado a la izquierda de la flecha */}
@@ -48,8 +52,13 @@ export default function RoomCard({ room, onPress, onToggleFavorite }: Props) {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={[styles.name, { color: colors.text }]}>{room.name}</Text>
-          <View style={[styles.codeBox, { backgroundColor: colors.background }]}>
-            <Text style={[styles.code, { color: colors.accent }]}>{room.code}</Text>
+          <View
+            style={[
+              styles.codeBox,
+              { backgroundColor: `${roomAccent}18`, borderColor: roomAccent },
+            ]}
+          >
+            <Text style={[styles.code, { color: roomAccent }]}>{room.code}</Text>
           </View>
         </View>
         <ChevronRight color={colors.textSoft} size={18} />
@@ -61,12 +70,12 @@ export default function RoomCard({ room, onPress, onToggleFavorite }: Props) {
             <Users color={colors.textMuted} size={13} />
             <Text style={[styles.meta, { color: colors.textMuted }]}>{room.members}</Text>
           </View>
-          <Text style={[styles.meta, { color: colors.textMuted }]}>{room.mode}</Text>
+          <Text style={[styles.mode, { color: roomAccent }]}>{room.mode}</Text>
         </View>
 
-        <View style={[styles.ranking, { backgroundColor: `${colors.accent}22` }]}>
-          <Trophy color={colors.accent} size={13} />
-          <Text style={[styles.rankText, { color: colors.accent }]}>#{room.ranking}</Text>
+        <View style={[styles.ranking, { backgroundColor: `${roomAccent}22` }]}>
+          <Trophy color={roomAccent} size={13} />
+          <Text style={[styles.rankText, { color: roomAccent }]}>#{room.ranking}</Text>
         </View>
       </View>
     </Pressable>
@@ -106,6 +115,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
+    borderWidth: 1,
     alignSelf: "flex-start",
   },
   code: {
@@ -130,6 +140,10 @@ const styles = StyleSheet.create({
   meta: {
     fontSize: 12,
   },
+  mode: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
   ranking: {
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -143,3 +157,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 });
+
+function getRoomAccentColor(mode: string) {
+  return mode === 'battle_royale' ? '#a855f7' : '#22c55e';
+}
