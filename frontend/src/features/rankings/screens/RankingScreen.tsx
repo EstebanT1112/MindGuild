@@ -1,0 +1,370 @@
+import React, { useEffect, useRef, useState, useMemo } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import {
+  BrainCircuit,
+  Clock,
+  Crown,
+  GraduationCap,
+  UsersRound,
+  Globe,
+  Users,
+} from 'lucide-react-native';
+import ScreenLayout from '../../../components/ui/ScreenLayout';
+import { type RankingEntry, type RankingType, type RankingScope } from '../../../services/apiConfig';
+import { useAppDataStore } from '../../../store/appDataStore';
+import { useAuthStore } from '../../../store/authStore';
+import { useThemeStore } from '../../../store/themeStore';
+import RankingItem from '../components/RankingItem';
+
+type VisibleRankingType = Extract<RankingType, 'time' | 'qa' | 'academic' | 'boss'>;
+type RankingTrend = 'up' | 'down' | 'equal';
+type RankingEntryWithTrend = RankingEntry & { trend: RankingTrend; movement: number };
+
+const rankingTabs: Array<{
+  type: VisibleRankingType;
+  label: string;
+  title: string;
+  description: string;
+  subtitle: string;
+  icon: typeof Clock;
+}> = [
+  {
+    type: 'time',
+    label: 'Tiempo',
+    title: 'Ranking de tiempo',
+    description: 'Minutos estudiados durante esta semana',
+    subtitle: 'minutos',
+    icon: Clock,
+  },
+  {
+    type: 'qa',
+    label: 'Q&A',
+    title: 'Ranking Q&A',
+    description: 'Preguntas validadas y respuestas correctas',
+    subtitle: 'puntos',
+    icon: BrainCircuit,
+  },
+  {
+    type: 'academic',
+    label: 'Académico',
+    title: 'Ranking académico',
+    description: 'Combina tiempo validado y rendimiento Q&A',
+    subtitle: 'pts académicos',
+    icon: GraduationCap,
+  },
+  {
+    type: 'boss',
+    label: 'Jefes',
+    title: 'Ranking de jefes',
+    description: 'Jefaturas ganadas al cerrar semanas',
+    subtitle: 'jefaturas',
+    icon: Crown,
+  },
+];
+
+interface RankingScreenProps {
+  roomMode?: 'supervivencia' | 'battle_royale' | string; // Permitimos string para flexibilidad
+}
+
+export default function RankingScreen({ roomMode }: RankingScreenProps) {
+  const accessToken = useAuthStore((state) => state.access_token);
+  const [activeType, setActiveType] = useState<VisibleRankingType>('time');
+  const [scope, setScope] = useState<RankingScope>('global');
+  const [data, setData] = useState<RankingEntryWithTrend[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const ranking = useAppDataStore((state) => state.globalRanking.data ?? []);
+  const loading = useAppDataStore((state) => state.globalRanking.isLoading);
+  const loadGlobalRanking = useAppDataStore((state) => state.loadGlobalRanking);
+  const previousPositionsRef = useRef<Map<string, number>>(new Map());
+
+  const { colors } = useThemeStore();
+
+  // 👇 Filtramos los tabs según el modo
+  const filteredTabs = useMemo(() => {
+    if (roomMode === 'supervivencia') {
+      return rankingTabs.filter(tab => tab.type === 'time' || tab.type === 'boss');
+    }
+    // Para battle_royale o sin filtro, mostramos todos
+    return rankingTabs;
+  }, [roomMode]);
+
+  // 👇 Asegurar que activeType sea válido en filteredTabs
+  useEffect(() => {
+    const firstTab = filteredTabs[0];
+    if (firstTab && !filteredTabs.some(tab => tab.type === activeType)) {
+      setActiveType(firstTab.type);
+    }
+  }, [filteredTabs, activeType]);
+
+  const activeTab = filteredTabs.find((tab) => tab.type === activeType) ?? filteredTabs[0] ?? rankingTabs[0];
+  const SummaryIcon = activeTab?.icon ?? Clock;
+
+  // 👇 Estilos dinámicos
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
+  useEffect(() => {
+    previousPositionsRef.current = new Map();
+    loadRanking(true);
+  }, [activeType, scope, accessToken]);
+
+  useEffect(() => {
+    setData(applyRankingTrends(ranking));
+  }, [ranking]);
+
+  const applyRankingTrends = (entries: RankingEntry[]) => {
+    const nextPositions = new Map<string, number>();
+    const entriesWithTrend = entries.map((entry, index) => {
+      const currentPosition = index + 1;
+      const previousPosition = previousPositionsRef.current.get(entry.user_id);
+      nextPositions.set(entry.user_id, currentPosition);
+
+      if (!previousPosition || previousPosition === currentPosition) {
+        return { ...entry, trend: 'equal' as RankingTrend, movement: 0 };
+      }
+
+      return {
+        ...entry,
+        trend: currentPosition < previousPosition ? ('up' as RankingTrend) : ('down' as RankingTrend),
+        movement: Math.abs(previousPosition - currentPosition),
+      };
+    });
+
+    previousPositionsRef.current = nextPositions;
+    return entriesWithTrend;
+  };
+
+  const loadRanking = async (force = false) => {
+    if (!accessToken) return;
+
+    try {
+      await loadGlobalRanking(accessToken, { force, type: activeType, scope, limit: 50 });
+    } catch (error) {
+      console.error('Error al cargar ranking:', error);
+      setData([]);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await loadRanking(true);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // Si no hay tabs disponibles (caso borde), mostramos un mensaje
+  if (filteredTabs.length === 0) {
+    return (
+      <ScreenLayout title="RANKING" type="rankings" hideBackButton={true}>
+        <View style={styles.emptyState}>
+          <UsersRound color={colors.textMuted} size={28} />
+          <Text style={styles.emptyText}>No hay rankings disponibles para este modo.</Text>
+        </View>
+      </ScreenLayout>
+    );
+  }
+
+  return (
+    <ScreenLayout title="RANKING" type="rankings" hideBackButton={true}>
+      {/* Selector de ámbito */}
+      <View style={styles.scopeTabs}>
+        <Pressable
+          style={[styles.scopeTab, scope === 'global' && styles.scopeTabActive]}
+          onPress={() => setScope('global')}
+        >
+          <Globe size={16} color={scope === 'global' ? colors.accent : colors.textMuted} />
+          <Text style={[styles.scopeTabText, scope === 'global' && styles.scopeTabTextActive]}>
+            Global
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.scopeTab, scope === 'friends' && styles.scopeTabActive]}
+          onPress={() => setScope('friends')}
+        >
+          <Users size={16} color={scope === 'friends' ? colors.accent : colors.textMuted} />
+          <Text style={[styles.scopeTabText, scope === 'friends' && styles.scopeTabTextActive]}>
+            Amigos
+          </Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.tabs}>
+        {filteredTabs.map((tab) => {
+          const isActive = activeType === tab.type;
+          return (
+            <Pressable
+              key={tab.type}
+              style={[styles.tabButton, isActive && styles.tabButtonActive]}
+              onPress={() => setActiveType(tab.type)}
+            >
+              <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
+                {tab.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <View style={styles.summaryCard}>
+        <SummaryIcon color={colors.accent} size={22} />
+        <View style={styles.summaryText}>
+          <Text style={styles.title}>{activeTab?.title ?? 'Ranking'}</Text>
+          <Text style={styles.description}>
+            {scope === 'global' ? activeTab?.description : 'Ranking entre tus amigos'}
+          </Text>
+        </View>
+      </View>
+
+      {loading ? (
+        <ActivityIndicator color={colors.accent} style={{ marginTop: 20 }} />
+      ) : (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.accent}
+              colors={[colors.accent]}
+            />
+          }
+        >
+          {data.length === 0 ? (
+            <View style={styles.emptyState}>
+              <UsersRound color={colors.textMuted} size={28} />
+              <Text style={styles.emptyText}>
+                {scope === 'global'
+                  ? 'Todavía no hay usuarios para mostrar.'
+                  : 'Aún no tienes amigos. ¡Agrega algunos para ver su progreso!'}
+              </Text>
+            </View>
+          ) : (
+            data.map((item, index) => (
+              <RankingItem
+                key={item.user_id}
+                rank={index + 1}
+                name={item.username}
+                value={item.value.toString()}
+                subtitle={activeTab?.subtitle ?? ''}
+                trend={item.trend}
+                movement={item.movement}
+              />
+            ))
+          )}
+        </ScrollView>
+      )}
+    </ScreenLayout>
+  );
+}
+
+const createStyles = (colors: any) =>
+  StyleSheet.create({
+    scopeTabs: {
+      flexDirection: 'row',
+      gap: 8,
+      marginBottom: 12,
+      marginTop: 4,
+    },
+    scopeTab: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 8,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    scopeTabActive: {
+      borderColor: colors.accent,
+      backgroundColor: colors.accentSoft,
+    },
+    scopeTabText: {
+      color: colors.textMuted,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    scopeTabTextActive: {
+      color: colors.accentStrong,
+    },
+    tabs: {
+      flexDirection: 'row',
+      gap: 8,
+      marginBottom: 6,
+    },
+    tabButton: {
+      flex: 1,
+      minHeight: 38,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      paddingHorizontal: 6,
+    },
+    tabButtonActive: {
+      borderColor: colors.accent,
+      backgroundColor: colors.accentSoft,
+    },
+    tabText: {
+      color: colors.textMuted,
+      fontSize: 11,
+      fontWeight: '900',
+      textAlign: 'center',
+    },
+    tabTextActive: {
+      color: colors.accentStrong,
+    },
+    summaryCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      backgroundColor: colors.surfaceElevated,
+      borderRadius: 22,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 16,
+      marginVertical: 10,
+    },
+    summaryText: {
+      flex: 1,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: '900',
+    },
+    description: {
+      color: colors.textMuted,
+      fontSize: 13,
+      marginTop: 2,
+    },
+    listContent: {
+      paddingBottom: 40,
+      paddingTop: 10,
+    },
+    emptyState: {
+      alignItems: 'center',
+      gap: 8,
+      paddingVertical: 28,
+    },
+    emptyText: {
+      color: colors.textMuted,
+      fontSize: 13,
+      textAlign: 'center',
+      marginTop: 18,
+    },
+  });

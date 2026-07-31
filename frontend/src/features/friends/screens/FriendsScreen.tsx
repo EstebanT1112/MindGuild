@@ -1,0 +1,752 @@
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  ActivityIndicator,
+  RefreshControl,
+  TextInput,
+  Image,
+} from 'react-native';
+import {
+  Users2,
+  Flame,
+  Trophy,
+  Check,
+  X,
+  UserPlus,
+  SlidersHorizontal,
+  Trash2,
+  Search,
+} from 'lucide-react-native';
+import ScreenLayout from '../../../components/ui/ScreenLayout';
+import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
+import AddFriendModal from '../components/AddFriendModal';
+import { authenticatedFetch } from '../../../services/authenticatedFetch';
+import Constants from 'expo-constants';
+import { useAuthStore } from '../../../store/authStore';
+import { useThemeStore } from '../../../store/themeStore';
+
+interface Friend {
+  id: string;
+  username: string;
+  avatar_url: string | null;
+  streak_days: number;
+  total_study_minutes: number;
+  status: 'online' | 'offline';
+  last_login_at?: string | null;
+}
+
+interface IncomingRequest {
+  id: string;
+  created_at: string;
+  sender: {
+    id: string;
+    username: string;
+    avatar_url: string | null;
+  };
+}
+
+interface AuthState {
+  token: string | null;
+  access_token?: string | null;
+  user: any;
+}
+
+// 🌐 Configuración de API
+const getApiUrl = (): string => {
+  const debuggerHost =
+    Constants.expoConfig?.hostUri ||
+    Constants.manifest2?.extra?.expoGoLaunchContext?.debuggerHost;
+  if (debuggerHost) {
+    const ip = debuggerHost.split(':')[0];
+    return `http://${ip}:3000/api`;
+  }
+  return 'http://localhost:3000/api';
+};
+const API_URL = getApiUrl();
+
+// ✅ Función para obtener tiempo relativo
+const getRelativeTime = (dateString: string): string => {
+  if (!dateString) return 'Sin actividad reciente';
+  
+  const now = new Date();
+  const past = new Date(dateString);
+  const diffMs = now.getTime() - past.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  const diffWeeks = Math.floor(diffDays / 7);
+  const diffMonths = Math.floor(diffDays / 30);
+  const diffYears = Math.floor(diffDays / 365);
+
+  if (diffMins < 1) return 'hace unos segundos';
+  if (diffMins < 60) return `hace ${diffMins} minuto${diffMins !== 1 ? 's' : ''}`;
+  if (diffHours < 24) return `hace ${diffHours} hora${diffHours !== 1 ? 's' : ''}`;
+  if (diffDays < 7) return `hace ${diffDays} día${diffDays !== 1 ? 's' : ''}`;
+  if (diffWeeks < 4) return `hace ${diffWeeks} semana${diffWeeks !== 1 ? 's' : ''}`;
+  if (diffMonths < 12) return `hace ${diffMonths} mes${diffMonths !== 1 ? 'es' : ''}`;
+  return `hace ${diffYears} año${diffYears !== 1 ? 's' : ''}`;
+};
+
+// ✅ Función para agregar cache buster a la URL (siempre devuelve string)
+const getAvatarUrlWithCache = (avatarUrl: string | null): string => {
+  if (!avatarUrl) {
+    return '';
+  }
+  const separator = avatarUrl.includes('?') ? '&' : '?';
+  return `${avatarUrl}${separator}t=${Date.now()}`;
+};
+
+export default function FriendsScreen() {
+  const [isModalVisible, setModalVisible] = useState(false);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | 'none'>('none');
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [pendingRequests, setPendingRequests] = useState<IncomingRequest[]>([]);
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [removingFriendId, setRemovingFriendId] = useState<string | null>(null);
+
+  // ✅ Estado para búsqueda de amigos
+  const [friendSearchQuery, setFriendSearchQuery] = useState('');
+
+  // ✅ Estado para AppAlert
+  const [alert, setAlert] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: AlertType;
+    onConfirm?: () => void;
+    confirmText?: string;
+    showCancel?: boolean;
+    cancelText?: string;
+    onCancel?: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'info',
+  });
+
+  const auth = useAuthStore() as unknown as AuthState;
+  const token = auth?.access_token || auth?.token;
+
+  const { colors } = useThemeStore();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
+  // ✅ Función para mostrar alertas personalizadas
+  const showAlert = (
+    title: string,
+    message: string,
+    type: AlertType = 'info',
+    onConfirm?: () => void,
+    confirmText?: string,
+    showCancel?: boolean,
+    cancelText?: string,
+    onCancel?: () => void
+  ) => {
+    setAlert({
+      visible: true,
+      title,
+      message,
+      type,
+      onConfirm,
+      confirmText: confirmText || 'Aceptar',
+      showCancel: showCancel || false,
+      cancelText: cancelText || 'Cancelar',
+      onCancel,
+    });
+  };
+
+  const loadData = async (showLoadingIndicator = true) => {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+    try {
+      if (showLoadingIndicator) setLoading(true);
+      const friendsRes = await authenticatedFetch(`${API_URL}/friends`, {}, token);
+      const friendsJson = (await friendsRes.json()) as { success: boolean; data?: any[] };
+      const requestsRes = await authenticatedFetch(`${API_URL}/friends/requests`, {}, token);
+      const requestsJson = (await requestsRes.json()) as { success: boolean; received?: any[] };
+
+      if (friendsJson.success && friendsJson.data) {
+        const mappedFriends: Friend[] = friendsJson.data.map((f: any) => ({
+          id: String(f.id),
+          username: String(f.username || ''),
+          avatar_url: f.avatar_url || null,
+          streak_days: Number(f.streak_days || 0),
+          total_study_minutes: Number(f.total_study_minutes || 0),
+          status: 'offline',
+          last_login_at: f.last_login_at || null,
+        }));
+        setFriends(mappedFriends);
+      }
+      if (requestsJson.success && requestsJson.received) {
+        const mappedRequests: IncomingRequest[] = requestsJson.received.map((r: any) => ({
+          id: String(r.id),
+          created_at: String(r.created_at || ''),
+          sender: {
+            id: String(r.sender?.id || ''),
+            username: String(r.sender?.username || 'Usuario'),
+            avatar_url: r.sender?.avatar_url || null,
+          },
+        }));
+        setPendingRequests(mappedRequests);
+      }
+    } catch (error) {
+      console.error('❌ Error cargando datos de amigos:', error);
+      showAlert('Error', 'No se pudieron sincronizar los datos sociales.', 'error');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [token]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadData(false);
+  }, [token]);
+
+  // ✅ Primero definimos sortedFriends
+  const sortedFriends = useMemo(() => {
+    const result = [...friends];
+    if (sortOrder === 'asc') result.sort((a, b) => a.total_study_minutes - b.total_study_minutes);
+    if (sortOrder === 'desc') result.sort((a, b) => b.total_study_minutes - a.total_study_minutes);
+    return result;
+  }, [friends, sortOrder]);
+
+  // ✅ Luego definimos filteredFriends (que depende de sortedFriends)
+  const filteredFriends = useMemo(() => {
+    if (!friendSearchQuery.trim()) return sortedFriends;
+    const query = friendSearchQuery.toLowerCase().trim();
+    return sortedFriends.filter(friend => 
+      friend.username.toLowerCase().includes(query)
+    );
+  }, [sortedFriends, friendSearchQuery]);
+
+  const toggleSort = () => {
+    setSortOrder((prev) => {
+      if (prev === 'none') return 'desc';
+      if (prev === 'desc') return 'asc';
+      return 'none';
+    });
+  };
+
+  // ✅ Eliminar amigo
+  const confirmRemoveFriend = (friendId: string, username: string) => {
+    showAlert(
+      'Eliminar amigo',
+      `¿Seguro que querés eliminar a ${username} de tus amigos?`,
+      'warning',
+      () => handleRemoveFriend(friendId),
+      'Eliminar',
+      true,
+      'Cancelar'
+    );
+  };
+
+  const handleRemoveFriend = async (friendId: string) => {
+    if (!token) return;
+    setRemovingFriendId(friendId);
+    try {
+      const response = await authenticatedFetch(
+        `${API_URL}/friends/${friendId}`,
+        { method: 'DELETE' },
+        token
+      );
+      const json = await response.json();
+      if (json.success) {
+        setFriends((prev) => prev.filter((f) => f.id !== friendId));
+        showAlert('Amigo eliminado', 'El amigo fue eliminado correctamente.', 'success');
+      } else {
+        showAlert('Error', json.error || 'No se pudo eliminar el amigo.', 'error');
+      }
+    } catch (error) {
+      showAlert('Error', 'Ocurrió un error al eliminar el amigo.', 'error');
+    } finally {
+      setRemovingFriendId(null);
+    }
+  };
+
+  const handleAccept = async (id: string, username: string) => {
+    try {
+      const response = await authenticatedFetch(
+        `${API_URL}/friends/requests/${id}/accept`,
+        { method: 'POST' },
+        token
+      );
+      const json = (await response.json()) as { success: boolean; error?: string };
+      if (json.success) {
+        setPendingRequests((prev) => prev.filter((r) => r.id !== id));
+        loadData(false);
+        showAlert('Éxito', `Ahora eres amigo de ${username}`, 'success');
+      } else {
+        showAlert('Error', json.error || 'No se pudo aceptar la solicitud.', 'error');
+      }
+    } catch (err) {
+      showAlert('Error', 'Ocurrió un error en la red al aceptar la solicitud.', 'error');
+    }
+  };
+
+  const handleDecline = async (id: string) => {
+    try {
+      const response = await authenticatedFetch(
+        `${API_URL}/friends/requests/${id}/reject`,
+        { method: 'POST' },
+        token
+      );
+      const json = (await response.json()) as { success: boolean; error?: string };
+      if (json.success) {
+        setPendingRequests((prev) => prev.filter((r) => r.id !== id));
+      } else {
+        showAlert('Error', json.error || 'No se pudo rechazar la solicitud.', 'error');
+      }
+    } catch (err) {
+      showAlert('Error', 'Ocurrió un error en la red al rechazar la solicitud.', 'error');
+    }
+  };
+
+  if (loading) {
+    return (
+      <ScreenLayout title="Amigos" hideBackButton={true}>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.accent} />
+        </View>
+      </ScreenLayout>
+    );
+  }
+
+  return (
+    <ScreenLayout title="Amigos" hideBackButton={true}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
+        }
+      >
+        <View style={styles.header}>
+          <Text style={styles.title}>Amigos</Text>
+          <Pressable style={styles.addBtn} onPress={() => setModalVisible(true)}>
+            <UserPlus size={20} color="#ffffff" />
+            <Text style={styles.addBtnText}>Agregar</Text>
+          </Pressable>
+        </View>
+
+        {pendingRequests.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Solicitudes Pendientes ({pendingRequests.length})</Text>
+            {pendingRequests.map((req) => (
+              <View key={req.id} style={styles.requestCard}>
+                <View style={styles.profileRow}>
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>
+                      {req.sender.username ? req.sender.username[0].toUpperCase() : '?'}
+                    </Text>
+                  </View>
+                  <View>
+                    <Text style={styles.username}>{req.sender.username}</Text>
+                    <Text style={styles.mutual}>Quiere ser tu amigo</Text>
+                  </View>
+                </View>
+                <View style={styles.actions}>
+                  <Pressable
+                    style={[styles.actionBtn, styles.acceptBtn]}
+                    onPress={() => handleAccept(req.id, req.sender.username)}
+                  >
+                    <Check size={16} color="#ffffff" />
+                  </Pressable>
+                  <Pressable
+                    style={[styles.actionBtn, styles.declineBtn]}
+                    onPress={() => handleDecline(req.id)}
+                  >
+                    <X size={16} color={colors.textMuted} />
+                  </Pressable>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Mis Amigos ({friends.length})</Text>
+            <Pressable
+              style={[styles.filterBtn, sortOrder !== 'none' && styles.filterBtnActive]}
+              onPress={toggleSort}
+            >
+              <SlidersHorizontal
+                size={16}
+                color={sortOrder !== 'none' ? colors.accent : colors.textMuted}
+              />
+              <Text
+                style={[
+                  styles.filterText,
+                  sortOrder !== 'none' && styles.filterTextActive,
+                ]}
+              >
+                {sortOrder === 'none'
+                  ? 'Ordenar'
+                  : sortOrder === 'desc'
+                  ? 'Más horas'
+                  : 'Menos horas'}
+              </Text>
+            </Pressable>
+          </View>
+
+          {/* ✅ Buscador de amigos */}
+          <View style={[styles.searchContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Search color={colors.textMuted} size={20} />
+            <TextInput
+              style={[styles.searchInput, { color: colors.text }]}
+              placeholder="Buscar amigo..."
+              placeholderTextColor={colors.textMuted}
+              value={friendSearchQuery}
+              onChangeText={setFriendSearchQuery}
+              clearButtonMode="while-editing"
+            />
+            {friendSearchQuery.length > 0 && (
+              <Pressable onPress={() => setFriendSearchQuery('')}>
+                <Text style={[styles.clearText, { color: colors.accent }]}>✕</Text>
+              </Pressable>
+            )}
+          </View>
+
+          {filteredFriends.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Users2 size={40} color={colors.textMuted} style={styles.emptyIcon} />
+              <Text style={styles.emptyText}>
+                {friendSearchQuery.length > 0 
+                  ? 'No se encontraron amigos con esa búsqueda.' 
+                  : 'Aún no tienes amigos agregados.'}
+              </Text>
+            </View>
+          ) : (
+            filteredFriends.map((friend) => (
+              <View key={friend.id} style={styles.friendCard}>
+                <View style={styles.profileRow}>
+                  <View style={styles.avatarContainer}>
+                    {friend.avatar_url ? (
+                      <Image 
+                        source={{ uri: getAvatarUrlWithCache(friend.avatar_url) }} 
+                        style={styles.avatarImage} 
+                      />
+                    ) : (
+                      <View style={styles.avatar}>
+                        <Text style={styles.avatarText}>
+                          {friend.username ? friend.username[0].toUpperCase() : '?'}
+                        </Text>
+                      </View>
+                    )}
+                    <View
+                      style={[
+                        styles.statusDot,
+                        friend.status === 'online' ? styles.online : styles.offline,
+                      ]}
+                    />
+                  </View>
+                  <View style={styles.friendInfo}>
+                    <Text style={styles.username}>{friend.username}</Text>
+                    <View style={styles.row}>
+                      <View style={styles.streakBadge}>
+                        <Flame size={12} color={colors.warning} />
+                        <Text style={styles.streakLabel}>{friend.streak_days} d</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.lastLoginText}>
+                      {friend.last_login_at
+                        ? `Última conexión: ${getRelativeTime(friend.last_login_at)}`
+                        : 'Sin actividad reciente'}
+                    </Text>
+                  </View>
+
+                  {/* ✅ Botón Eliminar amigo */}
+                  <Pressable
+                    style={[styles.deleteBtn, { borderColor: colors.danger }]}
+                    onPress={() => confirmRemoveFriend(friend.id, friend.username)}
+                    disabled={removingFriendId === friend.id}
+                  >
+                    {removingFriendId === friend.id ? (
+                      <ActivityIndicator size="small" color={colors.danger} />
+                    ) : (
+                      <Trash2 color={colors.danger} size={18} />
+                    )}
+                  </Pressable>
+                </View>
+              </View>
+            ))
+          )}
+        </View>
+      </ScrollView>
+
+      <AddFriendModal
+        visible={isModalVisible}
+        onClose={() => {
+          setModalVisible(false);
+          loadData(false);
+        }}
+      />
+
+      {/* ✅ AppAlert personalizado */}
+      <AppAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        type={alert.type}
+        onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+        onConfirm={() => {
+          if (alert.onConfirm) alert.onConfirm();
+          setAlert(prev => ({ ...prev, visible: false }));
+        }}
+        onCancel={() => {
+          if (alert.onCancel) alert.onCancel();
+          setAlert(prev => ({ ...prev, visible: false }));
+        }}
+        confirmText={alert.confirmText || 'Aceptar'}
+        cancelText={alert.cancelText || 'Cancelar'}
+        showCancel={alert.showCancel || false}
+      />
+    </ScreenLayout>
+  );
+}
+
+// 👇 Función que construye los estilos dinámicamente
+const createStyles = (colors: any) =>
+  StyleSheet.create({
+    center: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.background,
+    },
+    container: {
+      padding: 20,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 25,
+    },
+    title: {
+      fontSize: 28,
+      fontWeight: '900',
+      color: colors.text,
+    },
+    addBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      backgroundColor: colors.accent,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 14,
+    },
+    addBtnText: {
+      color: '#ffffff',
+      fontWeight: 'bold',
+      fontSize: 14,
+    },
+    section: {
+      marginBottom: 25,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 15,
+    },
+    sectionTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: colors.textMuted,
+      letterSpacing: 0.5,
+    },
+    filterBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: colors.surface,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 10,
+    },
+    filterBtnActive: {
+      borderColor: colors.accent,
+      borderWidth: 1,
+    },
+    filterText: {
+      color: colors.textMuted,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    filterTextActive: {
+      color: colors.accent,
+    },
+    searchContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderRadius: 12,
+      borderWidth: 1,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      marginBottom: 12,
+      gap: 10,
+    },
+    searchInput: {
+      flex: 1,
+      fontSize: 15,
+      padding: 0,
+    },
+    clearText: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      paddingHorizontal: 4,
+    },
+    requestCard: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      backgroundColor: colors.surfaceElevated,
+      padding: 15,
+      borderRadius: 16,
+      marginBottom: 10,
+    },
+    friendCard: {
+      backgroundColor: colors.surfaceElevated,
+      padding: 16,
+      borderRadius: 24,
+      marginBottom: 15,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    profileRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    friendInfo: {
+      flex: 1,
+    },
+    avatarContainer: {
+      position: 'relative',
+      width: 45,
+      height: 45,
+    },
+    avatar: {
+      width: 45,
+      height: 45,
+      borderRadius: 22,
+      backgroundColor: colors.avatarAccent,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 2,
+      borderColor: colors.accent,
+    },
+    avatarImage: {
+      width: 45,
+      height: 45,
+      borderRadius: 22,
+      borderWidth: 2,
+      borderColor: colors.accent,
+    },
+    avatarText: {
+      color: colors.avatarText,
+      fontWeight: 'bold',
+      fontSize: 16,
+    },
+    statusDot: {
+      position: 'absolute',
+      bottom: 0,
+      right: 0,
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+      borderWidth: 2,
+      borderColor: colors.surfaceElevated,
+    },
+    online: {
+      backgroundColor: colors.accent,
+    },
+    offline: {
+      backgroundColor: colors.textMuted,
+    },
+    username: {
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: 'bold',
+    },
+    mutual: {
+      color: colors.textMuted,
+      fontSize: 12,
+      marginTop: 2,
+    },
+    row: {
+      flexDirection: 'row',
+      gap: 10,
+      marginTop: 6,
+    },
+    streakBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: colors.warningSoft,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 15,
+    },
+    streakLabel: {
+      color: colors.warning,
+      fontSize: 12,
+      fontWeight: 'bold',
+    },
+    lastLoginText: {
+      color: colors.textMuted,
+      fontSize: 12,
+      marginTop: 4,
+    },
+    deleteBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+    },
+    actions: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    actionBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    acceptBtn: {
+      backgroundColor: colors.accent,
+    },
+    declineBtn: {
+      backgroundColor: colors.surface,
+    },
+    emptyContainer: {
+      alignItems: 'center',
+      paddingVertical: 30,
+    },
+    emptyIcon: {
+      marginBottom: 10,
+      opacity: 0.5,
+    },
+    emptyText: {
+      color: colors.textMuted,
+      fontSize: 14,
+    },
+  });

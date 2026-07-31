@@ -1,0 +1,38 @@
+{
+  "compilerOptions": {
+    /* Layout del Proyecto */
+    "rootDir": "./src",
+    "outDir": "./dist",
+
+    /* Entorno y Módulos */
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "types": ["node"],
+
+    /* Salidas para Debugging */
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+
+    /* Interoperabilidad y Estilo */
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
+
+    /* Configuración de Módulos Modernos */
+    "moduleDetection": "force",
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true
+  },
+  "ts-node": {
+    /* Vital para que 'npm run dev' funcione en Windows con ESM */
+    "esm": true,
+    "experimentalSpecifierResolution": "node",
+    "transpileOnly": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "**/*.test.ts"]
+}
