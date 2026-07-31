@@ -1,0 +1,823 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { BarChart3, BrainCircuit, CalendarClock, ChevronRight, FolderOpen, Info, MessageCircle, Settings, Swords, ThermometerSun, UserPlus, Users } from 'lucide-react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import ScreenLayout from '../../../components/ui/ScreenLayout';
+import AppAlert, { type AlertType } from '../../../components/ui/AppAlert';
+import { useAppDataStore } from '../../../store/appDataStore';
+import { useAuthStore } from '../../../store/authStore';
+import EvidenceUploadModal from '../components/EvidenceUploadModal';
+import InviteFriendsModal from '../components/InviteFriendsModal';
+import LeaveRoomButton from '../components/LeaveRoomButton';
+import ReviewPeerSessionsModal from '../components/ReviewPeerSessionsModal';
+import RoomAdminModal from '../components/RoomAdminModal';
+import RoomInfoModal from '../components/RoomInfoModal';
+import RoomRanking from '../components/RoomRanking';
+import RoomChatModal from '../components/RoomChatModal';
+import SessionConfigModal, { type SessionConfigData } from '../components/SessionConfigModal';
+import TeamsSection from '../components/TeamsSection';
+import { useStudyTimer } from '../components/useStudyTimer';
+import { type RoomDetails } from '../services/roomsService';
+import { fetchPendingSessionReviews } from '../services/sessionsService';
+import { fetchRoomMessages, sendRoomMessage, type RoomMessage } from '../services/chatService';
+import { fetchWeeklyQuizStatus, type WeeklyQuizStatusResult } from '../services/battleRoyaleService';
+import { useThemeStore } from '../../../store/themeStore';
+
+const POLLING_INTERVAL_MS = 60000; // 60 segundos
+
+export default function BattleRoyaleScreen() {
+    const route = useRoute<any>();
+    const navigation = useNavigation<any>();
+    const accessToken = useAuthStore(state => state.access_token);
+    const currentUser = useAuthStore(state => state.user);
+    const currentProfile = useAppDataStore(state => state.profile.data);
+    const loadRoomDetails = useAppDataStore(state => state.loadRoomDetails);
+    const loadRoomRanking = useAppDataStore(state => state.loadRoomRanking);
+    const setRoomDetails = useAppDataStore(state => state.setRoomDetails);
+    const invalidateAfterValidStudySession = useAppDataStore(state => state.invalidateAfterValidStudySession);
+    const markRoomActivity = useAppDataStore(state => state.markRoomActivity);
+    const colors = useThemeStore(state => state.colors);
+
+    const [configVisible, setConfigVisible] = useState(false);
+    const [adminVisible, setAdminVisible] = useState(false);
+    const [infoVisible, setInfoVisible] = useState(false);
+    const [chatVisible, setChatVisible] = useState(false);
+    const [inviteFriendsVisible, setInviteFriendsVisible] = useState(false);
+    const [evidenceVisible, setEvidenceVisible] = useState(false);
+    const [reviewPeersVisible, setReviewPeersVisible] = useState(false);
+    const [activeSessionMinutes, setActiveSessionMinutes] = useState(0);
+    const [room, setRoom] = useState<RoomDetails | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [sessionType, setSessionType] = useState<'pomodoro' | 'free'>('pomodoro');
+    const [durationMinutes, setDurationMinutes] = useState(30);
+
+    const [pendingReviewsCount, setPendingReviewsCount] = useState(0);
+
+    // ✅ Estado para mensajes del chat y badge
+    const [messages, setMessages] = useState<RoomMessage[]>([]);
+    const [lastMessageCreatedAt, setLastMessageCreatedAt] = useState<string | undefined>(undefined);
+    const [unreadChatCount, setUnreadChatCount] = useState(0);
+
+    // ✅ Estado para el badge del quiz
+    const [quizBadgeVisible, setQuizBadgeVisible] = useState(false);
+
+    // ✅ Estado para AppAlert
+    const [alert, setAlert] = useState<{
+        visible: boolean;
+        title: string;
+        message: string;
+        type: AlertType;
+        onConfirm?: () => void;
+        confirmText?: string;
+        showCancel?: boolean;
+        cancelText?: string;
+        onCancel?: () => void;
+    }>({
+        visible: false,
+        title: '',
+        message: '',
+        type: 'info',
+    });
+
+    const targetRoomId = route.params?.roomId ? String(route.params.roomId) : null;
+
+    // ✅ Función para mostrar alertas personalizadas
+    const showAlert = (
+        title: string,
+        message: string,
+        type: AlertType = 'info',
+        onConfirm?: () => void,
+        confirmText?: string,
+        showCancel?: boolean,
+        cancelText?: string,
+        onCancel?: () => void
+    ) => {
+        setAlert({
+            visible: true,
+            title,
+            message,
+            type,
+            onConfirm,
+            confirmText: confirmText || 'Aceptar',
+            showCancel: showCancel || false,
+            cancelText: cancelText || 'Cancelar',
+            onCancel,
+        });
+    };
+
+    // ── Funciones de polling ──
+    const fetchNewMessages = async () => {
+        if (!accessToken || !targetRoomId) return;
+        try {
+            const newMessages = await fetchRoomMessages(accessToken, targetRoomId, {
+                after: lastMessageCreatedAt,
+                limit: 50
+            });
+            if (newMessages.length === 0) return;
+
+            setMessages(prev => {
+                const map = new Map(prev.map(m => [m.id, m]));
+                newMessages.forEach(m => map.set(m.id, m));
+                return Array.from(map.values()).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+            });
+
+            const latest = newMessages.reduce((a, b) => new Date(a.created_at) > new Date(b.created_at) ? a : b);
+            if (latest) {
+                setLastMessageCreatedAt(latest.created_at);
+            }
+
+            if (!chatVisible) {
+                setUnreadChatCount(prev => prev + newMessages.length);
+            }
+        } catch (error) {
+            console.warn('Error en polling de chat:', error);
+        }
+    };
+
+    // ── Envío de mensaje ──
+    const handleSendMessage = async (content: string) => {
+        if (!accessToken || !targetRoomId || !content.trim()) return;
+        try {
+            const newMsg = await sendRoomMessage(accessToken, targetRoomId, content.trim());
+            setMessages(prev => [...prev, newMsg].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
+            setLastMessageCreatedAt(newMsg.created_at);
+        } catch (error: any) {
+            showAlert('Error', error.message ?? 'No se pudo enviar el mensaje.', 'error');
+        }
+    };
+
+    // ── Efecto de polling ──
+    useEffect(() => {
+        if (!accessToken || !targetRoomId) return;
+
+        const loadInitialMessages = async () => {
+            try {
+                const initialMessages = await fetchRoomMessages(accessToken, targetRoomId, { limit: 50 });
+                if (initialMessages.length > 0) {
+                    setMessages(initialMessages);
+                    const latest = initialMessages.reduce((a, b) => new Date(a.created_at) > new Date(b.created_at) ? a : b);
+                    setLastMessageCreatedAt(latest.created_at);
+                }
+            } catch (error) {
+                console.warn('Error al cargar mensajes iniciales:', error);
+            }
+        };
+        loadInitialMessages();
+
+        const intervalId = setInterval(fetchNewMessages, POLLING_INTERVAL_MS);
+
+        return () => clearInterval(intervalId);
+    }, [accessToken, targetRoomId]);
+
+    // ── Efecto para cargar el estado del quiz ──
+    useEffect(() => {
+        const loadQuizStatus = async () => {
+            if (!accessToken || !targetRoomId) return;
+            try {
+                const status: WeeklyQuizStatusResult = await fetchWeeklyQuizStatus(accessToken, targetRoomId);
+                if (status.quiz_id && !status.has_completed) {
+                    setQuizBadgeVisible(true);
+                } else {
+                    setQuizBadgeVisible(false);
+                }
+            } catch (error) {
+                console.warn('Error al cargar estado del quiz:', error);
+                setQuizBadgeVisible(false);
+            }
+        };
+
+        loadQuizStatus();
+    }, [accessToken, targetRoomId]);
+
+    // ── Manejo de sesión ──
+    const handleSessionEnded = (result: any) => {
+        if (result.status === 'invalid') {
+            showAlert(
+                'Sesión guardada',
+                `Estudiaste ${result.duration_minutes} minutos. Recordá que se necesita un mínimo de 30 minutos para validar la sesión.`,
+                'info'
+            );
+            if (targetRoomId) {
+                invalidateAfterValidStudySession(targetRoomId);
+            }
+            return;
+        }
+
+        if (result.status === 'pending') {
+            setActiveSessionMinutes(result.duration_minutes);
+            setEvidenceVisible(true);
+        }
+
+        if (result.duration_minutes >= 30 && targetRoomId) {
+            markRoomActivity(targetRoomId);
+            invalidateAfterValidStudySession(targetRoomId);
+        }
+
+        showAlert(
+            'Sesión finalizada',
+            `Estudiaste ${result.duration_minutes} minutos.`,
+            result.duration_minutes >= 30 ? 'success' : 'warning'
+        );
+    };
+
+    const {
+        status,
+        setStatus,
+        setSessionId,
+        sessionId,
+        displaySeconds,
+        setDisplaySeconds,
+        startSession,
+        pauseSession,
+        resumeSession,
+        endSession,
+    } = useStudyTimer({
+        roomId: targetRoomId,
+        initialMode: sessionType,
+        initialDurationMinutes: durationMinutes,
+        onSessionEnded: handleSessionEnded,
+    });
+
+    useEffect(() => {
+        loadRoom();
+    }, [route.params?.roomId, accessToken]);
+
+    useEffect(() => {
+        const loadPendingCount = async () => {
+            if (!accessToken || !targetRoomId) return;
+            try {
+                const data = await fetchPendingSessionReviews(accessToken, targetRoomId);
+                setPendingReviewsCount(data.length);
+            } catch (error) {
+                console.warn('Error al cargar revisiones pendientes:', error);
+            }
+        };
+
+        loadPendingCount();
+    }, [accessToken, targetRoomId]);
+
+    const loadRoom = async (options?: { force?: boolean; showLoading?: boolean }) => {
+        if (!accessToken || !targetRoomId) return;
+
+        const shouldShowLoading = options?.showLoading ?? true;
+        if (shouldShowLoading) setLoading(true);
+        try {
+            const data = await loadRoomDetails(accessToken, targetRoomId, { force: options?.force });
+            if (data) {
+                setRoom(data);
+                setRoomDetails(data);
+            }
+
+            if (options?.force) {
+                try {
+                    await loadRoomRanking(accessToken, targetRoomId, { force: true });
+                } catch (rankingError) {
+                    console.error('No se pudo actualizar el ranking de sala:', rankingError);
+                }
+            }
+        } catch (error: any) {
+            showAlert('Error de sala', error.message ?? 'No se pudo cargar la sala.', 'error');
+        } finally {
+            if (shouldShowLoading) setLoading(false);
+        }
+    };
+
+    const handleRefresh = async () => {
+        setRefreshing(true);
+        try {
+            await loadRoom({ force: true, showLoading: false });
+            if (accessToken && targetRoomId) {
+                const data = await fetchPendingSessionReviews(accessToken, targetRoomId);
+                setPendingReviewsCount(data.length);
+                const freshMessages = await fetchRoomMessages(accessToken, targetRoomId, { limit: 50 });
+                if (freshMessages.length > 0) {
+                    setMessages(freshMessages);
+                    const latest = freshMessages.reduce((a, b) => new Date(a.created_at) > new Date(b.created_at) ? a : b);
+                    setLastMessageCreatedAt(latest.created_at);
+                    setUnreadChatCount(0);
+                }
+                const quizStatus = await fetchWeeklyQuizStatus(accessToken, targetRoomId);
+                if (quizStatus.quiz_id && !quizStatus.has_completed) {
+                    setQuizBadgeVisible(true);
+                } else {
+                    setQuizBadgeVisible(false);
+                }
+            }
+        } catch (error) {
+            console.warn('Error al refrescar:', error);
+        } finally {
+            setRefreshing(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <ScreenLayout title="BATTLE ROYALE" type="rooms" icon={<Swords color={colors.purple} size={22} />}>
+                <View style={styles.loadingState}>
+                    <ActivityIndicator color={colors.purple} />
+                    <Text style={[styles.loadingText, { color: colors.textMuted }]}>Cargando sala...</Text>
+                </View>
+            </ScreenLayout>
+        );
+    }
+
+    const currentUserId = currentUser?.id ?? currentProfile?.id;
+    const isOwner = Boolean(room && currentUserId === room.owner_id);
+    const isEnfocused = status === 'running' || status === 'paused' || status === 'starting' || status === 'finishing';
+
+    const handleRoomUpdated = (updatedRoom: RoomDetails) => {
+        setRoom(updatedRoom);
+        setRoomDetails(updatedRoom);
+    };
+
+    const handleSaveConfig = (newConfig: SessionConfigData) => {
+        if (status !== 'idle') {
+            showAlert('Acción bloqueada', 'No podes cambiar la configuración en medio de una sesión activa.', 'warning');
+            return;
+        }
+
+        setSessionType(newConfig.sessionType === 'libre' ? 'free' : 'pomodoro');
+        setDurationMinutes(newConfig.duration);
+    };
+
+    const getDisplayTime = () => {
+        const mins = Math.floor(displaySeconds / 60);
+        const secs = displaySeconds % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    return (
+        <ScreenLayout
+            title={room?.name ?? 'BATTLE ROYALE'}
+            type="rooms"
+            icon={<Swords color={colors.purple} size={22} />}
+            hideBackButton={isEnfocused}
+            hideRightAction={isEnfocused}
+            rightAction={
+                room && !isEnfocused ? (
+                    <View style={styles.headerActions}>
+                        <Pressable
+                            style={[styles.infoBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
+                            onPress={() => {
+                                setChatVisible(true);
+                                setUnreadChatCount(0);
+                            }}
+                        >
+                            <View style={styles.chatIconWrapper}>
+                                <MessageCircle color={colors.purple} size={20} />
+                                {unreadChatCount > 0 && (
+                                    <View style={[styles.chatBadge, { backgroundColor: colors.danger }]}>
+                                        <Text style={[styles.badgeText, { color: colors.text }]}>{unreadChatCount}</Text>
+                                    </View>
+                                )}
+                            </View>
+                        </Pressable>
+                        <Pressable style={[styles.infoBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]} onPress={() => setInfoVisible(true)}>
+                            <Info color={colors.purple} size={20} />
+                        </Pressable>
+                    </View>
+                ) : undefined
+            }
+        >
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                scrollEnabled={!isEnfocused}
+                contentContainerStyle={[styles.scrollContent, isEnfocused && styles.focusScrollContent]}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={handleRefresh}
+                        enabled={!isEnfocused}
+                        tintColor={colors.purple}
+                        colors={[colors.purple]}
+                    />
+                }
+            >
+                {!isEnfocused && (
+                    <Pressable style={[styles.configCard, { backgroundColor: colors.input, borderColor: colors.border }]} onPress={() => setConfigVisible(true)}>
+                        <View style={[styles.configIconBox, { backgroundColor: colors.input }]}>
+                            <Settings color={colors.purple} size={24} />
+                        </View>
+                        <View style={styles.configInfo}>
+                            <Text style={[styles.configTitle, { color: colors.text }]}>Configurar Sesión</Text>
+                            <Text style={[styles.configSub, { color: colors.textSoft }]}>
+                                {sessionType === 'pomodoro' ? `Pomodoro - ${durationMinutes} min` : 'Modo Libre - Sin límite'}
+                            </Text>
+                        </View>
+                        <ChevronRight color={colors.textMuted} size={20} />
+                    </Pressable>
+                )}
+
+                <View style={[styles.timerSection, isEnfocused && styles.focusTimerSection]}>
+                    <TimerProgressRing
+                        isPomodoro={sessionType === 'pomodoro'}
+                        remainingRatio={durationMinutes > 0 ? displaySeconds / (durationMinutes * 60) : 0}
+                    >
+                        {status === 'starting' || status === 'finishing' ? (
+                            <ActivityIndicator color={colors.purple} size="large" />
+                        ) : (
+                            <Text style={[styles.timerValue, { color: colors.text }]}>{getDisplayTime()}</Text>
+                        )}
+                        <Text style={[styles.timerCycles, { color: colors.textSoft }]}>
+                            {status === 'paused' ? 'Sesión Pausada' : sessionType === 'pomodoro' ? 'Fase de Enfoque' : 'Tiempo Acumulado'}
+                        </Text>
+                    </TimerProgressRing>
+                </View>
+
+                <View style={[styles.controlsContainer, isEnfocused && styles.focusControlsContainer]}>
+                    {status === 'idle' && (
+                        <Pressable onPress={startSession} style={[styles.startBtn, { backgroundColor: colors.purple }]}>
+                            <Text style={[styles.startBtnText, { color: colors.text }]}>COMENZAR SESIÓN</Text>
+                        </Pressable>
+                    )}
+
+                    {status === 'running' && (
+                        <View style={styles.rowControls}>
+                            <Pressable onPress={pauseSession} style={[styles.controlBtn, styles.pauseBtn, { backgroundColor: colors.warning }]}>
+                                <Text style={[styles.startBtnText, { color: colors.text }]}>PAUSAR</Text>
+                            </Pressable>
+                            <Pressable onPress={endSession} style={[styles.controlBtn, styles.finishBtn, { backgroundColor: colors.danger }]}>
+                                <Text style={[styles.startBtnText, { color: colors.text }]}>FINALIZAR</Text>
+                            </Pressable>
+                        </View>
+                    )}
+
+                    {status === 'paused' && (
+                        <View style={styles.rowControls}>
+                            <Pressable onPress={resumeSession} style={[styles.controlBtn, styles.resumeBtn, { backgroundColor: colors.cyan }]}>
+                                <Text style={[styles.startBtnText, { color: colors.text }]}>REANUDAR</Text>
+                            </Pressable>
+                            <Pressable onPress={endSession} style={[styles.controlBtn, styles.finishBtn, { backgroundColor: colors.danger }]}>
+                                <Text style={[styles.startBtnText, { color: colors.text }]}>FINALIZAR</Text>
+                            </Pressable>
+                        </View>
+                    )}
+                </View>
+
+                {!isEnfocused && (
+                    <>
+                        <RoomRanking roomId={room?.id} roomType="battle_royale" />
+
+                        <Pressable
+                            style={[styles.configCard, styles.reviewCard, styles.relativeContainer, { backgroundColor: colors.input, borderColor: colors.purple }]}
+                            onPress={() => setReviewPeersVisible(true)}
+                        >
+                            <View style={[styles.configIconBox, { backgroundColor: colors.purpleSoft }]}>
+                                <Users color={colors.purple} size={24} />
+                            </View>
+                            <View style={styles.configInfo}>
+                                <Text style={[styles.configTitle, { color: colors.text }]}>Validar Compañeros</Text>
+                                <Text style={[styles.configSub, { color: colors.textSoft }]}>Panel de verificación social de apuntes y evidencias</Text>
+                            </View>
+                            <ChevronRight color={colors.textMuted} size={20} />
+
+                            {pendingReviewsCount > 0 && (
+                                <View style={[styles.badge, { backgroundColor: colors.danger }]}>
+                                    <Text style={[styles.badgeText, { color: colors.text }]}>{pendingReviewsCount}</Text>
+                                </View>
+                            )}
+                        </Pressable>
+
+                        <Pressable style={[styles.inviteFriendsBtn, { backgroundColor: colors.info }]} onPress={() => setInviteFriendsVisible(true)}>
+                            <UserPlus color={colors.text} size={22} />
+                            <Text style={[styles.inviteFriendsBtnText, { color: colors.text }]}>Invitar Amigos a la Sala</Text>
+                        </Pressable>
+
+                        <Pressable
+                            style={[styles.vaultBtn, { backgroundColor: colors.cyan }]}
+                            onPress={() => room?.id && navigation.navigate('RoomVault', {
+                                roomId: room.id,
+                                roomName: room.name,
+                                accentColor: colors.cyan,
+                            })}
+                        >
+                            <FolderOpen color={colors.text} size={22} />
+                            <Text style={[styles.inviteFriendsBtnText, { color: colors.text }]}>The Vault</Text>
+                        </Pressable>
+
+                        {room?.teams_enabled && accessToken && room?.id && (
+                            <TeamsSection roomId={room.id} accessToken={accessToken} mode="battle_royale" />
+                        )}
+
+                        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>QUIZ SEMANAL</Text>
+                        <Pressable
+                            style={[styles.quizBtn, styles.relativeContainer, { backgroundColor: colors.purple }]}
+                            onPress={() => {
+                                setQuizBadgeVisible(false);
+                                if (room?.id) {
+                                    navigation.navigate('WeeklyQuiz', { roomId: room.id, roomName: room.name });
+                                }
+                            }}
+                        >
+                            <CalendarClock color={colors.text} size={24} />
+                            <Text style={[styles.quizBtnText, { color: colors.text }]}>Quiz Semanal</Text>
+                            {quizBadgeVisible && (
+                                <View style={[styles.badge, styles.quizBadge, { backgroundColor: colors.danger }]}>
+                                    <Text style={[styles.badgeText, { color: colors.text }]}>!</Text>
+                                </View>
+                            )}
+                        </Pressable>
+                        <Text style={[styles.hintText, { color: colors.textSoft }]}>Configuración, carga de preguntas y estado del cuestionario.</Text>
+
+                        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>PRÁCTICA</Text>
+                        <Pressable
+                            style={[styles.practiceBtn, { backgroundColor: colors.accent }]}
+                            onPress={() => room?.id && navigation.navigate('PracticeQuiz', { roomId: room.id, roomName: room.name })}
+                        >
+                            <BrainCircuit color={colors.text} size={24} />
+                            <Text style={[styles.quizBtnText, { color: colors.text }]}>Quiz Atemporal</Text>
+                        </Pressable>
+                        <Text style={[styles.hintText, { color: colors.textSoft }]}>Práctica atemporal. No guarda resultados ni afecta rankings.</Text>
+
+                        <Text style={[styles.sectionLabel, { color: colors.textMuted }]}>ANÁLISIS</Text>
+                        <Pressable
+                            style={[styles.dashboardBtn, { backgroundColor: colors.cyan }]}
+                            onPress={() => room?.id && navigation.navigate('SmartDashboard', { roomId: room.id, roomName: room.name, scope: 'room' })}
+                        >
+                            <BarChart3 color={colors.text} size={24} />
+                            <Text style={[styles.quizBtnText, { color: colors.text }]}>Dashboard de Sala</Text>
+                        </Pressable>
+                        <Text style={[styles.hintText, { color: colors.textSoft }]}>Resumen semanal de estudio, quizzes e insights de esta sala.</Text>
+
+                        <Pressable
+                            style={[styles.heatmapBtn, { backgroundColor: colors.warning }]}
+                            onPress={() => room?.id && navigation.navigate('DifficultyHeatmap', { roomId: room.id, roomName: room.name, scope: 'room' })}
+                        >
+                            <ThermometerSun color={colors.text} size={24} />
+                            <Text style={[styles.quizBtnText, { color: colors.text }]}>Heatmap de Dificultad</Text>
+                        </Pressable>
+                        <Text style={[styles.hintText, { color: colors.textSoft }]}>Detecta los temas con más errores validados en la sala.</Text>
+
+                        <LeaveRoomButton roomId={room?.id} />
+                    </>
+                )}
+            </ScrollView>
+
+            <SessionConfigModal visible={configVisible} onClose={() => setConfigVisible(false)} onSave={handleSaveConfig} />
+            {room && (
+                <RoomInfoModal
+                    visible={infoVisible}
+                    room={room}
+                    accessToken={accessToken}
+                    currentUserId={currentUserId}
+                    onClose={() => setInfoVisible(false)}
+                    onRoomUpdated={handleRoomUpdated}
+                    canConfigure={isOwner && !isEnfocused}
+                    onOpenAdmin={() => {
+                        setInfoVisible(false);
+                        setAdminVisible(true);
+                    }}
+                />
+            )}
+            {room && accessToken && (
+                <RoomAdminModal
+                    visible={adminVisible && !isEnfocused}
+                    room={room}
+                    accessToken={accessToken}
+                    currentUserId={currentUserId}
+                    onClose={() => setAdminVisible(false)}
+                    onRoomUpdated={handleRoomUpdated}
+                />
+            )}
+            {room && accessToken && (
+                <InviteFriendsModal
+                    visible={inviteFriendsVisible}
+                    onClose={() => setInviteFriendsVisible(false)}
+                    roomId={room.id}
+                    accessToken={accessToken}
+                />
+            )}
+            <EvidenceUploadModal
+                visible={evidenceVisible}
+                sessionId={sessionId}
+                accessToken={accessToken}
+                durationMinutes={activeSessionMinutes}
+                onSuccess={() => {
+                    setEvidenceVisible(false);
+                    setDisplaySeconds(sessionType === 'pomodoro' ? durationMinutes * 60 : 0);
+                    setSessionId(null);
+                    setStatus('idle');
+                    if (targetRoomId) {
+                        invalidateAfterValidStudySession(targetRoomId);
+                    }
+                }}
+                onCancel={() => {
+                    setEvidenceVisible(false);
+                    setDisplaySeconds(sessionType === 'pomodoro' ? durationMinutes * 60 : 0);
+                    setSessionId(null);
+                    setStatus('idle');
+                    if (targetRoomId) {
+                        invalidateAfterValidStudySession(targetRoomId);
+                    }
+                }}
+            />
+            <ReviewPeerSessionsModal
+                visible={reviewPeersVisible}
+                roomId={targetRoomId}
+                accessToken={accessToken}
+                onClose={() => setReviewPeersVisible(false)}
+                onRefreshRanking={() => {
+                    if (targetRoomId) {
+                        invalidateAfterValidStudySession(targetRoomId);
+                    }
+                }}
+                onReviewProcessed={(count) => setPendingReviewsCount(count)}
+            />
+            {room && (
+                <RoomChatModal
+                    visible={chatVisible}
+                    roomId={room.id}
+                    roomName={room.name}
+                    accentColor={colors.purple}
+                    onClose={() => setChatVisible(false)}
+                    messages={messages}
+                    onSendMessage={handleSendMessage}
+                />
+            )}
+
+            {/* ✅ AppAlert personalizado */}
+            <AppAlert
+                visible={alert.visible}
+                title={alert.title}
+                message={alert.message}
+                type={alert.type}
+                onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
+                onConfirm={() => {
+                    if (alert.onConfirm) alert.onConfirm();
+                    setAlert(prev => ({ ...prev, visible: false }));
+                }}
+                onCancel={() => {
+                    if (alert.onCancel) alert.onCancel();
+                    setAlert(prev => ({ ...prev, visible: false }));
+                }}
+                confirmText={alert.confirmText || 'Aceptar'}
+                cancelText={alert.cancelText || 'Cancelar'}
+                showCancel={alert.showCancel || false}
+            />
+        </ScreenLayout>
+    );
+}
+
+// ── Componentes auxiliares sin cambios ──
+function TimerProgressRing({
+    children,
+    isPomodoro,
+    remainingRatio,
+}: {
+    children: React.ReactNode;
+    isPomodoro: boolean;
+    remainingRatio: number;
+}) {
+    const colors = useThemeStore(state => state.colors);
+    const ticks = Array.from({ length: 48 }, (_, index) => index);
+    const safeRemaining = Math.max(0, Math.min(1, remainingRatio));
+
+    return (
+        <View style={[styles.timerCircle, { backgroundColor: colors.input }, !isPomodoro && [styles.freeTimerCircle, { borderColor: colors.purple }]]}>
+            {isPomodoro && (
+                <View pointerEvents="none" style={styles.tickLayer}>
+                    {ticks.map(index => (
+                        <TimerTick
+                            key={index}
+                            index={index}
+                            total={ticks.length}
+                            remainingRatio={safeRemaining}
+                        />
+                    ))}
+                </View>
+            )}
+            <View style={[styles.timerInner, { backgroundColor: colors.input, borderColor: colors.surfaceElevated }]}>{children}</View>
+        </View>
+    );
+}
+
+    function TimerTick({
+    index,
+    total,
+    remainingRatio,
+}: {
+    index: number;
+    total: number;
+    remainingRatio: number;
+}) {
+    const colors = useThemeStore(state => state.colors);
+    const opacity = useSharedValue(1);
+    const scale = useSharedValue(1);
+    const active = index / total < remainingRatio;
+    const angle = (index / total) * 360;
+
+    useEffect(() => {
+        opacity.value = withTiming(active ? 1 : 0.18, { duration: 280 });
+        scale.value = withTiming(active ? 1 : 0.72, { duration: 280 });
+    }, [active, opacity, scale]);
+
+    const animatedStyle = useAnimatedStyle(() => ({
+        opacity: opacity.value,
+        transform: [
+            { rotate: `${angle}deg` },
+            { translateY: -136 },
+            { scale: scale.value },
+        ],
+    }));
+
+    return <Animated.View style={[styles.timerTick, { backgroundColor: colors.purple }, animatedStyle]} />;
+}
+
+const styles = StyleSheet.create({
+    loadingState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+    loadingText: { color: '#94a3b8', fontWeight: 'bold' },
+    scrollContent: { paddingBottom: 100, paddingVertical: 10 },
+    focusScrollContent: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingBottom: 24, paddingVertical: 24 },
+    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    infoBtn: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#1e293b',
+        borderWidth: 1,
+        borderColor: '#334155',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    chatIconWrapper: { position: 'relative', width: 20, height: 20 },
+    chatBadge: {
+        position: 'absolute',
+        top: -8,
+        right: -10,
+        backgroundColor: '#ef4444',
+        borderRadius: 10,
+        minWidth: 18,
+        height: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 4,
+        zIndex: 5,
+    },
+    configCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#0f172a',
+        padding: 15,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#334155'
+    },
+    reviewCard: { marginTop: 12, borderColor: '#7e22ce' },
+    configIconBox: { width: 48, height: 48, borderRadius: 12, backgroundColor: '#0f172a', alignItems: 'center', justifyContent: 'center' },
+    configInfo: { flex: 1, marginLeft: 15 },
+    configTitle: { color: 'white', fontSize: 16, fontWeight: 'bold' },
+    configSub: { color: '#64748b', fontSize: 13 },
+    timerSection: { alignItems: 'center', marginVertical: 30 },
+    focusTimerSection: { marginVertical: 0, marginBottom: 30 },
+    timerCircle: { width: 280, height: 280, borderRadius: 140, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a' },
+    freeTimerCircle: { borderWidth: 8, borderColor: '#a855f7' },
+    tickLayer: { position: 'absolute', width: 280, height: 280, alignItems: 'center', justifyContent: 'center' },
+    timerTick: { position: 'absolute', width: 6, height: 18, borderRadius: 999, backgroundColor: '#a855f7' },
+    timerInner: { width: 232, height: 232, borderRadius: 116, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a', borderWidth: 1, borderColor: '#1e293b', gap: 6 },
+    timerValue: { color: 'white', fontSize: 64, fontWeight: '900' },
+    timerCycles: { color: '#64748b', fontSize: 16, fontWeight: 'bold' },
+    controlsContainer: { marginBottom: 20 },
+    focusControlsContainer: { marginTop: 8, marginBottom: 0, width: '100%' },
+    startBtn: { height: 64, borderRadius: 24, backgroundColor: '#a855f7', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 20 },
+    startBtnText: { color: 'white', fontSize: 18, fontWeight: '900' },
+    rowControls: { flexDirection: 'row', gap: 12, width: '100%' },
+    controlBtn: { flex: 1, height: 64, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+    pauseBtn: { backgroundColor: '#f59e0b' },
+    resumeBtn: { backgroundColor: '#06b6d4' },
+    finishBtn: { backgroundColor: '#dc2626' },
+    inviteFriendsBtn: { backgroundColor: '#3b82f6', height: 52, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 14, marginTop: 12 },
+    vaultBtn: { backgroundColor: '#0f766e', height: 52, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 14 },
+    inviteFriendsBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+    sectionLabel: { color: '#94a3b8', fontSize: 14, fontWeight: 'bold', marginTop: 25, marginBottom: 15 },
+    quizBtn: { backgroundColor: '#a855f7', padding: 20, borderRadius: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+    practiceBtn: { backgroundColor: '#22c55e', padding: 20, borderRadius: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+    dashboardBtn: { backgroundColor: '#0ea5e9', padding: 20, borderRadius: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+    heatmapBtn: { backgroundColor: '#f97316', padding: 20, borderRadius: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+    quizBtnText: { color: 'white', fontWeight: '900', fontSize: 18 },
+    hintText: { color: '#64748b', fontSize: 12, textAlign: 'center', marginTop: 10 },
+    relativeContainer: { position: 'relative' },
+    badge: {
+        position: 'absolute',
+        top: -8,
+        right: -10,
+        backgroundColor: '#ef4444',
+        borderRadius: 10,
+        paddingHorizontal: 5,
+        minWidth: 18,
+        height: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 5,
+    },
+    badgeText: {
+        color: 'white',
+        fontSize: 10,
+        fontWeight: 'bold',
+        textAlign: 'center',
+    },
+    quizBadge: {
+        // Por si se necesita algún ajuste, se puede usar el mismo badge general
+    },
+});

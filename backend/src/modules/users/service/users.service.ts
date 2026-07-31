@@ -1,0 +1,176 @@
+import { UsersRepository } from '../repository/users.repository.js';
+import {
+  UserConflictError,
+  UserNotFoundError,
+  UserValidationError,
+  type FullProfile,
+  type StreakProtectionState,
+  type StreakStatus,
+  type UpdateProfileDTO,
+} from '../types/users.types.js';
+
+const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,30}$/;
+
+export const UsersService = {
+  async getFullProfile(userId: string): Promise<FullProfile> {
+    // RF-03: compone perfil basico, estadisticas semanales y estado de aldea.
+    await UsersRepository.applyDueStreakProtections(userId);
+    await UsersRepository.resetExpiredStreak(userId);
+
+    const profile = await UsersRepository.findProfileById(userId);
+
+    if (!profile) {
+      throw new UserNotFoundError('Usuario no encontrado');
+    }
+
+    const [weeklyStats, weeklyCoinsEarned, weeklyDailyMinutes, village, streakCompletedToday, streakProtection, authProviders] = await Promise.all([
+      UsersRepository.getWeeklyStats(userId, getWeekYear()),
+      UsersRepository.getWeeklyCoinsEarned(userId),
+      UsersRepository.getWeeklyDailyMinutes(userId),
+      UsersRepository.getVillageState(userId),
+      UsersRepository.hasCompletedValidSessionToday(userId),
+      UsersRepository.getStreakProtectionState(userId),
+      UsersRepository.getAuthProviders(userId),
+    ]);
+    const streakStatus = getStreakStatus(profile.streak_days, streakCompletedToday, streakProtection);
+
+    return {
+      ...profile,
+      weekly_stats: {
+        total_minutes: weeklyStats?.total_minutes ?? 0,
+        consistency_score: weeklyStats?.consistency_score ?? 0,
+        academic_score: weeklyStats?.academic_score ?? 0,
+        bosses_count: weeklyStats?.bosses_count ?? 0,
+        coins_earned: weeklyCoinsEarned,
+        daily_minutes: weeklyDailyMinutes,
+      },
+      village: village ?? {
+        village_level: 1,
+      },
+      streak_completed_today: streakCompletedToday,
+      streak_shield_active: streakProtection.active,
+      streak_shield_until: streakProtection.protected_until,
+      streak_status: streakStatus,
+      auth_providers: authProviders,
+    };
+  },
+
+  async updateProfile(userId: string, input: UpdateProfileDTO): Promise<FullProfile> {
+    // RF-03: aplica patch parcial solo sobre campos editables del perfil.
+    const data = normalizeUpdateInput(input);
+    validateUpdateInput(data);
+
+    const currentProfile = await UsersRepository.findProfileById(userId);
+
+    if (!currentProfile) {
+      throw new UserNotFoundError('Usuario no encontrado');
+    }
+
+    if (data.username && data.username !== currentProfile.username) {
+      const existingProfile = await UsersRepository.findProfileByUsername(data.username);
+
+      if (existingProfile && existingProfile.id !== userId) {
+        throw new UserConflictError('El username ya esta registrado');
+      }
+    }
+
+    try {
+      const updatedProfile = await UsersRepository.updateProfile(userId, data);
+
+      if (!updatedProfile) {
+        throw new UserNotFoundError('Usuario no encontrado');
+      }
+
+      return this.getFullProfile(userId);
+    } catch (error: any) {
+      if (error?.code === '23505') {
+        throw new UserConflictError('El username ya esta registrado');
+      }
+
+      throw error;
+    }
+  },
+};
+
+function normalizeUpdateInput(input: UpdateProfileDTO): UpdateProfileDTO {
+  // Distingue campos no enviados de campos enviados vacios para soportar PATCH parcial.
+  const data: UpdateProfileDTO = {};
+
+  if (Object.prototype.hasOwnProperty.call(input, 'username')) {
+    data.username = input.username?.trim();
+  }
+
+  if (Object.prototype.hasOwnProperty.call(input, 'avatar_url')) {
+    const value = input.avatar_url?.trim();
+    data.avatar_url = value || null;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(input, 'bio')) {
+    const value = input.bio?.trim();
+    data.bio = value || null;
+  }
+  
+  //lO AGREGO PARA EL REQ 15
+  if (Object.prototype.hasOwnProperty.call(input, 'expo_push_token')) {
+    const value = input.expo_push_token?.trim();
+    data.expo_push_token = value || null;
+  }
+
+  return data;
+}
+
+function validateUpdateInput(input: UpdateProfileDTO) {
+  // Valida reglas de negocio antes de tocar la tabla profiles.
+  if (input.username !== undefined && !USERNAME_REGEX.test(input.username)) {
+    throw new UserValidationError(
+      'El username debe tener 3 a 30 caracteres y solo puede usar letras, numeros o guion bajo'
+    );
+  }
+
+  if (input.bio !== undefined && input.bio !== null && input.bio.length > 160) {
+    throw new UserValidationError('La bio no puede superar los 160 caracteres');
+  }
+
+  if (input.avatar_url !== undefined && input.avatar_url !== null) {
+    try {
+      new URL(input.avatar_url);
+    } catch {
+      throw new UserValidationError('El avatar_url debe ser una URL valida');
+    }
+  }
+}
+
+function getWeekYear(): string {
+  // Mantiene el mismo formato ISO YYYY-WNN usado por sesiones, rankings y analytics.
+  const target = new Date();
+  target.setUTCHours(0, 0, 0, 0);
+
+  const dayNumber = target.getUTCDay() || 7;
+  target.setUTCDate(target.getUTCDate() + 4 - dayNumber);
+
+  const weekYear = target.getUTCFullYear();
+  const yearStart = new Date(Date.UTC(weekYear, 0, 1));
+  const weekNumber = Math.ceil((((target.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+
+  return `${weekYear}-W${String(weekNumber).padStart(2, '0')}`;
+}
+
+function getStreakStatus(
+  streakDays: number,
+  completedToday: boolean,
+  protection: StreakProtectionState
+): StreakStatus {
+  if (completedToday) {
+    return 'active';
+  }
+
+  if (protection.active) {
+    return 'shielded';
+  }
+
+  if (streakDays > 0) {
+    return 'pending';
+  }
+
+  return 'inactive';
+}
